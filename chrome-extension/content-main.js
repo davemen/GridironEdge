@@ -8,7 +8,7 @@
 
   function findCurrentNomination() {
     try {
-      const card = document.querySelector('[data-testid="player-selected"], .player-selected, .pickArea');
+      const card = document.querySelector('.pickArea [data-testid="player-selected"], .pickArea .player-selected, .pickArea');
       if (!card) return null;
 
       const nameEl = card.querySelector('.playerinfo__playername');
