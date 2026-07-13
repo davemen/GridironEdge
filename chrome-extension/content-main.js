@@ -11,7 +11,19 @@
       const nflTeams = new Set(['DET', 'LAR', 'ATL', 'CIN', 'SEA', 'SF', 'GB', 'KC', 'BUF', 'DAL', 'PHI', 'MIA', 'NYJ', 'NE', 'LV', 'DEN', 'LAC', 'MIN', 'CHI', 'TB', 'NO', 'CAR', 'WAS', 'NYG', 'ARI', 'JAX', 'IND', 'TEN', 'HOU', 'BAL', 'PIT', 'CLE', 'FA']);
       const positions = new Set(['QB', 'RB', 'WR', 'TE', 'D/ST', 'K', 'FLEX']);
 
-      const card = document.querySelector('.nomination-card, .nomination-container, [class*="nomination-card" i], [class*="nomination-container" i], [class*="bidding-container" i], [class*="nominationCard" i]');
+      let card = null;
+      let minChildren = 9999;
+      const candidates = document.querySelectorAll('.nomination, .bidding, [class*="nomination" i], [class*="bidding" i]');
+      for (const el of candidates) {
+        const text = el.innerText ? el.innerText.toUpperCase() : '';
+        if (text.includes('PRE-DRAFT VAL') || text.includes('CURRENT BID') || text.includes('MANUAL BID')) {
+          if (el.children.length < minChildren && el.children.length > 0) {
+            minChildren = el.children.length;
+            card = el;
+          }
+        }
+      }
+
       if (!card) return null;
 
       const nameEl = card.querySelector('[class*="name" i], [class*="fullName" i], h1, h2, h3, h4');
