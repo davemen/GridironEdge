@@ -488,7 +488,8 @@ document.addEventListener('DOMContentLoaded', async () => {
               scanResults.forEach(r => { if (r.result && r.result.error) errors.push(r.result.error); });
             }
             const errorText = errors.length > 0 ? errors.join(' | ') : 'Could not find ESPN draft state in window or React store.';
-            throw new Error(errorText);
+            statusEl.innerHTML = `<span style="color:#ff1744;">Error: ${errorText}</span>`;
+            return;
           }
         }
 
