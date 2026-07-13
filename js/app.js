@@ -615,7 +615,64 @@ function renderDraftPage(league = store.getActiveLeague()) {
     
     const bidInfo = calculateAuctionBid(rec.primaryPick, budget, Math.max(1, remainingSpots), maxOpponentBid);
 
-    recPanel.innerHTML = `
+    // Look up and calculate bid for the active nomination
+    const currentNominationName = league.draftState.currentNomination;
+    let nominatedPlayer = null;
+    let nomBidInfo = null;
+
+    if (currentNominationName) {
+      nominatedPlayer = Object.values(db).find(p => p.name.toLowerCase() === currentNominationName.toLowerCase());
+      if (!nominatedPlayer) {
+        nominatedPlayer = Object.values(db).find(p => {
+          const pName = p.name.toLowerCase();
+          const cName = currentNominationName.toLowerCase();
+          return pName.includes(cName) || cName.includes(pName);
+        });
+      }
+      if (nominatedPlayer) {
+        nomBidInfo = calculateAuctionBid(nominatedPlayer, budget, Math.max(1, remainingSpots), maxOpponentBid);
+      }
+    }
+
+    let activeNominationHtml = '';
+    if (nominatedPlayer && nomBidInfo) {
+      activeNominationHtml = `
+        <div style="background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%); padding: 1.25rem; border-radius: 8px; border: 2px solid var(--accent-cyan); margin-bottom: 1.5rem; box-shadow: 0 0 15px rgba(0, 229, 255, 0.2);">
+          <h4 style="color:var(--accent-cyan); text-transform:uppercase; letter-spacing:1px; font-size:0.72rem; margin-top:0; margin-bottom:0.5rem; font-weight:700;">⚡ Active ESPN Auction Nomination</h4>
+          <h2 style="margin:0 0 0.5rem 0; font-size:1.4rem; color:var(--text-main); font-family:var(--font-family-title);">${nominatedPlayer.name} <span style="font-size:0.9rem; color:var(--text-secondary);">(${nominatedPlayer.position} - ${nominatedPlayer.team})</span></h2>
+          
+          <div style="display:flex; gap:1.5rem; align-items:center; margin-bottom:1rem;">
+            <div>
+              <div style="font-size:0.72rem; color:var(--text-secondary); text-transform:uppercase; font-weight: 600;">Recommended Bid</div>
+              <div style="font-size:1.8rem; font-weight:800; color:var(--accent-green);">$${nomBidInfo.recommendedBid}</div>
+            </div>
+            <div style="border-left:1px solid rgba(255,255,255,0.1); padding-left:1.5rem;">
+              <div style="font-size:0.72rem; color:var(--text-secondary); text-transform:uppercase; font-weight: 600;">Walk-Away Limit</div>
+              <div style="font-size:1.8rem; font-weight:800; color:#ff9100;">$${nomBidInfo.maxBid}</div>
+            </div>
+          </div>
+          
+          <p style="margin:0 0 1rem 0; font-size:0.88rem; color:var(--text-secondary); line-height:1.4;">${nomBidInfo.reason}</p>
+          
+          <div style="background: rgba(0,0,0,0.25); padding: 0.75rem; border-radius: 6px; border: 1px solid rgba(255,255,255,0.05); margin-bottom: 0.25rem;">
+            <h5 style="margin:0 0 0.5rem 0; text-transform:uppercase; font-size:0.7rem; color:var(--text-secondary); font-weight: 700;">Record Nomination Winner</h5>
+            <div style="display:flex; align-items:center; gap:0.5rem;">
+              <div style="flex:2;">
+                <select class="input-control" id="nom-winner-team" style="padding:0.4rem; font-size:0.85rem; width:100%; height:32px; box-sizing:border-box;">
+                  ${league.teams.map(t => `<option value="${t.teamId}" ${t.teamId === league.myTeamId ? 'selected' : ''}>${t.teamName}</option>`).join('')}
+                </select>
+              </div>
+              <div style="flex:1;">
+                <input type="number" class="input-control" id="nom-winner-price" value="${nomBidInfo.recommendedBid}" min="1" max="${budget}" style="padding:0.4rem; font-size:0.85rem; width:100%; height:32px; box-sizing:border-box;">
+              </div>
+              <button class="btn btn-success" id="btn-nom-record-win" style="padding:0.45rem 1rem; font-size:0.85rem; flex:1.5; font-weight:700; height:32px; display:flex; align-items:center; justify-content:center; border:none; border-radius:4px; cursor:pointer; background:var(--accent-green); color:#fff;">Record Pick</button>
+            </div>
+          </div>
+        </div>
+      `;
+    }
+
+    recPanel.innerHTML = activeNominationHtml + `
       <h3 style="color:var(--accent-cyan); font-size: 1.3rem; margin-bottom: 0.5rem; font-family:var(--font-family-title);">Draft ${rec.primaryPick.name} (Auction Recommended)</h3>
       <div style="font-size: 0.95rem; color: var(--text-primary); display:flex; flex-direction:column; gap:0.4rem; margin-bottom: 1rem;">
         <p><strong>Recommended Bid:</strong> <strong style="color:var(--accent-green); font-size:1.15rem;">$${bidInfo.recommendedBid}</strong> (Walk-away limit: $${bidInfo.maxBid})</p>
@@ -666,6 +723,19 @@ function renderDraftPage(league = store.getActiveLeague()) {
       const price = parseInt(document.getElementById('auction-winner-price').value);
       store.recordDraftPickAuction(rec.primaryPick.id, teamId, price);
     };
+
+    if (nominatedPlayer) {
+      document.getElementById('btn-nom-record-win').onclick = () => {
+        const teamId = parseInt(document.getElementById('nom-winner-team').value);
+        const price = parseInt(document.getElementById('nom-winner-price').value);
+        store.recordDraftPickAuction(nominatedPlayer.id, teamId, price);
+        
+        // Clear nomination after winning
+        league.draftState.currentNomination = null;
+        store.saveLeague(league.leagueId, league);
+        renderDraftPage(league);
+      };
+    }
 
   } else {
     recPanel.innerHTML = `

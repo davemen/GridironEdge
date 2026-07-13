@@ -76,9 +76,10 @@ class ESPNClient {
       };
     });
 
+    const db = Object.assign({}, mockPlayers);
+
     // Match draft picks to players in mockPlayers database
     const selections = [];
-    const db = mockPlayers;
     
     if (espnData.draftDetail && espnData.draftDetail.picks) {
       espnData.draftDetail.picks.forEach(p => {
@@ -92,6 +93,23 @@ class ESPNClient {
             const plName = pl.name.toLowerCase();
             return pName.includes(plName) || plName.includes(pName);
           });
+        }
+
+        if (!match) {
+          // Dynamic mock player
+          const mockId = `MOCK_${p.playerName.replace(/\s+/g, '_')}`;
+          match = {
+            id: mockId,
+            name: p.playerName,
+            position: p.playerPosition || 'RB',
+            team: p.playerTeam || 'FA',
+            projectedPoints: 10.0,
+            volatility: 4.0,
+            injuryStatus: 'Healthy',
+            byeWeek: 6,
+            adp: 150.0
+          };
+          db[mockId] = match;
         }
 
         if (match) {
@@ -110,11 +128,46 @@ class ESPNClient {
       });
     }
 
+    let currentNomination = null;
+    if (espnData.currentNomination) {
+      const nomName = typeof espnData.currentNomination === 'object' ? espnData.currentNomination.name : espnData.currentNomination;
+      const nomTeam = typeof espnData.currentNomination === 'object' ? espnData.currentNomination.team : 'FA';
+      const nomPos = typeof espnData.currentNomination === 'object' ? espnData.currentNomination.position : 'RB';
+      
+      let match = Object.values(db).find(pl => pl.name.toLowerCase() === nomName.toLowerCase());
+      if (!match) {
+        // Substring match
+        match = Object.values(db).find(pl => {
+          const pName = nomName.toLowerCase();
+          const plName = pl.name.toLowerCase();
+          return pName.includes(plName) || plName.includes(pName);
+        });
+      }
+      
+      if (!match) {
+        const mockId = `MOCK_${nomName.replace(/\s+/g, '_')}`;
+        match = {
+          id: mockId,
+          name: nomName,
+          position: nomPos,
+          team: nomTeam,
+          projectedPoints: nomPos === 'QB' ? 17.5 : (nomPos === 'RB' ? 12.5 : (nomPos === 'WR' ? 11.8 : 9.5)),
+          volatility: 4.0,
+          injuryStatus: 'Healthy',
+          byeWeek: 6,
+          adp: 120.0
+        };
+        db[mockId] = match;
+      }
+      currentNomination = match.name;
+    }
+
     const draftState = {
-      draftType: 'snake',
+      draftType: 'auction', // For mock Salary Cap drafts, force Auction mode
       draftOrder: teams.map(t => t.teamId),
       currentPick: selections.length + 1,
-      selections: selections
+      selections: selections,
+      currentNomination: currentNomination
     };
 
     const positionLimits = {
@@ -135,7 +188,7 @@ class ESPNClient {
       leagueId,
       leagueName: espnData.leagueName || 'Scraped ESPN Draft',
       leagueSize: teams.length || 8,
-      myTeamId: 1, // Default user's team
+      myTeamId: 1,
       scoringFormat: 'PPR',
       rosterSettings: positionLimits,
       waiverSettings: {
@@ -147,7 +200,7 @@ class ESPNClient {
       schedule: [],
       draftState,
       transactionHistory: [],
-      playerDatabase: Object.assign({}, mockPlayers)
+      playerDatabase: db
     };
   }
 
@@ -240,11 +293,37 @@ class ESPNClient {
       });
     }
 
+    let currentNomination = null;
+    if (espnData.currentNomination) {
+      const nomName = typeof espnData.currentNomination === 'object' ? espnData.currentNomination.name : espnData.currentNomination;
+      const nomTeam = typeof espnData.currentNomination === 'object' ? espnData.currentNomination.team : 'FA';
+      const nomPos = typeof espnData.currentNomination === 'object' ? espnData.currentNomination.position : 'RB';
+      
+      let match = Object.values(playerDatabase).find(pl => pl.name.toLowerCase() === nomName.toLowerCase());
+      if (!match) {
+        const mockId = `MOCK_${nomName.replace(/\s+/g, '_')}`;
+        match = {
+          id: mockId,
+          name: nomName,
+          position: nomPos,
+          team: nomTeam,
+          projectedPoints: nomPos === 'QB' ? 17.5 : (nomPos === 'RB' ? 12.5 : (nomPos === 'WR' ? 11.8 : 9.5)),
+          volatility: 4.0,
+          injuryStatus: 'Healthy',
+          byeWeek: 6,
+          adp: 120.0
+        };
+        playerDatabase[mockId] = match;
+      }
+      currentNomination = match.name;
+    }
+
     const draftState = {
       draftType: settings.draftSettings?.type?.toLowerCase() || 'snake',
       draftOrder: settings.draftSettings?.pickOrder || teams.map(t => t.teamId),
       currentPick: selections.length + 1,
-      selections: selections
+      selections: selections,
+      currentNomination: currentNomination
     };
 
     // 5. Map Schedule Matchups
