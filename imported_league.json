@@ -237,9 +237,9 @@
         "playerName": "Tee Higgins"
       },
       {
-        "drafterTeamId": 1,
+        "drafterTeamId": 2,
         "overallPickNumber": 49,
-        "playerName": "Carnell Tate TEN WR Team 4 - 211.2 $7 50 Drake Maye NE QB Team 2 352 319 $6 51 Cam Skattebo Q"
+        "playerName": "Carnell Tate"
       },
       {
         "drafterTeamId": 1,
@@ -250,6 +250,36 @@
         "drafterTeamId": 1,
         "overallPickNumber": 51,
         "playerName": "Cam Skattebo Q"
+      },
+      {
+        "drafterTeamId": 1,
+        "overallPickNumber": 52,
+        "playerName": "Ladd McConkey Q"
+      },
+      {
+        "drafterTeamId": 1,
+        "overallPickNumber": 53,
+        "playerName": "Jalen Hurts"
+      },
+      {
+        "drafterTeamId": 1,
+        "overallPickNumber": 54,
+        "playerName": "Jameson Williams"
+      },
+      {
+        "drafterTeamId": 1,
+        "overallPickNumber": 55,
+        "playerName": "Jaylen Waddle"
+      },
+      {
+        "drafterTeamId": 1,
+        "overallPickNumber": 56,
+        "playerName": "Luther Burden III"
+      },
+      {
+        "drafterTeamId": 1,
+        "overallPickNumber": 57,
+        "playerName": "Harold Fannin Jr. Q"
       }
     ]
   },

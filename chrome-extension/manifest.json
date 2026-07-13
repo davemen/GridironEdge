@@ -13,6 +13,20 @@
     "https://fantasy.espn.com/*",
     "http://localhost:8000/*"
   ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "https://fantasy.espn.com/*/draft*",
+        "https://fantasy.espn.com/*/draft/draftroom*"
+      ],
+      "js": ["content.js"],
+      "run_at": "document_idle",
+      "all_frames": true
+    }
+  ],
   "action": {
     "default_popup": "popup.html"
   }
