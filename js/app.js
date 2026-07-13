@@ -812,6 +812,12 @@ function renderDraftPage(league = store.getActiveLeague()) {
   // Recalculate next user pick absolute order to re-run probability math
   const nextP = rec.willBeAvailable;
 
+  const myTeam = store.getMyTeam();
+  const budget = myTeam ? myTeam.faabRemaining : 200;
+  const remainingSpots = (league.rosterSettings.startersCount + league.rosterSettings.benchCount) - (myTeam ? myTeam.roster.length : 0);
+  const opponentsFaab = league.teams.filter(t => t.teamId !== league.myTeamId).map(t => t.faabRemaining);
+  const maxOpponentBid = Math.max(...opponentsFaab, 0);
+
   list.forEach(p => {
     const row = document.createElement('tr');
     
@@ -829,12 +835,16 @@ function renderDraftPage(league = store.getActiveLeague()) {
     if (avPct < 30) avBadge = 'badge-red';
     else if (avPct < 70) avBadge = 'badge-gold';
 
+    const bidInfo = calculateAuctionBid(p, budget, Math.max(1, remainingSpots), maxOpponentBid);
+    const targetBid = bidInfo ? bidInfo.recommendedBid : 0;
+
     row.innerHTML = `
       <td><strong>${p.name}</strong></td>
       <td><span class="badge-solid badge-cyan">${p.position}</span></td>
       <td>${p.team}</td>
       <td><span style="display:inline-flex; align-items:center;">${p.projectedPoints.toFixed(1)}${generateSparkline(p.matchProjs)}</span></td>
       <td>${p.adp.toFixed(1)}</td>
+      <td><strong style="color:var(--accent-green); font-weight:700;">$${targetBid}</strong></td>
       <td><span class="badge-solid ${avBadge}">${avPct}%</span></td>
       <td>
         <button class="btn-primary" style="padding:0.25rem 0.5rem; font-size:0.75rem;" id="draft-btn-${p.id}">Draft</button>
@@ -849,7 +859,7 @@ function renderDraftPage(league = store.getActiveLeague()) {
   });
 
   if (list.length === 0) {
-    tableBody.innerHTML = `<tr><td colspan="7" class="empty-state">No matching available players.</td></tr>`;
+    tableBody.innerHTML = `<tr><td colspan="8" class="empty-state">No matching available players.</td></tr>`;
   }
 }
 
