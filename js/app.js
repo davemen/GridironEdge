@@ -632,7 +632,7 @@ function renderDraftPage(league = store.getActiveLeague()) {
     const opponentsFaab = league.teams.filter(t => t.teamId !== league.myTeamId).map(t => t.faabRemaining);
     const maxOpponentBid = Math.max(...opponentsFaab, 0);
     
-    const bidInfo = calculateAuctionBid(rec.primaryPick, budget, Math.max(1, remainingSpots), maxOpponentBid);
+    const bidInfo = calculateAuctionBid(rec.primaryPick, budget, Math.max(1, remainingSpots), maxOpponentBid, league.leagueSize);
 
     // Look up and calculate bid for the active nomination
     const currentNominationName = league.draftState.currentNomination;
@@ -649,7 +649,7 @@ function renderDraftPage(league = store.getActiveLeague()) {
         });
       }
       if (nominatedPlayer) {
-        nomBidInfo = calculateAuctionBid(nominatedPlayer, budget, Math.max(1, remainingSpots), maxOpponentBid);
+        nomBidInfo = calculateAuctionBid(nominatedPlayer, budget, Math.max(1, remainingSpots), maxOpponentBid, league.leagueSize);
       }
     }
 
@@ -835,7 +835,7 @@ function renderDraftPage(league = store.getActiveLeague()) {
     if (avPct < 30) avBadge = 'badge-red';
     else if (avPct < 70) avBadge = 'badge-gold';
 
-    const bidInfo = calculateAuctionBid(p, budget, Math.max(1, remainingSpots), maxOpponentBid);
+    const bidInfo = calculateAuctionBid(p, budget, Math.max(1, remainingSpots), maxOpponentBid, league.leagueSize);
     const targetBid = bidInfo ? bidInfo.recommendedBid : 0;
 
     row.innerHTML = `

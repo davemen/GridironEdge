@@ -160,15 +160,35 @@ export function getDraftRecommendations(league) {
 /**
  * Recommends bids for auction drafts based on budgets.
  */
-export function calculateAuctionBid(player, budget, remainingRosterSpots, maxOpponentBid) {
-  // Base bid calculation: replacement points vs standard budget allocation
-  const baseValue = (player.projectedPoints / 20) * (budget * 0.25);
-  const recommendedBid = Math.min(budget - remainingRosterSpots + 1, Math.round(baseValue));
-  const maxBid = Math.min(maxOpponentBid + 1, Math.round(baseValue * 1.2));
+export function calculateAuctionBid(player, currentBudget, remainingRosterSpots, maxOpponentBid, leagueSize = 10) {
+  // 1. Calculate a base value based on projected points relative to average starter baseline
+  const valueOverBaseline = Math.max(0, player.projectedPoints - 8.0);
   
+  // 2. Adjust base dollar value relative to a standard $200 starting budget
+  // Scale value based on league size (inflation factor)
+  const inflationFactor = Math.max(0.6, leagueSize / 12); 
+  let standardValue = valueOverBaseline * valueOverBaseline * 0.45 * inflationFactor;
+  
+  // Cap defense and kicker value at reasonable amounts (usually $1)
+  if (player.position === 'D/ST' || player.position === 'K') {
+    standardValue = Math.min(1.5, standardValue);
+  }
+
+  // 3. Scale the bid down if the user's current remaining budget is lower than starting $200
+  const budgetPercentage = Math.min(1.0, currentBudget / 200);
+  let recommendedBid = Math.round(standardValue * budgetPercentage);
+  
+  // Guarantee we don't exceed the user's maximum possible bid (budget minus $1 per remaining spot)
+  const maxPossibleBid = currentBudget - remainingRosterSpots + 1;
+  recommendedBid = Math.min(maxPossibleBid, Math.max(1, recommendedBid));
+  
+  // 4. Calculate max walk-away limit
+  let maxBid = Math.round(standardValue * 1.15 * budgetPercentage);
+  maxBid = Math.min(maxPossibleBid, Math.max(recommendedBid, Math.min(maxBid, maxOpponentBid + 1)));
+
   return {
     recommendedBid,
     maxBid,
-    reason: `Fair value is $${recommendedBid} based on a $${budget} remaining budget. Do not exceed $${maxBid} unless it secures your key championship anchor.`
+    reason: `Fair value is $${recommendedBid} based on a $${currentBudget} remaining budget in a ${leagueSize}-team league. Do not exceed $${maxBid} unless it secures your key championship anchor.`
   };
 }
