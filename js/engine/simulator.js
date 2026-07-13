@@ -1,6 +1,6 @@
-/**
- * Gridiron Edge Monte Carlo Season Simulator
- */
+import { optimizeLineup } from './lineup-optimizer.js';
+import { getWaiverRecommendations } from './waiver-evaluator.js';
+import { generateTradeProposals } from './trade-generator.js';
 
 // Box-Muller Transform for Gaussian random values
 function randomNormal(mean = 0, stdDev = 1) {
@@ -138,35 +138,122 @@ export function runSeasonSimulation(league, runs = 1000) {
   }
 
   // Find most dangerous rival (opponent team with highest championship rate)
-  let rivalId = null;
-  let rivalWins = -1;
-  Object.keys(champWinsCount).forEach(tid => {
-    const id = parseInt(tid);
-    if (id !== league.myTeamId && champWinsCount[tid] > rivalWins) {
-      rivalWins = champWinsCount[tid];
-      rivalId = id;
-    }
-  });
+  const competitors = teams
+    .map(t => {
+      const wins = champWinsCount[t.teamId] || 0;
+      const pct = Math.round((wins / runs) * 1000) / 10;
+      return {
+        teamId: t.teamId,
+        teamName: t.teamName,
+        managerName: t.managerName,
+        pct: pct
+      };
+    })
+    .filter(c => c.teamId !== league.myTeamId)
+    .sort((a, b) => b.pct - a.pct);
 
-  const rivalTeam = teams.find(t => t.teamId === rivalId);
+  const rivalTeam = competitors[0];
 
   // Compute final percentages
   const playoffPct = Math.round((playoffReaches / runs) * 1000) / 10;
   const champPct = Math.round((championshipWins / runs) * 1000) / 10;
   const byePct = Math.round((byeReaches / runs) * 1000) / 10;
 
-  // Actions list
-  const actionPlan = [
-    { type: 'immediate', title: 'Swap Zamir White into starting FLEX', desc: 'Addresses Week 5 projected points gap in underdog strategy.' },
-    { type: 'immediate', title: 'Submit WR Joshua Palmer waiver claim', desc: 'Adds critical bench depth for upcoming bye-week overlaps.' },
-    { type: 'longterm', title: 'Target Saquon Barkley via trade swap', desc: 'Utilizes excess WR depth to patch starting Running Back gap.' }
+  // Build Dynamic Actions List
+  const actionPlan = [];
+  const myTeam = teams.find(t => t.teamId === league.myTeamId);
+  const myRoster = myTeam ? myTeam.roster.map(pid => db[pid]).filter(Boolean) : [];
+
+  // Identify starters and bench dynamically
+  const slots = [
+    { label: 'QB', pos: 'QB' },
+    { label: 'RB1', pos: 'RB' },
+    { label: 'RB2', pos: 'RB' },
+    { label: 'WR1', pos: 'WR' },
+    { label: 'WR2', pos: 'WR' },
+    { label: 'TE', pos: 'TE' },
+    { label: 'FLEX', pos: ['RB', 'WR', 'TE'], isFlex: true },
+    { label: 'D/ST', pos: 'D/ST' },
+    { label: 'K', pos: 'K' }
   ];
+
+  const allocatedIds = new Set();
+  const starters = [];
+
+  slots.forEach(slot => {
+    const match = myRoster.find(p => {
+      if (allocatedIds.has(p.id)) return false;
+      if (slot.isFlex) {
+        return slot.pos.includes(p.position);
+      }
+      return p.position === slot.pos;
+    });
+
+    if (match) {
+      allocatedIds.add(match.id);
+      starters.push(match);
+    }
+  });
+
+  const outStarter = starters.find(p => p.injuryStatus === 'Out' || p.injuryStatus === 'IR');
+  const questionableStarter = starters.find(p => p.injuryStatus === 'Questionable' || p.injuryStatus === 'Doubtful');
+
+  if (outStarter) {
+    actionPlan.push({
+      type: 'immediate',
+      title: `Swap out ${outStarter.name} (${outStarter.position})`,
+      desc: `${outStarter.name} is ruled OUT/IR. Select a healthy bench replacement immediately to prevent a 0-point slot.`
+    });
+  } else if (questionableStarter) {
+    actionPlan.push({
+      type: 'immediate',
+      title: `Set up backup for ${questionableStarter.name}`,
+      desc: `Currently ${questionableStarter.injuryStatus}. Ensure a conditional backup starter is designated in Matchups.`
+    });
+  } else {
+    actionPlan.push({
+      type: 'immediate',
+      title: 'Maintain current lineup configuration',
+      desc: 'All starters are projected healthy and optimized for the next matchup.'
+    });
+  }
+
+  // Waiver Claim Recommendation
+  try {
+    const waiverRecs = getWaiverRecommendations(league);
+    if (waiverRecs && waiverRecs.length > 0) {
+      const topWaiver = waiverRecs[0];
+      actionPlan.push({
+        type: 'immediate',
+        title: `Submit ${topWaiver.addPlayer.name} (${topWaiver.addPlayer.position}) waiver claim`,
+        desc: `Adds critical depth. Recommended bid of $${topWaiver.bid} FAAB, dropping ${topWaiver.dropPlayer ? topWaiver.dropPlayer.name : 'bench'}.`
+      });
+    }
+  } catch (e) {
+    console.error("Failed to generate waiver actions in simulator:", e);
+  }
+
+  // Trade Swap Recommendation
+  try {
+    const tradeProposals = generateTradeProposals(league);
+    if (tradeProposals && tradeProposals.length > 0) {
+      const topTrade = tradeProposals[0];
+      actionPlan.push({
+        type: 'longterm',
+        title: `Target ${topTrade.getPlayer.name} via trade swap`,
+        desc: `Utilizes excess roster depth. Offer ${topTrade.givePlayer.name} to ${topTrade.opponentName} (${topTrade.probability}% acceptance rate).`
+      });
+    }
+  } catch (e) {
+    console.error("Failed to generate trade actions in simulator:", e);
+  }
 
   return {
     playoffPct,
     champPct,
     byePct,
     rivalName: rivalTeam ? rivalTeam.teamName : 'Fumble Recovery',
+    competitors: competitors.slice(0, 3), // Return top 3 rivals
     actionPlan
   };
 }
