@@ -516,8 +516,27 @@
         "overallPickNumber": 102,
         "playerName": "Kenny Gainwell",
         "drafterTeamId": 1
+      },
+      {
+        "overallPickNumber": 104,
+        "playerName": "Aaron Jones Sr.",
+        "drafterTeamId": 1
+      },
+      {
+        "overallPickNumber": 105,
+        "playerName": "Cameron Dicker LAC K Team 7 167 161.7 $1 106 Ka'imi Fairbairn",
+        "drafterTeamId": 1
+      },
+      {
+        "overallPickNumber": 106,
+        "playerName": "Ka'imi Fairbairn",
+        "drafterTeamId": 1
       }
     ]
   },
-  "currentNomination": null
+  "currentNomination": {
+    "name": "PLAYER",
+    "team": "HOU",
+    "position": "K"
+  }
 }
