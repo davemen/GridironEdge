@@ -1,471 +1,523 @@
 {
-  "currentNomination": {
-    "name": "Sound",
-    "position": "WR",
-    "team": "TEN"
-  },
+  "isDOMScraped": true,
+  "leagueId": "700223416",
+  "season": "2026",
+  "leagueName": "Fantasy Football Draft - ESPN",
+  "teams": [
+    {
+      "teamId": 1,
+      "teamName": "Team",
+      "managerName": "Manager 1"
+    },
+    {
+      "teamId": 2,
+      "teamName": "Team -",
+      "managerName": "Manager 2"
+    },
+    {
+      "teamId": 3,
+      "teamName": "Dave's Daring Team",
+      "managerName": "Manager 3"
+    }
+  ],
   "draftDetail": {
     "picks": [
       {
-        "drafterTeamId": 1,
         "overallPickNumber": 1,
-        "playerName": "Jahmyr Gibbs"
+        "playerName": "Jahmyr Gibbs",
+        "drafterTeamId": 1
       },
       {
-        "drafterTeamId": 1,
         "overallPickNumber": 2,
-        "playerName": "Puka Nacua"
+        "playerName": "Puka Nacua",
+        "drafterTeamId": 1
       },
       {
-        "drafterTeamId": 1,
         "overallPickNumber": 3,
-        "playerName": "Bijan Robinson"
+        "playerName": "Bijan Robinson",
+        "drafterTeamId": 1
       },
       {
-        "drafterTeamId": 1,
         "overallPickNumber": 4,
-        "playerName": "Ja'Marr Chase"
+        "playerName": "Ja'Marr Chase",
+        "drafterTeamId": 1
       },
       {
-        "drafterTeamId": 1,
         "overallPickNumber": 5,
-        "playerName": "Jaxon Smith-Njigba"
+        "playerName": "Jaxon Smith-Njigba",
+        "drafterTeamId": 1
       },
       {
-        "drafterTeamId": 1,
         "overallPickNumber": 6,
-        "playerName": "Christian McCaffrey"
+        "playerName": "Christian McCaffrey",
+        "drafterTeamId": 1
       },
       {
-        "drafterTeamId": 1,
         "overallPickNumber": 7,
-        "playerName": "Amon-Ra St. Brown"
+        "playerName": "Amon-Ra St. Brown",
+        "drafterTeamId": 1
       },
       {
-        "drafterTeamId": 1,
         "overallPickNumber": 8,
-        "playerName": "Jonathan Taylor"
+        "playerName": "Jonathan Taylor",
+        "drafterTeamId": 1
       },
       {
-        "drafterTeamId": 1,
         "overallPickNumber": 9,
-        "playerName": "Justin Jefferson"
+        "playerName": "Justin Jefferson",
+        "drafterTeamId": 1
       },
       {
-        "drafterTeamId": 1,
         "overallPickNumber": 10,
-        "playerName": "Rashee Rice Q"
+        "playerName": "Rashee Rice Q",
+        "drafterTeamId": 1
       },
       {
-        "drafterTeamId": 1,
         "overallPickNumber": 11,
-        "playerName": "CeeDee Lamb"
+        "playerName": "CeeDee Lamb",
+        "drafterTeamId": 1
       },
       {
-        "drafterTeamId": 1,
         "overallPickNumber": 12,
-        "playerName": "De'Von Achane Q"
+        "playerName": "De'Von Achane Q",
+        "drafterTeamId": 1
       },
       {
-        "drafterTeamId": 1,
         "overallPickNumber": 13,
-        "playerName": "Drake London Q"
+        "playerName": "Drake London Q",
+        "drafterTeamId": 1
       },
       {
-        "drafterTeamId": 2,
         "overallPickNumber": 14,
-        "playerName": "Jeremiyah Love"
+        "playerName": "Jeremiyah Love",
+        "drafterTeamId": 2
       },
       {
-        "drafterTeamId": 1,
         "overallPickNumber": 15,
-        "playerName": "Omarion Hampton"
+        "playerName": "Omarion Hampton",
+        "drafterTeamId": 1
       },
       {
-        "drafterTeamId": 1,
         "overallPickNumber": 16,
-        "playerName": "Trey McBride"
+        "playerName": "Trey McBride",
+        "drafterTeamId": 1
       },
       {
-        "drafterTeamId": 1,
         "overallPickNumber": 17,
-        "playerName": "Ashton Jeanty"
+        "playerName": "Ashton Jeanty",
+        "drafterTeamId": 1
       },
       {
-        "drafterTeamId": 1,
         "overallPickNumber": 18,
-        "playerName": "Saquon Barkley"
+        "playerName": "Saquon Barkley",
+        "drafterTeamId": 1
       },
       {
-        "drafterTeamId": 1,
         "overallPickNumber": 19,
-        "playerName": "James Cook III"
+        "playerName": "James Cook III",
+        "drafterTeamId": 1
       },
       {
-        "drafterTeamId": 1,
         "overallPickNumber": 20,
-        "playerName": "Chase Brown"
+        "playerName": "Chase Brown",
+        "drafterTeamId": 1
       },
       {
-        "drafterTeamId": 1,
         "overallPickNumber": 21,
-        "playerName": "Josh Jacobs"
+        "playerName": "Josh Jacobs",
+        "drafterTeamId": 1
       },
       {
-        "drafterTeamId": 1,
         "overallPickNumber": 22,
-        "playerName": "Derrick Henry"
+        "playerName": "Derrick Henry",
+        "drafterTeamId": 1
       },
       {
-        "drafterTeamId": 1,
         "overallPickNumber": 23,
-        "playerName": "Brock Bowers"
+        "playerName": "Brock Bowers",
+        "drafterTeamId": 1
       },
       {
-        "drafterTeamId": 1,
         "overallPickNumber": 24,
-        "playerName": "Breece Hall"
+        "playerName": "Breece Hall",
+        "drafterTeamId": 1
       },
       {
-        "drafterTeamId": 1,
         "overallPickNumber": 25,
-        "playerName": "Nico Collins"
+        "playerName": "Nico Collins",
+        "drafterTeamId": 1
       },
       {
-        "drafterTeamId": 1,
         "overallPickNumber": 26,
-        "playerName": "Garrett Wilson"
+        "playerName": "Garrett Wilson",
+        "drafterTeamId": 1
       },
       {
-        "drafterTeamId": 1,
         "overallPickNumber": 27,
-        "playerName": "A.J. Brown"
+        "playerName": "A.J. Brown",
+        "drafterTeamId": 1
       },
       {
-        "drafterTeamId": 1,
         "overallPickNumber": 28,
-        "playerName": "Kenneth Walker III"
+        "playerName": "Kenneth Walker III",
+        "drafterTeamId": 1
       },
       {
-        "drafterTeamId": 1,
         "overallPickNumber": 29,
-        "playerName": "Josh Allen"
+        "playerName": "Josh Allen",
+        "drafterTeamId": 1
       },
       {
-        "drafterTeamId": 1,
         "overallPickNumber": 30,
-        "playerName": "Chris Olave"
+        "playerName": "Chris Olave",
+        "drafterTeamId": 1
       },
       {
-        "drafterTeamId": 1,
         "overallPickNumber": 31,
-        "playerName": "Tetairoa McMillan Q"
+        "playerName": "Tetairoa McMillan Q",
+        "drafterTeamId": 1
       },
       {
-        "drafterTeamId": 1,
         "overallPickNumber": 32,
-        "playerName": "Javonte Williams"
+        "playerName": "Javonte Williams",
+        "drafterTeamId": 1
       },
       {
-        "drafterTeamId": 1,
         "overallPickNumber": 33,
-        "playerName": "George Pickens"
+        "playerName": "George Pickens",
+        "drafterTeamId": 1
       },
       {
-        "drafterTeamId": 1,
         "overallPickNumber": 34,
-        "playerName": "Kyren Williams"
+        "playerName": "Kyren Williams",
+        "drafterTeamId": 1
       },
       {
-        "drafterTeamId": 1,
         "overallPickNumber": 35,
-        "playerName": "Zay Flowers"
+        "playerName": "Zay Flowers",
+        "drafterTeamId": 1
       },
       {
-        "drafterTeamId": 1,
         "overallPickNumber": 36,
-        "playerName": "DeVonta Smith"
+        "playerName": "DeVonta Smith",
+        "drafterTeamId": 1
       },
       {
-        "drafterTeamId": 1,
         "overallPickNumber": 37,
-        "playerName": "Quinshon Judkins Q"
+        "playerName": "Quinshon Judkins Q",
+        "drafterTeamId": 1
       },
       {
-        "drafterTeamId": 1,
         "overallPickNumber": 38,
-        "playerName": "Travis Etienne Jr."
+        "playerName": "Travis Etienne Jr.",
+        "drafterTeamId": 1
       },
       {
-        "drafterTeamId": 1,
         "overallPickNumber": 39,
-        "playerName": "Emeka Egbuka"
+        "playerName": "Emeka Egbuka",
+        "drafterTeamId": 1
       },
       {
-        "drafterTeamId": 1,
         "overallPickNumber": 40,
-        "playerName": "Colston Loveland"
+        "playerName": "Colston Loveland",
+        "drafterTeamId": 1
       },
       {
-        "drafterTeamId": 1,
         "overallPickNumber": 41,
-        "playerName": "Malik Nabers Q"
+        "playerName": "Malik Nabers Q",
+        "drafterTeamId": 1
       },
       {
-        "drafterTeamId": 1,
         "overallPickNumber": 42,
-        "playerName": "Tyler Warren"
+        "playerName": "Tyler Warren",
+        "drafterTeamId": 1
       },
       {
-        "drafterTeamId": 1,
         "overallPickNumber": 43,
-        "playerName": "Davante Adams"
+        "playerName": "Davante Adams",
+        "drafterTeamId": 1
       },
       {
-        "drafterTeamId": 1,
         "overallPickNumber": 44,
-        "playerName": "Bucky Irving Q"
+        "playerName": "Bucky Irving Q",
+        "drafterTeamId": 1
       },
       {
-        "drafterTeamId": 1,
         "overallPickNumber": 45,
-        "playerName": "Lamar Jackson"
+        "playerName": "Lamar Jackson",
+        "drafterTeamId": 1
       },
       {
-        "drafterTeamId": 1,
         "overallPickNumber": 47,
-        "playerName": "Tee Higgins"
+        "playerName": "Tee Higgins",
+        "drafterTeamId": 1
       },
       {
-        "drafterTeamId": 2,
         "overallPickNumber": 49,
-        "playerName": "Carnell Tate"
+        "playerName": "Carnell Tate",
+        "drafterTeamId": 2
       },
       {
-        "drafterTeamId": 1,
         "overallPickNumber": 50,
-        "playerName": "Drake Maye"
+        "playerName": "Drake Maye",
+        "drafterTeamId": 1
       },
       {
-        "drafterTeamId": 1,
         "overallPickNumber": 51,
-        "playerName": "Cam Skattebo Q"
+        "playerName": "Cam Skattebo Q",
+        "drafterTeamId": 1
       },
       {
-        "drafterTeamId": 1,
         "overallPickNumber": 52,
-        "playerName": "Ladd McConkey Q"
+        "playerName": "Ladd McConkey Q",
+        "drafterTeamId": 1
       },
       {
-        "drafterTeamId": 1,
         "overallPickNumber": 53,
-        "playerName": "Jalen Hurts"
+        "playerName": "Jalen Hurts",
+        "drafterTeamId": 1
       },
       {
-        "drafterTeamId": 1,
         "overallPickNumber": 54,
-        "playerName": "Jameson Williams"
+        "playerName": "Jameson Williams",
+        "drafterTeamId": 1
       },
       {
-        "drafterTeamId": 1,
         "overallPickNumber": 55,
-        "playerName": "Jaylen Waddle"
+        "playerName": "Jaylen Waddle",
+        "drafterTeamId": 1
       },
       {
-        "drafterTeamId": 1,
         "overallPickNumber": 56,
-        "playerName": "Luther Burden III"
+        "playerName": "Luther Burden III",
+        "drafterTeamId": 1
       },
       {
-        "drafterTeamId": 1,
         "overallPickNumber": 57,
-        "playerName": "Harold Fannin Jr. Q"
+        "playerName": "Harold Fannin Jr. Q",
+        "drafterTeamId": 1
       },
       {
-        "drafterTeamId": 2,
         "overallPickNumber": 58,
-        "playerName": "Jadarian Price"
+        "playerName": "Jadarian Price",
+        "drafterTeamId": 2
       },
       {
-        "drafterTeamId": 1,
         "overallPickNumber": 59,
-        "playerName": "DJ Moore"
+        "playerName": "DJ Moore",
+        "drafterTeamId": 1
       },
       {
-        "drafterTeamId": 1,
         "overallPickNumber": 60,
-        "playerName": "Rome Odunze"
+        "playerName": "Rome Odunze",
+        "drafterTeamId": 1
       },
       {
-        "drafterTeamId": 1,
         "overallPickNumber": 61,
-        "playerName": "Kyle Pitts Sr."
+        "playerName": "Kyle Pitts Sr.",
+        "drafterTeamId": 1
       },
       {
-        "drafterTeamId": 1,
         "overallPickNumber": 62,
-        "playerName": "Brandon Aubrey"
+        "playerName": "Brandon Aubrey",
+        "drafterTeamId": 1
       },
       {
-        "drafterTeamId": 1,
         "overallPickNumber": 63,
-        "playerName": "Marvin Harrison Jr."
+        "playerName": "Marvin Harrison Jr.",
+        "drafterTeamId": 1
       },
       {
-        "drafterTeamId": 1,
         "overallPickNumber": 64,
-        "playerName": "Sam LaPorta Q"
+        "playerName": "Sam LaPorta Q",
+        "drafterTeamId": 1
       },
       {
-        "drafterTeamId": 1,
         "overallPickNumber": 65,
-        "playerName": "Joe Burrow"
+        "playerName": "Joe Burrow",
+        "drafterTeamId": 1
       },
       {
-        "drafterTeamId": 1,
         "overallPickNumber": 66,
-        "playerName": "Jaxson Dart"
+        "playerName": "Jaxson Dart",
+        "drafterTeamId": 1
       },
       {
-        "drafterTeamId": 3,
         "overallPickNumber": 67,
-        "playerName": "TreVeyon Henderson"
+        "playerName": "TreVeyon Henderson",
+        "drafterTeamId": 3
       },
       {
-        "drafterTeamId": 1,
         "overallPickNumber": 68,
-        "playerName": "Bhayshul Tuten"
+        "playerName": "Bhayshul Tuten",
+        "drafterTeamId": 1
       },
       {
-        "drafterTeamId": 1,
         "overallPickNumber": 69,
-        "playerName": "D'Andre Swift"
+        "playerName": "D'Andre Swift",
+        "drafterTeamId": 1
       },
       {
-        "drafterTeamId": 1,
         "overallPickNumber": 70,
-        "playerName": "Patriots D/ST"
+        "playerName": "Patriots D/ST",
+        "drafterTeamId": 1
       },
       {
-        "drafterTeamId": 1,
         "overallPickNumber": 71,
-        "playerName": "Michael Pittman Jr."
+        "playerName": "Michael Pittman Jr.",
+        "drafterTeamId": 1
       },
       {
-        "drafterTeamId": 1,
         "overallPickNumber": 72,
-        "playerName": "David Montgomery"
+        "playerName": "David Montgomery",
+        "drafterTeamId": 1
       },
       {
-        "drafterTeamId": 1,
         "overallPickNumber": 73,
-        "playerName": "Tony Pollard"
+        "playerName": "Tony Pollard",
+        "drafterTeamId": 1
       },
       {
-        "drafterTeamId": 1,
         "overallPickNumber": 74,
-        "playerName": "Courtland Sutton"
+        "playerName": "Courtland Sutton",
+        "drafterTeamId": 1
       },
       {
-        "drafterTeamId": 3,
         "overallPickNumber": 75,
-        "playerName": "Alec Pierce Q"
+        "playerName": "Alec Pierce Q",
+        "drafterTeamId": 3
       },
       {
-        "drafterTeamId": 2,
         "overallPickNumber": 76,
-        "playerName": "Jordyn Tyson Q"
+        "playerName": "Jordyn Tyson Q",
+        "drafterTeamId": 2
       },
       {
-        "drafterTeamId": 1,
         "overallPickNumber": 77,
-        "playerName": "Brock Purdy"
+        "playerName": "Brock Purdy",
+        "drafterTeamId": 1
       },
       {
-        "drafterTeamId": 1,
         "overallPickNumber": 78,
-        "playerName": "Christian Watson"
+        "playerName": "Christian Watson",
+        "drafterTeamId": 1
       },
       {
-        "drafterTeamId": 1,
         "overallPickNumber": 79,
-        "playerName": "Dak Prescott Q"
+        "playerName": "Dak Prescott Q",
+        "drafterTeamId": 1
       },
       {
-        "drafterTeamId": 1,
         "overallPickNumber": 80,
-        "playerName": "DK Metcalf"
+        "playerName": "DK Metcalf",
+        "drafterTeamId": 1
       },
       {
-        "drafterTeamId": 1,
         "overallPickNumber": 81,
-        "playerName": "Parker Washington"
+        "playerName": "Parker Washington",
+        "drafterTeamId": 1
       },
       {
-        "drafterTeamId": 3,
         "overallPickNumber": 82,
-        "playerName": "Mike Evans"
+        "playerName": "Mike Evans",
+        "drafterTeamId": 3
       },
       {
-        "drafterTeamId": 1,
         "overallPickNumber": 83,
-        "playerName": "Jakobi Meyers"
+        "playerName": "Jakobi Meyers",
+        "drafterTeamId": 1
       },
       {
-        "drafterTeamId": 1,
         "overallPickNumber": 84,
-        "playerName": "Brian Thomas Jr."
+        "playerName": "Brian Thomas Jr.",
+        "drafterTeamId": 1
       },
       {
-        "drafterTeamId": 1,
         "overallPickNumber": 85,
-        "playerName": "Trevor Lawrence"
+        "playerName": "Trevor Lawrence",
+        "drafterTeamId": 1
       },
       {
-        "drafterTeamId": 1,
         "overallPickNumber": 86,
-        "playerName": "Matthew Golden"
+        "playerName": "Matthew Golden",
+        "drafterTeamId": 1
       },
       {
-        "drafterTeamId": 1,
         "overallPickNumber": 87,
-        "playerName": "Jaylen Warren"
+        "playerName": "Jaylen Warren",
+        "drafterTeamId": 1
       },
       {
-        "drafterTeamId": 1,
         "overallPickNumber": 88,
-        "playerName": "Bo Nix Q"
+        "playerName": "Bo Nix Q",
+        "drafterTeamId": 1
       },
       {
-        "drafterTeamId": 3,
         "overallPickNumber": 89,
-        "playerName": "Wan'Dale Robinson"
+        "playerName": "Wan'Dale Robinson",
+        "drafterTeamId": 3
+      },
+      {
+        "overallPickNumber": 90,
+        "playerName": "Matthew Stafford",
+        "drafterTeamId": 1
+      },
+      {
+        "overallPickNumber": 91,
+        "playerName": "Ricky Pearsall",
+        "drafterTeamId": 1
+      },
+      {
+        "overallPickNumber": 93,
+        "playerName": "Makai Lemon Q",
+        "drafterTeamId": 2
+      },
+      {
+        "overallPickNumber": 94,
+        "playerName": "Michael Wilson",
+        "drafterTeamId": 1
+      },
+      {
+        "overallPickNumber": 95,
+        "playerName": "Travis Kelce",
+        "drafterTeamId": 1
+      },
+      {
+        "overallPickNumber": 96,
+        "playerName": "Justin Herbert",
+        "drafterTeamId": 3
+      },
+      {
+        "overallPickNumber": 97,
+        "playerName": "Jordan Addison",
+        "drafterTeamId": 1
+      },
+      {
+        "overallPickNumber": 98,
+        "playerName": "Broncos D/ST",
+        "drafterTeamId": 1
+      },
+      {
+        "overallPickNumber": 99,
+        "playerName": "Texans D/ST",
+        "drafterTeamId": 1
+      },
+      {
+        "overallPickNumber": 100,
+        "playerName": "Caleb Williams",
+        "drafterTeamId": 1
+      },
+      {
+        "overallPickNumber": 101,
+        "playerName": "Patrick Mahomes Q",
+        "drafterTeamId": 1
+      },
+      {
+        "overallPickNumber": 102,
+        "playerName": "Kenny Gainwell",
+        "drafterTeamId": 1
       }
     ]
   },
-  "isDOMScraped": true,
-  "leagueId": "700223416",
-  "leagueName": "Fantasy Football Draft - ESPN",
-  "season": "2026",
-  "teams": [
-    {
-      "managerName": "Manager 1",
-      "teamId": 1,
-      "teamName": "Team"
-    },
-    {
-      "managerName": "Manager 2",
-      "teamId": 2,
-      "teamName": "Team -"
-    },
-    {
-      "managerName": "Manager 3",
-      "teamId": 3,
-      "teamName": "Dave's Daring Team"
-    }
-  ],
-  "id": "700223416",
-  "settings": {
-    "leagueId": "700223416"
-  }
+  "currentNomination": null
 }
