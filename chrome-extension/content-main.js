@@ -307,6 +307,49 @@
     return { teams, picks };
   }
 
+  function findActiveRosterTeam() {
+    try {
+      const selects = document.querySelectorAll('select');
+      for (const sel of selects) {
+        if (!sel || !sel.options || sel.options.length < 4) continue;
+        const text = sel.innerText || '';
+        if (text.includes('Team 1') || text.includes('Team 2') || text.includes('Team 8')) {
+          const activeOption = sel.options[sel.selectedIndex];
+          if (activeOption) {
+            return activeOption.innerText.trim();
+          }
+        }
+      }
+    } catch (e) {}
+    return null;
+  }
+
+  function findMyTeamNameFromDOM() {
+    try {
+      const elements = document.querySelectorAll('div');
+      for (const el of elements) {
+        if (!el || el.children.length > 5) continue;
+        const text = el.innerText ? el.innerText.trim() : '';
+        if (!text || text.length > 100 || text.length < 5) continue;
+        
+        const lines = text.split('\n');
+        if (lines.length >= 2) {
+          const nameLineRaw = lines[0].trim();
+          if (/^\d+\.\s+/.test(nameLineRaw)) {
+            const nameLine = nameLineRaw.replace(/^\d+\.\s*/, '');
+            const budgetLine = lines[1].trim();
+            if (budgetLine.startsWith('$')) {
+              if (!text.toUpperCase().includes('AUTO')) {
+                return nameLine;
+              }
+            }
+          }
+        }
+      }
+    } catch (e) {}
+    return null;
+  }
+
   function checkAndSync() {
     try {
       let data = null;
@@ -315,18 +358,28 @@
       let season = urlParams.get('seasonId') || urlParams.get('seasonid') || new Date().getFullYear();
       let myTeamId = parseInt(urlParams.get('teamId') || urlParams.get('teamid') || '1', 10);
       const currentNom = findCurrentNomination();
+      
+      const myTeamName = findActiveRosterTeam() || findMyTeamNameFromDOM();
 
       // 1. Try React store extraction
       try {
         const storeState = findStoreState();
         const extracted = extractDataFromStore(storeState);
         if (extracted) {
+          let resolvedTeamId = myTeamId;
+          if (myTeamName) {
+            const matchedTeam = extracted.teams.find(t => t.teamName.toLowerCase() === myTeamName.toLowerCase() || myTeamName.toLowerCase().includes(t.teamName.toLowerCase()) || t.teamName.toLowerCase().includes(myTeamName.toLowerCase()));
+            if (matchedTeam) {
+              resolvedTeamId = matchedTeam.teamId;
+            }
+          }
+
           data = {
             isDOMScraped: false,
             leagueId,
             season,
             leagueName: document.title || 'ESPN Mock Draft Room',
-            myTeamId,
+            myTeamId: resolvedTeamId,
             teams: extracted.teams,
             draftDetail: {
               picks: extracted.picks
@@ -375,12 +428,23 @@
           };
         });
 
+        let resolvedTeamId = 1;
+        if (myTeamName) {
+          const matchedTeam = teams.find(t => t.teamName.toLowerCase() === myTeamName.toLowerCase() || myTeamName.toLowerCase().includes(t.teamName.toLowerCase()) || t.teamName.toLowerCase().includes(myTeamName.toLowerCase()));
+          if (matchedTeam) {
+            resolvedTeamId = matchedTeam.teamId;
+          }
+        } else {
+          const matchedUrlTeam = teams.find(t => t.teamId === myTeamId);
+          if (matchedUrlTeam) resolvedTeamId = myTeamId;
+        }
+
         data = {
           isDOMScraped: true,
           leagueId,
           season,
           leagueName: document.title || 'ESPN Mock Draft Room',
-          myTeamId,
+          myTeamId: resolvedTeamId,
           teams,
           draftDetail: {
             picks: finalPicks

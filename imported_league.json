@@ -27,7 +27,7 @@
       "teamId": 4,
       "teamName": "Team 7",
       "managerName": "Manager 4",
-      "faabRemaining": 11
+      "faabRemaining": 8
     },
     {
       "teamId": 5,
@@ -39,7 +39,7 @@
       "teamId": 6,
       "teamName": "Team 3",
       "managerName": "Manager 6",
-      "faabRemaining": 5
+      "faabRemaining": 3
     },
     {
       "teamId": 7,
@@ -57,13 +57,13 @@
       "teamId": 9,
       "teamName": "Dave's Daring Team -",
       "managerName": "Manager 9",
-      "faabRemaining": 189
+      "faabRemaining": 188
     },
     {
       "teamId": 10,
       "teamName": "Dave's Daring Team",
       "managerName": "Manager 10",
-      "faabRemaining": 189
+      "faabRemaining": 188
     },
     {
       "teamId": 11,
@@ -373,12 +373,32 @@
         "overallPickNumber": 62,
         "playerName": "Luther Burden III",
         "drafterTeamId": 3
+      },
+      {
+        "overallPickNumber": 63,
+        "playerName": "C.J. Stroud",
+        "drafterTeamId": 10
+      },
+      {
+        "overallPickNumber": 64,
+        "playerName": "Bhayshul Tuten",
+        "drafterTeamId": 6
+      },
+      {
+        "overallPickNumber": 65,
+        "playerName": "Jadarian Price SEA RB Team 7 - 193.9 $1 66 Kyle Pitts Sr.",
+        "drafterTeamId": 4
+      },
+      {
+        "overallPickNumber": 66,
+        "playerName": "Kyle Pitts Sr.",
+        "drafterTeamId": 4
       }
     ]
   },
   "currentNomination": {
-    "name": "C.J. Stroud",
-    "team": "HOU",
-    "position": "QB"
+    "name": "Sam LaPorta",
+    "team": "DET",
+    "position": "TE"
   }
 }
