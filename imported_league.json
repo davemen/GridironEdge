@@ -1,56 +1,60 @@
 {
-  "isDOMScraped": true,
-  "leagueId": "700223416",
-  "season": "2026",
-  "leagueName": "Fantasy Football Draft - ESPN",
-  "teams": [
-    {
-      "teamId": 1,
-      "teamName": "Team 1",
-      "managerName": "Manager 1"
-    },
-    {
-      "teamId": 2,
-      "teamName": "Team 2",
-      "managerName": "Manager 2"
-    },
-    {
-      "teamId": 3,
-      "teamName": "Team 3",
-      "managerName": "Manager 3"
-    },
-    {
-      "teamId": 4,
-      "teamName": "Team 4",
-      "managerName": "Manager 4"
-    },
-    {
-      "teamId": 5,
-      "teamName": "Team 5",
-      "managerName": "Manager 5"
-    },
-    {
-      "teamId": 6,
-      "teamName": "Team 6",
-      "managerName": "Manager 6"
-    },
-    {
-      "teamId": 7,
-      "teamName": "Team 7",
-      "managerName": "Manager 7"
-    },
-    {
-      "teamId": 8,
-      "teamName": "Team 8",
-      "managerName": "Manager 8"
-    }
-  ],
+  "currentNomination": {
+    "name": "Bijan Robinson",
+    "position": "RB",
+    "team": "ATL"
+  },
   "draftDetail": {
     "picks": []
   },
-  "currentNomination": {
-    "name": "KC Concepcion",
-    "team": "CLE",
-    "position": "WR"
+  "isDOMScraped": true,
+  "leagueId": "1236759477",
+  "leagueName": "Fantasy Football Draft - ESPN",
+  "season": "2026",
+  "teams": [
+    {
+      "managerName": "Manager 1",
+      "teamId": 1,
+      "teamName": "Team 1"
+    },
+    {
+      "managerName": "Manager 2",
+      "teamId": 2,
+      "teamName": "Team 2"
+    },
+    {
+      "managerName": "Manager 3",
+      "teamId": 3,
+      "teamName": "Team 3"
+    },
+    {
+      "managerName": "Manager 4",
+      "teamId": 4,
+      "teamName": "Team 4"
+    },
+    {
+      "managerName": "Manager 5",
+      "teamId": 5,
+      "teamName": "Team 5"
+    },
+    {
+      "managerName": "Manager 6",
+      "teamId": 6,
+      "teamName": "Team 6"
+    },
+    {
+      "managerName": "Manager 7",
+      "teamId": 7,
+      "teamName": "Team 7"
+    },
+    {
+      "managerName": "Manager 8",
+      "teamId": 8,
+      "teamName": "Team 8"
+    }
+  ],
+  "id": "1236759477",
+  "settings": {
+    "leagueId": "1236759477"
   }
 }

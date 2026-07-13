@@ -60,7 +60,7 @@ async function scrapeEspnData() {
       const uiBlacklist = new Set(['SHOW', 'DRAFTED', 'QUEUE', 'AUTO', 'FILTER', 'SEARCH', 'ALL', 'PAGE', 'RANK', 'PICK', 'WINNER', 'BUDGET', 'BID', 'RESET', 'UNDO', 'CLOSE', 'OPEN', 'STATS', 'PROJECTED', 'PRE-DRAFT', 'VAL', 'MANUAL', 'CURRENT', 'NOMINATION', 'ACTIVE', 'SELECT', 'WINNING', 'RECORD', 'ALTERNATIVES', 'SHORTLIST', 'LIVE', 'DRAFT', 'MY', 'TEAM', 'MATCHUP', 'WAIVERS', 'TRADES', 'LEAGUE', 'SETTINGS', 'STANDINGS', 'PLAYERS', 'ROSTER', 'SUMMARY', 'BOARD', 'RULES', 'BUGGETS', 'SELECTIONS', 'EMPTY', 'SOUND', 'ON', 'OFF', 'MUTE', 'VOLUME', 'AUDIO', 'SPEAKERS', 'MUSIC', 'CLICK', 'BUTTON', 'ICON', 'HELP', 'SETTINGS', 'PLAYER', 'PLAYERS', 'TEAM', 'TEAMS', 'MANAGER', 'MANAGERS', 'ROUND', 'ROUNDS', 'OVERALL', 'STATUS']);
 
       // 1. Locate the active nomination container
-      const card = document.querySelector('[data-testid="player-selected"], .player-selected, .pickArea');
+      const card = document.querySelector('.pickArea [data-testid="player-selected"], .pickArea .player-selected, .pickArea');
       if (card) {
         // 2. Locate player details inside the card
         const nameEl = card.querySelector('.playerinfo__playername');
@@ -129,7 +129,7 @@ function scanForEspnState() {
 
     function findCurrentNomination() {
       try {
-        const card = document.querySelector('[data-testid="player-selected"], .player-selected, .pickArea');
+        const card = document.querySelector('.pickArea [data-testid="player-selected"], .pickArea .player-selected, .pickArea');
         if (!card) return null;
 
         const nameEl = card.querySelector('.playerinfo__playername');
