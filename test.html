@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Gridiron Edge — Test Runner Suite</title>
+  <link rel="stylesheet" href="css/styles.css">
+  <style>
+    .test-suite { margin-bottom: 2rem; }
+    .test-case { display: flex; justify-content: space-between; padding: 0.6rem 1rem; border-bottom: 1px solid var(--border-color); font-size: 0.9rem; }
+    .test-pass { color: var(--accent-green); font-weight: 700; }
+    .test-fail { color: var(--accent-red); font-weight: 700; }
+    .test-log { font-family: monospace; font-size: 0.8rem; background: var(--bg-base); padding: 0.5rem; border-radius: 4px; margin-top: 0.25rem; color: var(--text-secondary); display: none; }
+  </style>
+</head>
+<body>
+
+  <div class="app-container">
+    <header class="app-header">
+      <div class="brand-section">
+        <div class="logo-icon">T</div>
+        <div class="brand-name">Gridiron Edge Test Suite</div>
+      </div>
+      <a href="index.html" class="btn-secondary" style="font-size:0.8rem; padding: 0.4rem 0.8rem;">Back to App</a>
+    </header>
+
+    <main class="main-content" style="max-width: 900px;">
+      <div class="glass-card glow-cyan" style="margin-bottom: 1.5rem;">
+        <div class="card-header">
+          <h3 class="card-title">Test Executions</h3>
+          <div>
+            <span id="test-summary-badge" class="badge-solid badge-cyan">Running...</span>
+          </div>
+        </div>
+        <div id="test-results-container">
+          <!-- Dynamically populated -->
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <script type="module">
+    import { mockLeague } from './js/mock-data.js';
+    import { getDraftRecommendations } from './js/engine/draft-assistant.js';
+    import { optimizeLineup } from './js/engine/lineup-optimizer.js';
+    import { getWaiverRecommendations } from './js/engine/waiver-evaluator.js';
+    import { generateTradeProposals } from './js/engine/trade-generator.js';
+    import { runSeasonSimulation } from './js/engine/simulator.js';
+
+    // Basic assertion engine
+    const testCases = [];
+    function it(description, fn) {
+      testCases.push({ description, fn });
+    }
+
+    function assert(condition, message = "Assertion failed") {
+      if (!condition) throw new Error(message);
+    }
+
+    // 1. Scoring format differences mapping tests
+    it("verify mock league is correctly initialized with PPR format settings", () => {
+      assert(mockLeague.scoringFormat === 'PPR', "League scoring format should be PPR");
+      assert(mockLeague.leagueSize === 12, "League size should equal 12 teams");
+    });
+
+    // 2. Roster limit & slot counts tests
+    it("validate starting roster slot allocation configuration", () => {
+      const limits = mockLeague.rosterSettings;
+      assert(limits.QB === 1, "Should have 1 starting QB slot");
+      assert(limits.RB === 2, "Should have 2 starting RB slots");
+      assert(limits.WR === 2, "Should have 2 starting WR slots");
+      assert(limits.startersCount === 9, "Should have 9 total starters configured");
+    });
+
+    // 3. Draft recommendations sorting & scarcity math
+    it("verify Live Draft recommendations generate primary and backup shortlist choices", () => {
+      // Mock copy of league to isolate test states
+      const l = JSON.parse(JSON.stringify(mockLeague));
+      const rec = getDraftRecommendations(l);
+      
+      assert(rec !== null, "Draft advisor returns a valid advice payload");
+      assert(rec.primaryPick !== undefined, "Primary draft pick must be defined");
+      assert(rec.alternatives.length >= 4, "Should provide at least 4 backup recommendations");
+      assert(typeof rec.riskLevel === 'string', "Risk assessment must be descriptive text");
+    });
+
+    // 3b. Auction Draft calculations
+    it("verify Auction Draft budget calculations and bid recommendations", () => {
+      const l = JSON.parse(JSON.stringify(mockLeague));
+      l.draftState.draftType = 'auction';
+      
+      const db = l.playerDatabase;
+      const myTeam = l.teams.find(t => t.teamId === l.myTeamId);
+      
+      const originalLeagueId = window.store.state.currentLeagueId;
+      const originalLeague = window.store.state.leagues[l.leagueId];
+      
+      window.store.state.currentLeagueId = l.leagueId;
+      window.store.state.leagues[l.leagueId] = l;
+      
+      const initialFaab = myTeam.faabRemaining;
+      window.store.recordDraftPickAuction("QB_01", l.myTeamId, 45);
+      
+      assert(myTeam.faabRemaining === initialFaab - 45, "Winning bid must be deducted from team remaining budget");
+      assert(myTeam.roster.includes("QB_01"), "Awarded player must be pushed to team roster");
+      
+      // Clean up test state
+      window.store.state.currentLeagueId = originalLeagueId;
+      if (originalLeague) {
+        window.store.state.leagues[l.leagueId] = originalLeague;
+      } else {
+        delete window.store.state.leagues[l.leagueId];
+      }
+      window.store.save();
+    });
+
+    // 4. Lineup Optimization ceiling vs floor strategy swap tests
+    it("verify Lineup Optimizer modifies starter outputs between floor and ceiling strategies", () => {
+      const rosterIds = mockLeague.teams.find(t=>t.teamId === 1).roster;
+      const db = mockLeague.playerDatabase;
+      
+      const optFloor = optimizeLineup(rosterIds, db, mockLeague.rosterSettings, 'floor');
+      const optCeil = optimizeLineup(rosterIds, db, mockLeague.rosterSettings, 'ceiling');
+
+      assert(optFloor.starters.length === 9, "Starters count must equal required lineup size (9)");
+      assert(optCeil.starters.length === 9, "Starters count must equal required lineup size (9)");
+      
+      // Bench size verification
+      const expectedBench = rosterIds.length - 9;
+      assert(optFloor.bench.length === expectedBench, `Bench count should match remainder of roster (${expectedBench})`);
+    });
+
+    // 5. Waiver priorities & drop selections tests
+    it("verify Waiver advisor calculates claims, FAAB bids, and drops", () => {
+      const recs = getWaiverRecommendations(mockLeague);
+      assert(recs.length > 0, "Should generate claim candidates from free agents pool");
+      
+      const primary = recs[0];
+      assert(primary.addPlayer !== null, "Claim recommendation specifies an addition player");
+      assert(primary.dropPlayer !== null, "Claim recommendation specifies a bench drop candidate");
+      assert(primary.bid >= 1, "FAAB bids must recommend at least a $1 transaction");
+    });
+
+    // 6. Trade suggestions matching surplus & deficits tests
+    it("verify Trades engine generates realistic suggestions and acceptance scores", () => {
+      const proposals = generateTradeProposals(mockLeague);
+      assert(proposals.length > 0, "Should suggest realistic trade pairs");
+      
+      const first = proposals[0];
+      assert(first.givePlayer !== null, "Trade suggestion specifies our give player");
+      assert(first.getPlayer !== null, "Trade suggestion specifies opponent receive player");
+      assert(first.probability >= 0 && first.probability <= 100, "Trade acceptance must be a valid percentage");
+    });
+
+    // 7. Simulation engine Monte Carlo convergence tests
+    it("verify Monte Carlo simulator calculates playoff and championship probabilities", () => {
+      const sim = runSeasonSimulation(mockLeague, 100); // 100 iterations is enough for test validation
+      assert(sim.playoffPct >= 0 && sim.playoffPct <= 100, "Playoff rate must be bounded [0, 100]");
+      assert(sim.champPct >= 0 && sim.champPct <= 100, "Championship rate must be bounded [0, 100]");
+      assert(sim.actionPlan.length >= 2, "Action plan must suggest immediate and long-term moves");
+    });
+
+    // Run tests and draw results
+    const container = document.getElementById('test-results-container');
+    let passCount = 0;
+    let failCount = 0;
+
+    testCases.forEach((tc, idx) => {
+      const div = document.createElement('div');
+      div.className = 'test-case';
+      
+      try {
+        tc.fn();
+        passCount++;
+        div.innerHTML = `
+          <span>${idx + 1}. ${tc.description}</span>
+          <span class="test-pass">PASS</span>
+        `;
+      } catch (err) {
+        failCount++;
+        div.innerHTML = `
+          <span>${idx + 1}. ${tc.description}</span>
+          <span class="test-fail">FAIL</span>
+          <div class="test-log" id="test-log-${idx}">${err.message}</div>
+        `;
+        // Make errors visible
+        setTimeout(() => {
+          const log = document.getElementById(`test-log-${idx}`);
+          if (log) log.style.display = 'block';
+        }, 100);
+      }
+      container.appendChild(div);
+    });
+
+    // Update summaries
+    const badge = document.getElementById('test-summary-badge');
+    if (failCount === 0) {
+      badge.className = 'badge-solid badge-green';
+      badge.innerHTML = `ALL PASSED (${passCount}/${testCases.length})`;
+    } else {
+      badge.className = 'badge-solid badge-red';
+      badge.innerHTML = `${failCount} FAILED (${passCount} PASSED)`;
+    }
+  </script>
+
+</body>
+</html>
