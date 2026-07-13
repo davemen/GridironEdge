@@ -5,6 +5,7 @@
   "description": "Scrapes and synchronizes your active ESPN fantasy league roster and standings with Gridiron Edge.",
   "permissions": [
     "activeTab",
+    "tabs",
     "scripting",
     "clipboardWrite"
   ],

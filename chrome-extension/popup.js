@@ -2,32 +2,27 @@ const statusEl = document.getElementById('status');
 const syncBtn = document.getElementById('sync-btn');
 
 // Scraper function that runs in the context of the active ESPN tab
-function scrapeEspnData() {
+async function scrapeEspnData() {
   const views = ['mSettings', 'mRoster', 'mTeam', 'mMatchup', 'mMatchupScore', 'mStandings', 'mTransactionHistory'];
-  const pathParts = window.location.pathname.split('/');
   
-  // Extract league ID and season
-  let leagueId = null;
-  let season = new Date().getFullYear();
-
-  // Try parsing path
-  const leaguesIdx = pathParts.indexOf('leagues');
-  if (leaguesIdx !== -1 && pathParts[leaguesIdx + 1]) {
-    leagueId = pathParts[leaguesIdx + 1];
-  }
-  const fflIdx = pathParts.indexOf('ffl');
-  if (fflIdx !== -1 && pathParts[fflIdx + 1]) {
-    season = pathParts[fflIdx + 1];
-  }
-
-  // Try parsing query params
+  // Try parsing query params first (robust for both league home and draft pages)
   const urlParams = new URLSearchParams(window.location.search);
+  let leagueId = urlParams.get('leagueId') || urlParams.get('leagueid');
+  let season = urlParams.get('seasonId') || urlParams.get('seasonid') || new Date().getFullYear();
+
+  // Fallback: Try parsing from path if query parameters are missing
+  const pathParts = window.location.pathname.split('/');
   if (!leagueId) {
-    leagueId = urlParams.get('leagueId') || urlParams.get('leagueid');
+    const leaguesIdx = pathParts.indexOf('leagues');
+    if (leaguesIdx !== -1 && pathParts[leaguesIdx + 1]) {
+      leagueId = pathParts[leaguesIdx + 1];
+    }
   }
-  const seasonParam = urlParams.get('seasonId') || urlParams.get('seasonid');
-  if (seasonParam) {
-    season = seasonParam;
+  if (!urlParams.get('seasonId') && !urlParams.get('seasonid')) {
+    const fflIdx = pathParts.indexOf('ffl');
+    if (fflIdx !== -1 && pathParts[fflIdx + 1]) {
+      season = pathParts[fflIdx + 1];
+    }
   }
 
   if (!leagueId) {
@@ -36,11 +31,11 @@ function scrapeEspnData() {
 
   const url = `https://fantasy.espn.com/apis/v3/games/ffl/seasons/${season}/segments/0/leagues/${leagueId}?view=${views.join('&view=')}`;
   
-  return fetch(url)
-    .then(response => {
-      if (!response.ok) throw new Error(`HTTP Status: ${response.status}`);
-      return response.json();
-    });
+  const response = await fetch(url);
+  if (!response.ok) {
+    throw new Error(`HTTP Status: ${response.status}`);
+  }
+  return await response.json();
 }
 
 document.addEventListener('DOMContentLoaded', async () => {

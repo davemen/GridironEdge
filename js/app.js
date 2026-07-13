@@ -236,19 +236,40 @@ function setupModals() {
   const pasteTextArea = document.getElementById('paste-text-area');
 
   // Bookmarklet source code
-  const bookmarkletCode = `javascript:(function(){
+  const bookmarkletCode = `javascript:(async function(){
     const views = ['mSettings', 'mRoster', 'mTeam', 'mMatchup', 'mMatchupScore', 'mStandings', 'mTransactionHistory'];
-    const parts = window.location.pathname.split('/');
-    const leagueIdIdx = parts.indexOf('leagues');
-    if(leagueIdIdx === -1){
-      alert('Error: Make sure you are on fantasy.espn.com league home page!');
+    const urlParams = new URLSearchParams(window.location.search);
+    let leagueId = urlParams.get('leagueId') || urlParams.get('leagueid');
+    let season = urlParams.get('seasonId') || urlParams.get('seasonid') || new Date().getFullYear();
+
+    if (!leagueId) {
+      const parts = window.location.pathname.split('/');
+      const leagueIdIdx = parts.indexOf('leagues');
+      if (leagueIdIdx !== -1 && parts[leagueIdIdx + 1]) {
+        leagueId = parts[leagueIdIdx + 1];
+      }
+    }
+
+    if (!urlParams.get('seasonId') && !urlParams.get('seasonid')) {
+      const parts = window.location.pathname.split('/');
+      const fflIdx = parts.indexOf('ffl');
+      if (fflIdx !== -1 && parts[fflIdx + 1]) {
+        season = parts[fflIdx + 1];
+      }
+    }
+
+    if(!leagueId){
+      alert('Error: Gridiron Edge could not find your League ID. Make sure you are on fantasy.espn.com league page or draft page!');
       return;
     }
-    const leagueId = parts[leagueIdIdx + 1];
-    const season = parts[parts.indexOf('ffl') + 1] || new Date().getFullYear();
+
     const url = 'https://fantasy.espn.com/apis/v3/games/ffl/seasons/' + season + '/segments/0/leagues/' + leagueId + '?view=' + views.join('&view=');
     
-    fetch(url).then(r=>r.json()).then(data=>{
+    try {
+      const response = await fetch(url);
+      if (!response.ok) throw new Error('Status: ' + response.status);
+      const data = await response.json();
+      
       const textarea = document.createElement('textarea');
       textarea.value = JSON.stringify(data);
       document.body.appendChild(textarea);
@@ -256,9 +277,9 @@ function setupModals() {
       document.execCommand('copy');
       document.body.removeChild(textarea);
       alert('League payload successfully copied to clipboard! Return to Gridiron Edge and paste.');
-    }).catch(err=>{
+    } catch (err) {
       alert('Error extracting league data. Make sure you are logged in to ESPN Fantasy.');
-    });
+    }
   })();`;
 
   bookmarkletLink.setAttribute('href', bookmarkletCode);
