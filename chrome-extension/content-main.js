@@ -10,17 +10,19 @@
     try {
       const nflTeams = new Set(['DET', 'LAR', 'ATL', 'CIN', 'SEA', 'SF', 'GB', 'KC', 'BUF', 'DAL', 'PHI', 'MIA', 'NYJ', 'NE', 'LV', 'DEN', 'LAC', 'MIN', 'CHI', 'TB', 'NO', 'CAR', 'WAS', 'NYG', 'ARI', 'JAX', 'IND', 'TEN', 'HOU', 'BAL', 'PIT', 'CLE', 'FA']);
       const positions = new Set(['QB', 'RB', 'WR', 'TE', 'D/ST', 'K', 'FLEX']);
-      const uiBlacklist = new Set(['SHOW', 'DRAFTED', 'QUEUE', 'AUTO', 'FILTER', 'SEARCH', 'ALL', 'PAGE', 'RANK', 'PICK', 'WINNER', 'BUDGET', 'BID', 'RESET', 'UNDO', 'CLOSE', 'OPEN', 'STATS', 'PROJECTED', 'PRE-DRAFT', 'VAL', 'MANUAL', 'CURRENT', 'NOMINATION', 'ACTIVE', 'SELECT', 'WINNING', 'RECORD', 'ALTERNATIVES', 'SHORTLIST', 'LIVE', 'DRAFT', 'MY', 'TEAM', 'MATCHUP', 'WAIVERS', 'TRADES', 'LEAGUE', 'SETTINGS', 'STANDINGS', 'PLAYERS', 'ROSTER', 'SUMMARY', 'BOARD', 'RULES', 'BUDGETS', 'SELECTIONS', 'EMPTY', 'SOUND', 'ON', 'OFF', 'MUTE', 'VOLUME', 'AUDIO', 'SPEAKERS', 'MUSIC', 'CLICK', 'BUTTON', 'ICON', 'HELP', 'SETTINGS']);
+      const uiBlacklist = new Set(['SHOW', 'DRAFTED', 'QUEUE', 'AUTO', 'FILTER', 'SEARCH', 'ALL', 'PAGE', 'RANK', 'PICK', 'WINNER', 'BUDGET', 'BID', 'RESET', 'UNDO', 'CLOSE', 'OPEN', 'STATS', 'PROJECTED', 'PRE-DRAFT', 'VAL', 'MANUAL', 'CURRENT', 'NOMINATION', 'ACTIVE', 'SELECT', 'WINNING', 'RECORD', 'ALTERNATIVES', 'SHORTLIST', 'LIVE', 'DRAFT', 'MY', 'TEAM', 'MATCHUP', 'WAIVERS', 'TRADES', 'LEAGUE', 'SETTINGS', 'STANDINGS', 'PLAYERS', 'ROSTER', 'SUMMARY', 'BOARD', 'RULES', 'BUGGETS', 'SELECTIONS', 'EMPTY', 'SOUND', 'ON', 'OFF', 'MUTE', 'VOLUME', 'AUDIO', 'SPEAKERS', 'MUSIC', 'CLICK', 'BUTTON', 'ICON', 'HELP', 'SETTINGS', 'PLAYER', 'PLAYERS', 'TEAM', 'TEAMS', 'MANAGER', 'MANAGERS', 'ROUND', 'ROUNDS', 'OVERALL', 'STATUS']);
 
-      // 1. Locate the active nomination container
+      // 1. Locate the active nomination container (find innermost container)
       let nomContainer = null;
+      let minChildren = 9999;
       const allDivs = document.querySelectorAll('div, section, article');
       for (const div of allDivs) {
-        if (div.children.length > 15) continue;
         const text = div.innerText ? div.innerText.toUpperCase() : '';
         if (text.includes('MANUAL BID') || text.includes('PRE-DRAFT VAL') || text.includes('CURRENT BID')) {
-          nomContainer = div;
-          break;
+          if (div.children.length < minChildren && div.children.length > 0) {
+            minChildren = div.children.length;
+            nomContainer = div;
+          }
         }
       }
 
