@@ -188,7 +188,7 @@ class ESPNClient {
       leagueId,
       leagueName: espnData.leagueName || 'Scraped ESPN Draft',
       leagueSize: teams.length || 8,
-      myTeamId: 1,
+      myTeamId: typeof espnData.myTeamId === 'number' ? espnData.myTeamId : 1,
       scoringFormat: 'PPR',
       rosterSettings: positionLimits,
       waiverSettings: {

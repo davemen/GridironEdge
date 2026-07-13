@@ -261,20 +261,21 @@
         
         const lines = text.split('\n');
         if (lines.length >= 2) {
-          let nameLine = lines[0].trim();
-          let budgetLine = lines[1].trim();
-          
-          nameLine = nameLine.replace(/^\d+\.\s*/, '');
-          
-          if (budgetLine.startsWith('$')) {
-            const budgetVal = parseInt(budgetLine.replace('$', ''), 10);
-            if (!isNaN(budgetVal) && budgetVal >= 0 && budgetVal <= 260) {
-              if (nameLine.length > 2 && nameLine.length < 30 && !seenTeams.has(nameLine)) {
-                seenTeams.add(nameLine);
-                teams.push({
-                  teamName: nameLine,
-                  budget: budgetVal
-                });
+          const nameLineRaw = lines[0].trim();
+          if (/^\d+\.\s+/.test(nameLineRaw)) {
+            const nameLine = nameLineRaw.replace(/^\d+\.\s*/, '');
+            const budgetLine = lines[1].trim();
+            
+            if (budgetLine.startsWith('$')) {
+              const budgetVal = parseInt(budgetLine.replace('$', ''), 10);
+              if (!isNaN(budgetVal) && budgetVal >= 0 && budgetVal <= 260) {
+                if (nameLine.length > 2 && nameLine.length < 30 && !seenTeams.has(nameLine)) {
+                  seenTeams.add(nameLine);
+                  teams.push({
+                    teamName: nameLine,
+                    budget: budgetVal
+                  });
+                }
               }
             }
           }
@@ -312,6 +313,7 @@
       const urlParams = new URLSearchParams(window.location.search);
       let leagueId = urlParams.get('leagueId') || urlParams.get('leagueid') || 'scraped-draft';
       let season = urlParams.get('seasonId') || urlParams.get('seasonid') || new Date().getFullYear();
+      let myTeamId = parseInt(urlParams.get('teamId') || urlParams.get('teamid') || '1', 10);
       const currentNom = findCurrentNomination();
 
       // 1. Try React store extraction
@@ -324,6 +326,7 @@
             leagueId,
             season,
             leagueName: document.title || 'ESPN Mock Draft Room',
+            myTeamId,
             teams: extracted.teams,
             draftDetail: {
               picks: extracted.picks
@@ -377,6 +380,7 @@
           leagueId,
           season,
           leagueName: document.title || 'ESPN Mock Draft Room',
+          myTeamId,
           teams,
           draftDetail: {
             picks: finalPicks
