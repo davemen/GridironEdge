@@ -20,6 +20,110 @@ export function runSeasonSimulation(league, runs = 1000) {
     return { playoffPct: 0, champPct: 0, byePct: 0, actionPlan: [] };
   }
 
+  // Helper to calculate a team's dynamic weekly projected score
+  const calculateTeamProjection = (team) => {
+    if (!team || !team.roster || team.roster.length === 0) return 105.0; // fallback
+
+    const rosterPlayers = team.roster.map(pid => db[pid]).filter(Boolean);
+
+    // Group by position
+    const slots = [
+      { label: 'QB', pos: 'QB' },
+      { label: 'RB1', pos: 'RB' },
+      { label: 'RB2', pos: 'RB' },
+      { label: 'WR1', pos: 'WR' },
+      { label: 'WR2', pos: 'WR' },
+      { label: 'TE', pos: 'TE' },
+      { label: 'FLEX', pos: ['RB', 'WR', 'TE'], isFlex: true },
+      { label: 'D/ST', pos: 'D/ST' },
+      { label: 'K', pos: 'K' }
+    ];
+
+    const allocatedIds = new Set();
+    let totalTeamProj = 0;
+
+    slots.forEach(slot => {
+      let bestPlayer = null;
+      let bestScore = -999;
+
+      rosterPlayers.forEach(p => {
+        if (allocatedIds.has(p.id)) return;
+        
+        // Match position
+        const isMatch = slot.isFlex 
+          ? slot.pos.includes(p.position) 
+          : p.position === slot.pos;
+          
+        if (isMatch) {
+          let injuryDeduction = 0;
+          if (p.injuryStatus === 'Questionable') injuryDeduction = 2.0;
+          if (p.injuryStatus === 'Doubtful') injuryDeduction = 6.0;
+          if (p.injuryStatus === 'Out' || p.injuryStatus === 'IR') return;
+
+          let playerProj = p.projectedPoints - injuryDeduction;
+
+          // Usage adjustments
+          if (p.metrics) {
+            const m = p.metrics;
+            let usageMultiplier = 1.0;
+            if (m.snapShare !== undefined) {
+              if (m.snapShare >= 0.85) usageMultiplier += 0.05;
+              if (m.snapShare < 0.50) usageMultiplier -= 0.10;
+            }
+            if (['WR', 'TE', 'RB'].includes(p.position) && m.targetShare !== undefined) {
+              if (m.targetShare >= 0.25) usageMultiplier += 0.08;
+              if (m.targetShare < 0.12) usageMultiplier -= 0.05;
+            }
+            if (p.position === 'RB' && m.carries !== undefined) {
+              if (m.carries >= 16) usageMultiplier += 0.05;
+              if (m.carries < 8) usageMultiplier -= 0.08;
+            } else if (p.position === 'QB' && m.carries !== undefined) {
+              if (m.carries >= 6) usageMultiplier += 0.08;
+            }
+            playerProj = playerProj * usageMultiplier;
+
+            if (m.redZoneTargets) playerProj += m.redZoneTargets * 0.5;
+            if (m.redZoneCarries) playerProj += m.redZoneCarries * 0.4;
+          }
+
+          // Matchup adjustments
+          let matchupAdjustment = 1.0;
+          if (p.opponent && db) {
+            const opponentDefense = Object.values(db).find(
+              def => def.position === 'D/ST' && def.team === p.opponent
+            );
+            if (opponentDefense) {
+              if (opponentDefense.projectedPoints >= 8.2) {
+                matchupAdjustment = 0.94;
+              } else if (opponentDefense.projectedPoints <= 6.8) {
+                matchupAdjustment = 1.06;
+              }
+            }
+          }
+          playerProj = playerProj * matchupAdjustment;
+
+          if (playerProj > bestScore) {
+            bestScore = playerProj;
+            bestPlayer = p;
+          }
+        }
+      });
+
+      if (bestPlayer) {
+        allocatedIds.add(bestPlayer.id);
+        totalTeamProj += Math.max(0, bestScore);
+      }
+    });
+
+    return totalTeamProj > 0 ? totalTeamProj : 105.0;
+  };
+
+  // Pre-calculate dynamic projections for all teams
+  const teamProjections = {};
+  teams.forEach(t => {
+    teamProjections[t.teamId] = calculateTeamProjection(t);
+  });
+
   // Count wins/losses from initial record state
   const initialWins = {};
   const initialPoints = {};
@@ -29,9 +133,6 @@ export function runSeasonSimulation(league, runs = 1000) {
   });
 
   // Determine current week from schedule
-  // Find highest week that is completed vs uncompleted
-  // For simplicity, we assume completed matches are not in schedule or have completed flag.
-  // In our mock, week 5 is current, meaning weeks 1-4 are completed.
   const currentWeek = 5;
 
   // Filter schedule for remaining weeks (>= currentWeek)
@@ -52,16 +153,17 @@ export function runSeasonSimulation(league, runs = 1000) {
 
     // 1. Simulate remaining regular season weeks (e.g. Weeks 5-14)
     remainingMatchups.forEach(matchup => {
-      // Fetch roster configurations or mock projections
       const team1 = teams.find(t => t.teamId === matchup.team1Id);
       const team2 = teams.find(t => t.teamId === matchup.team2Id);
 
       if (!team1 || !team2) return;
 
-      // Simulate team 1 score: projected points + normal noise based on volatility
-      // Assume average team volatility is 12 points
-      const score1 = Math.max(50, randomNormal(matchup.team1Proj || 105, 12));
-      const score2 = Math.max(50, randomNormal(matchup.team2Proj || 105, 12));
+      // Simulate team score: dynamic projected points + normal noise based on volatility
+      const team1Proj = teamProjections[matchup.team1Id] || 105.0;
+      const team2Proj = teamProjections[matchup.team2Id] || 105.0;
+
+      const score1 = Math.max(50, randomNormal(team1Proj, 12));
+      const score2 = Math.max(50, randomNormal(team2Proj, 12));
 
       simPoints[matchup.team1Id] += score1;
       simPoints[matchup.team2Id] += score2;

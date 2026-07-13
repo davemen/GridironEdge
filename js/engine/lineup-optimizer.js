@@ -24,7 +24,60 @@ export function optimizeLineup(roster, db, settings, strategy = 'floor') {
     if (player.injuryStatus === 'Doubtful') injuryDeduction = 6.0;
     if (player.injuryStatus === 'Out' || player.injuryStatus === 'IR') return -100;
 
-    const baseProj = player.projectedPoints - injuryDeduction;
+    let baseProj = player.projectedPoints - injuryDeduction;
+
+    // Apply Usage Adjustments from player.metrics
+    if (player.metrics) {
+      const metrics = player.metrics;
+      let usageMultiplier = 1.0;
+
+      // Snap Share Adjustments
+      if (metrics.snapShare !== undefined) {
+        if (metrics.snapShare >= 0.85) usageMultiplier += 0.05; // Elite snap count anchor
+        if (metrics.snapShare < 0.50) usageMultiplier -= 0.10;  // High risk of low utilization
+      }
+
+      // Target Share Adjustments (Pass Catchers)
+      if (['WR', 'TE', 'RB'].includes(player.position) && metrics.targetShare !== undefined) {
+        if (metrics.targetShare >= 0.25) usageMultiplier += 0.08; // High-volume target earner
+        if (metrics.targetShare < 0.12) usageMultiplier -= 0.05;  // Low volume pass catcher
+      }
+
+      // Rushing Carries Adjustments
+      if (player.position === 'RB' && metrics.carries !== undefined) {
+        if (metrics.carries >= 16) usageMultiplier += 0.05; // Workhorse RB
+        if (metrics.carries < 8) usageMultiplier -= 0.08;   // Committee / third-down back
+      } else if (player.position === 'QB' && metrics.carries !== undefined) {
+        if (metrics.carries >= 6) usageMultiplier += 0.08; // Running QB cheat code
+      }
+
+      baseProj = baseProj * usageMultiplier;
+
+      // Red Zone high-value opportunity adjustments
+      if (metrics.redZoneTargets) {
+        baseProj += metrics.redZoneTargets * 0.5; // Touchdown high-value targets boost
+      }
+      if (metrics.redZoneCarries) {
+        baseProj += metrics.redZoneCarries * 0.4; // Touchdown high-value carries boost
+      }
+    }
+
+    // Apply Matchup Difficulty Adjustments using the opponent D/ST
+    let matchupAdjustment = 1.0;
+    if (player.opponent && db) {
+      const opponentDefense = Object.values(db).find(
+        p => p.position === 'D/ST' && p.team === player.opponent
+      );
+      if (opponentDefense) {
+        if (opponentDefense.projectedPoints >= 8.2) {
+          matchupAdjustment = 0.94; // Tough defense penalty
+        } else if (opponentDefense.projectedPoints <= 6.8) {
+          matchupAdjustment = 1.06; // Weak defense boost
+        }
+      }
+    }
+    baseProj = baseProj * matchupAdjustment;
+
     const vol = player.volatility || 3.0;
 
     // Floor strategy minimizes variance; ceiling strategy maximizes it
