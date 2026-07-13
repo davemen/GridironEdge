@@ -35,14 +35,30 @@ let activeDraftFilter = 'all';
 let draftSearchQuery = '';
 let weeklyLineupStrategy = 'floor'; // default
 
+let lastSyncFileTimestamp = null;
+
 // Check for a local sync file saved by server.py
 async function checkLocalSyncFile() {
   try {
-    const response = await fetch('/imported_league.json');
+    const response = await fetch('/imported_league.json?cb=' + Date.now());
     if (response.ok) {
       const data = await response.json();
-      console.log('Local sync file found, importing league:', data.id);
-      espnClient.importScrapedPayload(data);
+      
+      const picksCount = data.draftDetail?.picks?.length || 0;
+      const currentNom = data.currentNomination ? (typeof data.currentNomination === 'object' ? data.currentNomination.name : data.currentNomination) : '';
+      const stateKey = `${picksCount}_${currentNom}`;
+
+      if (lastSyncFileTimestamp !== stateKey) {
+        lastSyncFileTimestamp = stateKey;
+        console.log('Local sync file changed, importing league:', data.id);
+        const mapped = espnClient.importScrapedPayload(data);
+        
+        // Automatically re-render if the user is on the Live Draft page
+        const activeTabEl = document.querySelector('.nav-item.active');
+        if (activeTabEl && activeTabEl.getAttribute('data-tab') === 'draft') {
+          renderDraftPage(mapped);
+        }
+      }
     }
   } catch (e) {
     // Silent fail if local sync file is missing
@@ -61,6 +77,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // Check for auto local sync file first
   checkLocalSyncFile();
+
+  // Start polling every 3 seconds for live dashboard updates
+  setInterval(checkLocalSyncFile, 3000);
 
   // Subscribe to store updates
   store.subscribe((state) => {
