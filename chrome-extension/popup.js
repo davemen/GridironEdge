@@ -59,93 +59,63 @@ async function scrapeEspnData() {
       const positions = new Set(['QB', 'RB', 'WR', 'TE', 'D/ST', 'K', 'FLEX']);
       const uiBlacklist = new Set(['SHOW', 'DRAFTED', 'QUEUE', 'AUTO', 'FILTER', 'SEARCH', 'ALL', 'PAGE', 'RANK', 'PICK', 'WINNER', 'BUDGET', 'BID', 'RESET', 'UNDO', 'CLOSE', 'OPEN', 'STATS', 'PROJECTED', 'PRE-DRAFT', 'VAL', 'MANUAL', 'CURRENT', 'NOMINATION', 'ACTIVE', 'SELECT', 'WINNING', 'RECORD', 'ALTERNATIVES', 'SHORTLIST', 'LIVE', 'DRAFT', 'MY', 'TEAM', 'MATCHUP', 'WAIVERS', 'TRADES', 'LEAGUE', 'SETTINGS', 'STANDINGS', 'PLAYERS', 'ROSTER', 'SUMMARY', 'BOARD', 'RULES', 'BUGGETS', 'SELECTIONS', 'EMPTY', 'SOUND', 'ON', 'OFF', 'MUTE', 'VOLUME', 'AUDIO', 'SPEAKERS', 'MUSIC', 'CLICK', 'BUTTON', 'ICON', 'HELP', 'SETTINGS', 'PLAYER', 'PLAYERS', 'TEAM', 'TEAMS', 'MANAGER', 'MANAGERS', 'ROUND', 'ROUNDS', 'OVERALL', 'STATUS']);
 
-      // 1. Locate the active nomination container (find innermost container)
-      let nomContainer = null;
-      let minChildren = 9999;
-      const allDivs = document.querySelectorAll('div, section, article');
-      for (const div of allDivs) {
-        const text = div.innerText ? div.innerText.toUpperCase() : '';
-        if (text.includes('MANUAL BID') || text.includes('PRE-DRAFT VAL') || text.includes('CURRENT BID')) {
-          if (div.children.length < minChildren && div.children.length > 0) {
-            minChildren = div.children.length;
-            nomContainer = div;
-          }
-        }
-      }
-
-      if (!nomContainer) {
-        nomContainer = document.querySelector('.nomination-container, .bidding-container, [class*="nomination" i], [class*="bidding" i]');
-      }
-
-      if (nomContainer) {
-        // 2. Scan elements inside the nomination container only
-        const elements = nomContainer.querySelectorAll('div, span, h1, h2, h3, h4, p');
-        for (const el of elements) {
-          if (el.children.length > 2) continue;
-          const text = el.innerText ? el.innerText.trim() : '';
-          if (positions.has(text.toUpperCase())) continue;
-          if (text.length > 3 && text.length < 35 && !text.includes('\n')) {
-            const parentParts = nomContainer.innerText.split(/[\s\n]+/);
-            let team = '';
-            let position = '';
+      // 1. Locate the active nomination container
+      const card = document.querySelector('.nomination-card, .nomination-container, [class*="nomination-card" i], [class*="nomination-container" i], [class*="bidding-container" i], [class*="nominationCard" i]');
+      if (card) {
+        // 2. Locate player name inside the card
+        const nameEl = card.querySelector('[class*="name" i], [class*="fullName" i], h1, h2, h3, h4');
+        if (nameEl) {
+          const name = nameEl.innerText ? nameEl.innerText.trim() : '';
+          if (name && name.length >= 3 && name.length <= 35 && !name.includes('\n')) {
+            // 3. Extract team/position from card context
+            const cardText = card.innerText;
+            const parts = cardText.split(/[\s\n/()]+/);
+            let team = 'FA';
+            let position = 'RB';
             let hasTeam = false;
             let hasPos = false;
-            for (const p of parentParts) {
+            for (const p of parts) {
               const pUpper = p.toUpperCase();
               if (nflTeams.has(pUpper)) { team = pUpper; hasTeam = true; }
               if (positions.has(pUpper)) { position = pUpper; hasPos = true; }
             }
             if (hasPos && (position === 'D/ST' || hasTeam)) {
-              const parts = text.split(/\s+/);
-              if (parts.length >= 1 && parts.length <= 4) {
-                const isCapitalized = parts.every(p => {
-                  if (!p || p.length === 0) return false;
-                  const code = p.charCodeAt(0);
-                  return code >= 65 && code <= 90;
-                });
-                const isBlacklisted = parts.some(p => uiBlacklist.has(p.toUpperCase()));
-                
-                if (isCapitalized && !isBlacklisted) {
-                  if (position === 'D/ST') {
-                    const lowerText = text.toLowerCase();
-                    if (lowerText.includes('patriots')) team = 'NE';
-                    else if (lowerText.includes('ravens')) team = 'BAL';
-                    else if (lowerText.includes('49ers')) team = 'SF';
-                    else if (lowerText.includes('bills')) team = 'BUF';
-                    else if (lowerText.includes('cowboys')) team = 'DAL';
-                    else if (lowerText.includes('dolphins')) team = 'MIA';
-                    else if (lowerText.includes('jets')) team = 'NYJ';
-                    else if (lowerText.includes('eagles')) team = 'PHI';
-                    else if (lowerText.includes('chiefs')) team = 'KC';
-                    else if (lowerText.includes('raiders')) team = 'LV';
-                    else if (lowerText.includes('broncos')) team = 'DEN';
-                    else if (lowerText.includes('chargers')) team = 'LAC';
-                    else if (lowerText.includes('vikings')) team = 'MIN';
-                    else if (lowerText.includes('bears')) team = 'CHI';
-                    else if (lowerText.includes('packers')) team = 'GB';
-                    else if (lowerText.includes('lions')) team = 'DET';
-                    else if (lowerText.includes('buccaneers')) team = 'TB';
-                    else if (lowerText.includes('saints')) team = 'NO';
-                    else if (lowerText.includes('falcons')) team = 'ATL';
-                    else if (lowerText.includes('panthers')) team = 'CAR';
-                    else if (lowerText.includes('commanders')) team = 'WAS';
-                    else if (lowerText.includes('giants')) team = 'NYG';
-                    else if (lowerText.includes('cardinals')) team = 'ARI';
-                    else if (lowerText.includes('seahawks')) team = 'SEA';
-                    else if (lowerText.includes('rams')) team = 'LAR';
-                    else if (lowerText.includes('jaguars')) team = 'JAX';
-                    else if (lowerText.includes('colts')) team = 'IND';
-                    else if (lowerText.includes('titans')) team = 'TEN';
-                    else if (lowerText.includes('texans')) team = 'HOU';
-                    else if (lowerText.includes('steelers')) team = 'PIT';
-                    else if (lowerText.includes('browns')) team = 'CLE';
-                    else if (lowerText.includes('bengals')) team = 'CIN';
-                    if (!team) team = 'FA';
-                  }
-                  data.currentNomination = { name: text, team, position };
-                  break;
-                }
+              if (position === 'D/ST' && team === 'FA') {
+                const lowerName = name.toLowerCase();
+                if (lowerName.includes('patriots')) team = 'NE';
+                else if (lowerName.includes('ravens')) team = 'BAL';
+                else if (lowerName.includes('49ers')) team = 'SF';
+                else if (lowerName.includes('bills')) team = 'BUF';
+                else if (lowerName.includes('cowboys')) team = 'DAL';
+                else if (lowerName.includes('dolphins')) team = 'MIA';
+                else if (lowerName.includes('jets')) team = 'NYJ';
+                else if (lowerName.includes('eagles')) team = 'PHI';
+                else if (lowerName.includes('chiefs')) team = 'KC';
+                else if (lowerName.includes('raiders')) team = 'LV';
+                else if (lowerName.includes('broncos')) team = 'DEN';
+                else if (lowerName.includes('chargers')) team = 'LAC';
+                else if (lowerName.includes('vikings')) team = 'MIN';
+                else if (lowerName.includes('bears')) team = 'CHI';
+                else if (lowerName.includes('packers')) team = 'GB';
+                else if (lowerName.includes('lions')) team = 'DET';
+                else if (lowerName.includes('buccaneers')) team = 'TB';
+                else if (lowerName.includes('saints')) team = 'NO';
+                else if (lowerName.includes('falcons')) team = 'ATL';
+                else if (lowerName.includes('panthers')) team = 'CAR';
+                else if (lowerName.includes('commanders')) team = 'WAS';
+                else if (lowerName.includes('giants')) team = 'NYG';
+                else if (lowerName.includes('cardinals')) team = 'ARI';
+                else if (lowerName.includes('seahawks')) team = 'SEA';
+                else if (lowerName.includes('rams')) team = 'LAR';
+                else if (lowerName.includes('jaguars')) team = 'JAX';
+                else if (lowerName.includes('colts')) team = 'IND';
+                else if (lowerName.includes('titans')) team = 'TEN';
+                else if (lowerName.includes('texans')) team = 'HOU';
+                else if (lowerName.includes('steelers')) team = 'PIT';
+                else if (lowerName.includes('browns')) team = 'CLE';
+                else if (lowerName.includes('bengals')) team = 'CIN';
               }
+              data.currentNomination = { name, team, position };
             }
           }
         }
@@ -169,97 +139,65 @@ function scanForEspnState() {
       try {
         const nflTeams = new Set(['DET', 'LAR', 'ATL', 'CIN', 'SEA', 'SF', 'GB', 'KC', 'BUF', 'DAL', 'PHI', 'MIA', 'NYJ', 'NE', 'LV', 'DEN', 'LAC', 'MIN', 'CHI', 'TB', 'NO', 'CAR', 'WAS', 'NYG', 'ARI', 'JAX', 'IND', 'TEN', 'HOU', 'BAL', 'PIT', 'CLE', 'FA']);
         const positions = new Set(['QB', 'RB', 'WR', 'TE', 'D/ST', 'K', 'FLEX']);
-        const uiBlacklist = new Set(['SHOW', 'DRAFTED', 'QUEUE', 'AUTO', 'FILTER', 'SEARCH', 'ALL', 'PAGE', 'RANK', 'PICK', 'WINNER', 'BUDGET', 'BID', 'RESET', 'UNDO', 'CLOSE', 'OPEN', 'STATS', 'PROJECTED', 'PRE-DRAFT', 'VAL', 'MANUAL', 'CURRENT', 'NOMINATION', 'ACTIVE', 'SELECT', 'WINNING', 'RECORD', 'ALTERNATIVES', 'SHORTLIST', 'LIVE', 'DRAFT', 'MY', 'TEAM', 'MATCHUP', 'WAIVERS', 'TRADES', 'LEAGUE', 'SETTINGS', 'STANDINGS', 'PLAYERS', 'ROSTER', 'SUMMARY', 'BOARD', 'RULES', 'BUGGETS', 'SELECTIONS', 'EMPTY', 'SOUND', 'ON', 'OFF', 'MUTE', 'VOLUME', 'AUDIO', 'SPEAKERS', 'MUSIC', 'CLICK', 'BUTTON', 'ICON', 'HELP', 'SETTINGS', 'PLAYER', 'PLAYERS', 'TEAM', 'TEAMS', 'MANAGER', 'MANAGERS', 'ROUND', 'ROUNDS', 'OVERALL', 'STATUS']);
 
-        // 1. Locate the active nomination container (find innermost container)
-        let nomContainer = null;
-        let minChildren = 9999;
-        const allDivs = document.querySelectorAll('div, section, article');
-        for (const div of allDivs) {
-          const text = div.innerText ? div.innerText.toUpperCase() : '';
-          if (text.includes('MANUAL BID') || text.includes('PRE-DRAFT VAL') || text.includes('CURRENT BID')) {
-            if (div.children.length < minChildren && div.children.length > 0) {
-              minChildren = div.children.length;
-              nomContainer = div;
-            }
-          }
+        const card = document.querySelector('.nomination-card, .nomination-container, [class*="nomination-card" i], [class*="nomination-container" i], [class*="bidding-container" i], [class*="nominationCard" i]');
+        if (!card) return null;
+
+        const nameEl = card.querySelector('[class*="name" i], [class*="fullName" i], h1, h2, h3, h4');
+        if (!nameEl) return null;
+
+        const name = nameEl.innerText ? nameEl.innerText.trim() : '';
+        if (!name || name.length < 3 || name.length > 35 || name.includes('\n')) return null;
+
+        const cardText = card.innerText;
+        const parts = cardText.split(/[\s\n/()]+/);
+        let team = 'FA';
+        let position = 'RB';
+        let hasTeam = false;
+        let hasPos = false;
+        for (const p of parts) {
+          const pUpper = p.toUpperCase();
+          if (nflTeams.has(pUpper)) { team = pUpper; hasTeam = true; }
+          if (positions.has(pUpper)) { position = pUpper; hasPos = true; }
         }
 
-        if (!nomContainer) {
-          nomContainer = document.querySelector('.nomination-container, .bidding-container, [class*="nomination" i], [class*="bidding" i]');
-        }
-
-        if (nomContainer) {
-          // 2. Scan elements inside the nomination container only
-          const elements = nomContainer.querySelectorAll('div, span, h1, h2, h3, h4, p');
-          for (const el of elements) {
-            if (el.children.length > 2) continue;
-            const text = el.innerText ? el.innerText.trim() : '';
-            if (positions.has(text.toUpperCase())) continue;
-            if (text.length > 3 && text.length < 35 && !text.includes('\n')) {
-              const parentParts = nomContainer.innerText.split(/[\s\n]+/);
-              let team = '';
-              let position = '';
-              let hasTeam = false;
-              let hasPos = false;
-              for (const p of parentParts) {
-                const pUpper = p.toUpperCase();
-                if (nflTeams.has(pUpper)) { team = pUpper; hasTeam = true; }
-                if (positions.has(pUpper)) { position = pUpper; hasPos = true; }
-              }
-              if (hasPos && (position === 'D/ST' || hasTeam)) {
-                const parts = text.split(/\s+/);
-                if (parts.length >= 1 && parts.length <= 4) {
-                  const isCapitalized = parts.every(p => {
-                   if (!p || p.length === 0) return false;
-                   const code = p.charCodeAt(0);
-                   return code >= 65 && code <= 90;
-                 });
-                 const isBlacklisted = parts.some(p => uiBlacklist.has(p.toUpperCase()));
-                  
-                  if (isCapitalized && !isBlacklisted) {
-                    if (position === 'D/ST') {
-                      const lowerText = text.toLowerCase();
-                      if (lowerText.includes('patriots')) team = 'NE';
-                      else if (lowerText.includes('ravens')) team = 'BAL';
-                      else if (lowerText.includes('49ers')) team = 'SF';
-                      else if (lowerText.includes('bills')) team = 'BUF';
-                      else if (lowerText.includes('cowboys')) team = 'DAL';
-                      else if (lowerText.includes('dolphins')) team = 'MIA';
-                      else if (lowerText.includes('jets')) team = 'NYJ';
-                      else if (lowerText.includes('eagles')) team = 'PHI';
-                      else if (lowerText.includes('chiefs')) team = 'KC';
-                      else if (lowerText.includes('raiders')) team = 'LV';
-                      else if (lowerText.includes('broncos')) team = 'DEN';
-                      else if (lowerText.includes('chargers')) team = 'LAC';
-                      else if (lowerText.includes('vikings')) team = 'MIN';
-                      else if (lowerText.includes('bears')) team = 'CHI';
-                      else if (lowerText.includes('packers')) team = 'GB';
-                      else if (lowerText.includes('lions')) team = 'DET';
-                      else if (lowerText.includes('buccaneers')) team = 'TB';
-                      else if (lowerText.includes('saints')) team = 'NO';
-                      else if (lowerText.includes('falcons')) team = 'ATL';
-                      else if (lowerText.includes('panthers')) team = 'CAR';
-                      else if (lowerText.includes('commanders')) team = 'WAS';
-                      else if (lowerText.includes('giants')) team = 'NYG';
-                      else if (lowerText.includes('cardinals')) team = 'ARI';
-                      else if (lowerText.includes('seahawks')) team = 'SEA';
-                      else if (lowerText.includes('rams')) team = 'LAR';
-                      else if (lowerText.includes('jaguars')) team = 'JAX';
-                      else if (lowerText.includes('colts')) team = 'IND';
-                      else if (lowerText.includes('titans')) team = 'TEN';
-                      else if (lowerText.includes('texans')) team = 'HOU';
-                      else if (lowerText.includes('steelers')) team = 'PIT';
-                      else if (lowerText.includes('browns')) team = 'CLE';
-                      else if (lowerText.includes('bengals')) team = 'CIN';
-                      if (!team) team = 'FA';
-                    }
-                    return { name: text, team, position };
-                  }
-                }
-              }
-            }
+        if (hasPos && (position === 'D/ST' || hasTeam)) {
+          if (position === 'D/ST' && team === 'FA') {
+            const lowerName = name.toLowerCase();
+            if (lowerName.includes('patriots')) team = 'NE';
+            else if (lowerName.includes('ravens')) team = 'BAL';
+            else if (lowerName.includes('49ers')) team = 'SF';
+            else if (lowerName.includes('bills')) team = 'BUF';
+            else if (lowerName.includes('cowboys')) team = 'DAL';
+            else if (lowerName.includes('dolphins')) team = 'MIA';
+            else if (lowerName.includes('jets')) team = 'NYJ';
+            else if (lowerName.includes('eagles')) team = 'PHI';
+            else if (lowerName.includes('chiefs')) team = 'KC';
+            else if (lowerName.includes('raiders')) team = 'LV';
+            else if (lowerName.includes('broncos')) team = 'DEN';
+            else if (lowerName.includes('chargers')) team = 'LAC';
+            else if (lowerName.includes('vikings')) team = 'MIN';
+            else if (lowerName.includes('bears')) team = 'CHI';
+            else if (lowerName.includes('packers')) team = 'GB';
+            else if (lowerName.includes('lions')) team = 'DET';
+            else if (lowerName.includes('buccaneers')) team = 'TB';
+            else if (lowerName.includes('saints')) team = 'NO';
+            else if (lowerName.includes('falcons')) team = 'ATL';
+            else if (lowerName.includes('panthers')) team = 'CAR';
+            else if (lowerName.includes('commanders')) team = 'WAS';
+            else if (lowerName.includes('giants')) team = 'NYG';
+            else if (lowerName.includes('cardinals')) team = 'ARI';
+            else if (lowerName.includes('seahawks')) team = 'SEA';
+            else if (lowerName.includes('rams')) team = 'LAR';
+            else if (lowerName.includes('jaguars')) team = 'JAX';
+            else if (lowerName.includes('colts')) team = 'IND';
+            else if (lowerName.includes('titans')) team = 'TEN';
+            else if (lowerName.includes('texans')) team = 'HOU';
+            else if (lowerName.includes('steelers')) team = 'PIT';
+            else if (lowerName.includes('browns')) team = 'CLE';
+            else if (lowerName.includes('bengals')) team = 'CIN';
           }
+          return { name, team, position };
         }
       } catch (e) {}
       return null;
