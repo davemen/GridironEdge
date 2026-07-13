@@ -169,36 +169,51 @@ document.addEventListener('DOMContentLoaded', async () => {
       syncBtn.disabled = true;
 
       try {
-        // Step 1: Try scraping via standard page context APIs
+        // Step 1: Try scraping via standard page context APIs in all frames
         let results = await chrome.scripting.executeScript({
-          target: { tabId: tab.id },
+          target: { tabId: tab.id, allFrames: true },
           func: scrapeEspnData
         });
 
-        if (!results || results.length === 0 || !results[0].result) {
-          throw new Error('Failed to retrieve league data from tab (empty result).');
+        let payload = null;
+        if (results && results.length > 0) {
+          for (const res of results) {
+            if (res.result && res.result.success) {
+              payload = res.result;
+              break;
+            }
+          }
         }
 
-        let payload = results[0].result;
-
-        // Step 2: Fallback to scanning React Redux store in the MAIN world
-        if (!payload.success) {
+        // Step 2: Fallback to scanning React Redux store in all frames inside the MAIN world
+        if (!payload) {
           statusEl.innerHTML = 'API redirected. Scanning page state...';
           const scanResults = await chrome.scripting.executeScript({
-            target: { tabId: tab.id },
+            target: { tabId: tab.id, allFrames: true },
             func: scanForEspnState,
             world: 'MAIN'
           });
 
-          if (scanResults && scanResults.length > 0 && scanResults[0].result) {
-            const scanPayload = scanResults[0].result;
-            if (scanPayload.success) {
-              payload = scanPayload;
-            } else {
-              throw new Error(payload.error + ' (Page scan: ' + scanPayload.error + ')');
+          if (scanResults && scanResults.length > 0) {
+            for (const res of scanResults) {
+              if (res.result && res.result.success) {
+                payload = res.result;
+                break;
+              }
             }
-          } else {
-            throw new Error(payload.error + ' (Page scan unavailable)');
+          }
+
+          if (!payload) {
+            // Find specific errors from the frames to display a helpful message
+            let errors = [];
+            if (results) {
+              results.forEach(r => { if (r.result && r.result.error) errors.push(r.result.error); });
+            }
+            if (scanResults) {
+              scanResults.forEach(r => { if (r.result && r.result.error) errors.push(r.result.error); });
+            }
+            const errorText = errors.length > 0 ? errors.join(' | ') : 'Could not find ESPN draft state in window or React store.';
+            throw new Error(errorText);
           }
         }
 
