@@ -10,7 +10,7 @@
     try {
       const nflTeams = new Set(['DET', 'LAR', 'ATL', 'CIN', 'SEA', 'SF', 'GB', 'KC', 'BUF', 'DAL', 'PHI', 'MIA', 'NYJ', 'NE', 'LV', 'DEN', 'LAC', 'MIN', 'CHI', 'TB', 'NO', 'CAR', 'WAS', 'NYG', 'ARI', 'JAX', 'IND', 'TEN', 'HOU', 'BAL', 'PIT', 'CLE', 'FA']);
       const positions = new Set(['QB', 'RB', 'WR', 'TE', 'D/ST', 'K', 'FLEX']);
-      const uiBlacklist = new Set(['SHOW', 'DRAFTED', 'QUEUE', 'AUTO', 'FILTER', 'SEARCH', 'ALL', 'PAGE', 'RANK', 'PICK', 'WINNER', 'BUDGET', 'BID', 'RESET', 'UNDO', 'CLOSE', 'OPEN', 'STATS', 'PROJECTED', 'PRE-DRAFT', 'VAL', 'MANUAL', 'CURRENT', 'NOMINATION', 'ACTIVE', 'SELECT', 'WINNING', 'RECORD', 'ALTERNATIVES', 'SHORTLIST', 'LIVE', 'DRAFT', 'MY', 'TEAM', 'MATCHUP', 'WAIVERS', 'TRADES', 'LEAGUE', 'SETTINGS', 'STANDINGS', 'PLAYERS', 'ROSTER', 'SUMMARY', 'BOARD', 'RULES', 'BUDGETS', 'SELECTIONS', 'EMPTY']);
+      const uiBlacklist = new Set(['SHOW', 'DRAFTED', 'QUEUE', 'AUTO', 'FILTER', 'SEARCH', 'ALL', 'PAGE', 'RANK', 'PICK', 'WINNER', 'BUDGET', 'BID', 'RESET', 'UNDO', 'CLOSE', 'OPEN', 'STATS', 'PROJECTED', 'PRE-DRAFT', 'VAL', 'MANUAL', 'CURRENT', 'NOMINATION', 'ACTIVE', 'SELECT', 'WINNING', 'RECORD', 'ALTERNATIVES', 'SHORTLIST', 'LIVE', 'DRAFT', 'MY', 'TEAM', 'MATCHUP', 'WAIVERS', 'TRADES', 'LEAGUE', 'SETTINGS', 'STANDINGS', 'PLAYERS', 'ROSTER', 'SUMMARY', 'BOARD', 'RULES', 'BUDGETS', 'SELECTIONS', 'EMPTY', 'SOUND', 'ON', 'OFF', 'MUTE', 'VOLUME', 'AUDIO', 'SPEAKERS', 'MUSIC', 'CLICK', 'BUTTON', 'ICON', 'HELP', 'SETTINGS']);
 
       // 1. Locate the active nomination container
       let nomContainer = null;
@@ -49,7 +49,11 @@
             if (hasPos && (position === 'D/ST' || hasTeam)) {
               const parts = text.split(/\s+/);
               if (parts.length >= 1 && parts.length <= 4) {
-                const isCapitalized = parts.every(p => p && p.length > 0 && p[0] === p[0].toUpperCase());
+                const isCapitalized = parts.every(p => {
+                  if (!p || p.length === 0) return false;
+                  const code = p.charCodeAt(0);
+                  return code >= 65 && code <= 90;
+                });
                 const isBlacklisted = parts.some(p => uiBlacklist.has(p.toUpperCase()));
                 
                 if (isCapitalized && !isBlacklisted) {
