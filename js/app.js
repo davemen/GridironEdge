@@ -1257,6 +1257,7 @@ function renderAlertsPage(league = store.getActiveLeague()) {
   const myRoster = store.getMyTeam()?.roster || [];
   const db = league.playerDatabase;
   const injured = myRoster.map(id => db[id]).filter(p => p && p.injuryStatus !== 'Healthy');
+  const rosterNames = myRoster.map(id => db[id]?.name).filter(Boolean);
 
   let alertsHtml = '';
 
@@ -1266,29 +1267,136 @@ function renderAlertsPage(league = store.getActiveLeague()) {
       alertsHtml += `
         <div class="recommendation-item low-confidence">
           <div class="item-action-title">Starter Injured: ${p.name} (${p.position}) <span class="badge-solid badge-red">Critical</span></div>
-          <div class="item-details">${p.name} is questionable with a recent calf injury. Check Matchup options to configure a backup.</div>
+          <div class="item-details">${p.name} is ${p.injuryStatus.toLowerCase()}. Configure a backup starter in the Matchups view.</div>
         </div>
       `;
     });
   }
 
   // 2. Waiver priorities
-  alertsHtml += `
-    <div class="recommendation-item high-confidence">
-      <div class="item-action-title">Waiver deadline is processing on Wednesday <span class="badge-solid badge-green">Priority</span></div>
-      <div class="item-details">Waiver evaluator recommends submitting bids for WR Joshua Palmer ($4 FAAB) and RB Zamir White ($8 FAAB).</div>
-    </div>
-  `;
+  const waiverRec = getWaiverRecommendations(league)[0];
+  if (waiverRec) {
+    alertsHtml += `
+      <div class="recommendation-item high-confidence">
+        <div class="item-action-title">Waiver Target: ${waiverRec.addPlayer.name} (${waiverRec.addPlayer.position}) <span class="badge-solid badge-green">Priority</span></div>
+        <div class="item-details">Drop ${waiverRec.dropPlayer ? waiverRec.dropPlayer.name : 'bench'}. Bid $${waiverRec.bid} FAAB. ${waiverRec.reason}</div>
+      </div>
+    `;
+  }
 
   // 3. Trade
-  alertsHtml += `
-    <div class="recommendation-item medium-confidence">
-      <div class="item-action-title">Potential trade target available: Saquon Barkley <span class="badge-solid badge-gold">Proposal</span></div>
-      <div class="item-details">Manager Sarah (Fumble Recovery) has excess RBs and holds a weakness in WR depth. Swap candidates prepared in Trades tab.</div>
-    </div>
-  `;
+  const tradeRec = generateTradeProposals(league)[0];
+  if (tradeRec) {
+    alertsHtml += `
+      <div class="recommendation-item medium-confidence">
+        <div class="item-action-title">Trade Target: ${tradeRec.getPlayer.name} (${tradeRec.getPlayer.position}) <span class="badge-solid badge-gold">Proposal</span></div>
+        <div class="item-details">Offer ${tradeRec.givePlayer.name} to ${tradeRec.opponentName}. Estimated ${tradeRec.probability}% acceptance rate.</div>
+      </div>
+    `;
+  }
+
+  if (!alertsHtml) {
+    alertsHtml = '<div class="empty-state">No current strategy alerts. Roster is fully optimized.</div>';
+  }
 
   container.innerHTML = alertsHtml;
+
+  // Trigger live breaking news fetch
+  fetchLiveBreakingNews(rosterNames);
+}
+
+// Fetch and render live breaking news from Reddit r/fantasyfootball
+async function fetchLiveBreakingNews(rosterNames = []) {
+  const newsContainer = document.getElementById('news-list-container');
+  const indicator = document.getElementById('news-refresh-indicator');
+  
+  if (!newsContainer) return;
+
+  indicator.innerHTML = 'Syncing...';
+  indicator.style.background = 'var(--accent-cyan-glow)';
+  
+  try {
+    const response = await fetch('https://www.reddit.com/r/fantasyfootball/new.json?limit=15');
+    if (!response.ok) throw new Error(`HTTP Error ${response.status}`);
+    const res = await response.json();
+    
+    const posts = res.data?.children || [];
+    if (posts.length === 0) {
+      newsContainer.innerHTML = '<div class="empty-state">No recent news found.</div>';
+      return;
+    }
+
+    newsContainer.innerHTML = '';
+
+    posts.forEach(post => {
+      const pData = post.data;
+      const title = pData.title;
+      const url = `https://www.reddit.com${pData.permalink}`;
+      
+      // Calculate human-friendly time difference
+      const createdMs = pData.created_utc * 1000;
+      const diffMin = Math.max(1, Math.round((Date.now() - createdMs) / 60000));
+      let timeText = `${diffMin}m ago`;
+      if (diffMin >= 60) {
+        const diffHr = Math.round(diffMin / 60);
+        timeText = `${diffHr}h ago`;
+      }
+      
+      // Match against roster names
+      let isRosterMatch = false;
+      let matchedName = '';
+      
+      rosterNames.forEach(name => {
+        const nameParts = name.split(' ');
+        const lastName = nameParts[nameParts.length - 1];
+        if (lastName.length > 3 && title.toLowerCase().includes(lastName.toLowerCase())) {
+          isRosterMatch = true;
+          matchedName = name;
+        }
+      });
+
+      const item = document.createElement('div');
+      item.style.padding = '0.75rem';
+      item.style.borderRadius = '6px';
+      item.style.transition = 'background 0.2s ease';
+      
+      if (isRosterMatch) {
+        item.style.background = 'var(--accent-red-glow)';
+        item.style.border = '1px solid rgba(255, 23, 68, 0.2)';
+        item.innerHTML = `
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:0.25rem;">
+            <strong style="color:#ff1744; font-size:0.75rem; text-transform:uppercase; letter-spacing:0.5px;">🚨 Roster Alert: ${matchedName}</strong>
+            <span style="font-size:0.7rem; color:var(--text-secondary);">${timeText}</span>
+          </div>
+          <div style="font-size:0.85rem; line-height:1.4;">
+            <a href="${url}" target="_blank" style="color:var(--text-main); text-decoration:none; font-weight:600; border-bottom:1px dashed rgba(255,255,255,0.2);">${title}</a>
+          </div>
+        `;
+      } else {
+        item.style.background = 'var(--bg-surface)';
+        item.style.border = '1px solid var(--border-color)';
+        item.innerHTML = `
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:0.25rem; font-size:0.7rem; color:var(--text-secondary);">
+            <span>Practice / News Report</span>
+            <span>${timeText}</span>
+          </div>
+          <div style="font-size:0.85rem; line-height:1.4;">
+            <a href="${url}" target="_blank" style="color:var(--text-secondary); text-decoration:none;">${title}</a>
+          </div>
+        `;
+      }
+      
+      newsContainer.appendChild(item);
+    });
+
+    indicator.innerHTML = 'Live Feed';
+    indicator.style.background = '';
+  } catch (err) {
+    console.error("Failed to fetch breaking news:", err);
+    newsContainer.innerHTML = `<div class="empty-state" style="color:#ff1744;">Offline: Failed to load news feed.</div>`;
+    indicator.innerHTML = 'Offline';
+    indicator.style.background = 'var(--accent-red-glow)';
+  }
 }
 
 // Render Settings Form inputs
