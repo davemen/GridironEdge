@@ -199,27 +199,44 @@
     return null;
   }
 
+  let lastSeenPicks = [];
+
+  function findDataInState(obj, depth = 0, visited = new Set()) {
+    if (depth > 6 || !obj || typeof obj !== 'object' || visited.has(obj)) return null;
+    visited.add(obj);
+
+    let picks = obj.picks || obj.selections || (obj.draftDetail && obj.draftDetail.picks);
+    let teams = obj.teams || (obj.draftDetail && obj.draftDetail.teams) || (obj.settings && obj.settings.teams);
+
+    if (Array.isArray(picks) && Array.isArray(teams) && (picks.length > 0 || teams.length > 0)) {
+      return { teams, picks };
+    }
+
+    for (const key of Object.keys(obj)) {
+      try {
+        const val = obj[key];
+        if (val && typeof val === 'object') {
+          const result = findDataInState(val, depth + 1, visited);
+          if (result) return result;
+        }
+      } catch (e) {}
+    }
+    return null;
+  }
+
   function extractDataFromStore(state) {
     if (!state) return null;
     
-    let dState = state;
-    if (state.draft && typeof state.draft === 'object') dState = state.draft;
-    else if (state.draftroom && typeof state.draftroom === 'object') dState = state.draftroom;
+    const extracted = findDataInState(state);
+    if (!extracted) return null;
 
-    let picksList = dState.picks || dState.selections || dState.draftDetail?.picks || [];
-    let teamsList = dState.teams || dState.draftDetail?.teams || dState.settings?.teams || [];
-
-    if (!picksList.length && !teamsList.length) {
-      return null;
-    }
-
-    const teams = teamsList.map(t => ({
+    const teams = extracted.teams.map(t => ({
       teamId: t.teamId || t.id,
       teamName: t.teamName || t.name || `Team ${t.teamId || t.id}`,
       managerName: t.managerName || `Manager ${t.teamId || t.id}`
     }));
 
-    const picks = picksList.map(p => ({
+    const picks = extracted.picks.map(p => ({
       overallPickNumber: p.overallPickNumber || p.pickNumber || p.pick,
       playerName: p.playerName || p.player?.fullName || p.name,
       drafterTeamId: p.drafterTeamId || p.teamId || 1
@@ -260,10 +277,14 @@
       // 2. Fallback to DOM Scraper
       if (!data) {
         const selections = scrapeDraftDOM() || [];
-        const isDraftPage = window.location.pathname.includes('/draft');
-        if (selections.length === 0 && !(isDraftPage && currentNom)) return;
+        if (selections.length > 0) {
+          lastSeenPicks = selections;
+        }
 
-        let uniqueTeams = Array.from(new Set(selections.map(p => p.drafterTeamName)));
+        const isDraftPage = window.location.pathname.includes('/draft');
+        if (lastSeenPicks.length === 0 && !(isDraftPage && currentNom)) return;
+
+        let uniqueTeams = Array.from(new Set(lastSeenPicks.map(p => p.drafterTeamName)));
         if (uniqueTeams.length === 0) {
           uniqueTeams = ["Team 1", "Team 2", "Team 3", "Team 4", "Team 5", "Team 6", "Team 7", "Team 8"];
         }
@@ -274,7 +295,7 @@
           managerName: `Manager ${index + 1}`
         }));
 
-        const finalPicks = selections.map(p => {
+        const finalPicks = lastSeenPicks.map(p => {
           const team = teams.find(t => t.teamName === p.drafterTeamName);
           return {
             overallPickNumber: p.overallPickNumber,
