@@ -1,4 +1,9 @@
 {
+  "currentNomination": {
+    "name": "Jahmyr Gibbs",
+    "position": "RB",
+    "team": "DET"
+  },
   "draftDetail": {
     "picks": [
       {
@@ -150,6 +155,101 @@
         "drafterTeamId": 1,
         "overallPickNumber": 30,
         "playerName": "Chris Olave"
+      },
+      {
+        "drafterTeamId": 1,
+        "overallPickNumber": 31,
+        "playerName": "Tetairoa McMillan Q"
+      },
+      {
+        "drafterTeamId": 1,
+        "overallPickNumber": 32,
+        "playerName": "Javonte Williams"
+      },
+      {
+        "drafterTeamId": 1,
+        "overallPickNumber": 33,
+        "playerName": "George Pickens"
+      },
+      {
+        "drafterTeamId": 1,
+        "overallPickNumber": 34,
+        "playerName": "Kyren Williams"
+      },
+      {
+        "drafterTeamId": 1,
+        "overallPickNumber": 35,
+        "playerName": "Zay Flowers"
+      },
+      {
+        "drafterTeamId": 1,
+        "overallPickNumber": 36,
+        "playerName": "DeVonta Smith"
+      },
+      {
+        "drafterTeamId": 1,
+        "overallPickNumber": 37,
+        "playerName": "Quinshon Judkins Q"
+      },
+      {
+        "drafterTeamId": 1,
+        "overallPickNumber": 38,
+        "playerName": "Travis Etienne Jr."
+      },
+      {
+        "drafterTeamId": 1,
+        "overallPickNumber": 39,
+        "playerName": "Emeka Egbuka"
+      },
+      {
+        "drafterTeamId": 1,
+        "overallPickNumber": 40,
+        "playerName": "Colston Loveland"
+      },
+      {
+        "drafterTeamId": 1,
+        "overallPickNumber": 41,
+        "playerName": "Malik Nabers Q"
+      },
+      {
+        "drafterTeamId": 1,
+        "overallPickNumber": 42,
+        "playerName": "Tyler Warren"
+      },
+      {
+        "drafterTeamId": 1,
+        "overallPickNumber": 43,
+        "playerName": "Davante Adams"
+      },
+      {
+        "drafterTeamId": 1,
+        "overallPickNumber": 44,
+        "playerName": "Bucky Irving Q"
+      },
+      {
+        "drafterTeamId": 1,
+        "overallPickNumber": 45,
+        "playerName": "Lamar Jackson"
+      },
+      {
+        "drafterTeamId": 1,
+        "overallPickNumber": 47,
+        "playerName": "Tee Higgins"
+      },
+      {
+        "drafterTeamId": 1,
+        "overallPickNumber": 49,
+        "playerName": "Carnell Tate TEN WR Team 4 - 211.2 $7 50 Drake Maye NE QB Team 2 352 319 $6 51 Cam Skattebo Q"
+      },
+      {
+        "drafterTeamId": 1,
+        "overallPickNumber": 50,
+        "playerName": "Drake Maye"
+      },
+      {
+        "drafterTeamId": 1,
+        "overallPickNumber": 51,
+        "playerName": "Cam Skattebo Q"
       }
     ]
   },

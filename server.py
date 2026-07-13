@@ -47,6 +47,11 @@ class GridironServer(http.server.SimpleHTTPRequestHandler):
             self.send_response(404)
             self.end_headers()
 
+import socketserver
+
+class ThreadingHTTPServer(socketserver.ThreadingMixIn, http.server.HTTPServer):
+    daemon_threads = True
+
 if __name__ == '__main__':
     print(f"============================================================")
     print(f" Gridiron Edge local development server running on port {PORT}")
@@ -54,7 +59,7 @@ if __name__ == '__main__':
     print(f"============================================================")
     
     server_address = ('', PORT)
-    httpd = http.server.HTTPServer(server_address, GridironServer)
+    httpd = ThreadingHTTPServer(server_address, GridironServer)
     try:
         httpd.serve_forever()
     except KeyboardInterrupt:
