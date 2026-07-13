@@ -57,14 +57,15 @@ async function scrapeEspnData() {
     try {
       const nflTeams = new Set(['DET', 'LAR', 'ATL', 'CIN', 'SEA', 'SF', 'GB', 'KC', 'BUF', 'DAL', 'PHI', 'MIA', 'NYJ', 'NE', 'LV', 'DEN', 'LAC', 'MIN', 'CHI', 'TB', 'NO', 'CAR', 'WAS', 'NYG', 'ARI', 'JAX', 'IND', 'TEN', 'HOU', 'BAL', 'PIT', 'CLE', 'FA']);
       const positions = new Set(['QB', 'RB', 'WR', 'TE', 'D/ST', 'K', 'FLEX']);
-      const headings = document.querySelectorAll('h1, h2, h3, h4, [class*="name" i], [class*="PlayerName" i]');
-      for (const h of headings) {
-        const text = h.innerText.trim();
-        if (text.length > 2 && text.length < 35 && !text.includes('\n')) {
-          let parentText = h.parentElement ? h.parentElement.innerText : '';
+      const all = document.querySelectorAll('div, span, h1, h2, h3, h4, p');
+      for (const el of all) {
+        if (el.children.length > 2) continue;
+        const text = el.innerText ? el.innerText.trim() : '';
+        if (text.length > 3 && text.length < 35 && !text.includes('\n')) {
+          let parentText = el.parentElement ? el.parentElement.innerText : '';
           const parentParts = parentText.split(/[\s\n]+/);
-          let team = 'FA';
-          let position = 'RB';
+          let team = '';
+          let position = '';
           let hasTeam = false;
           let hasPos = false;
           for (const p of parentParts) {
@@ -73,8 +74,14 @@ async function scrapeEspnData() {
             if (positions.has(pUpper)) { position = pUpper; hasPos = true; }
           }
           if (hasTeam && hasPos) {
-            data.currentNomination = { name: text, team, position };
-            break;
+            const parts = text.split(/\s+/);
+            if (parts.length >= 2 && parts.length <= 4) {
+              const isCapitalized = parts.every(p => p[0] === p[0].toUpperCase());
+              if (isCapitalized && !text.toUpperCase().includes('STATS') && !text.toUpperCase().includes('PROJECTED') && !text.toUpperCase().includes('BID') && !text.toUpperCase().includes('TEAM')) {
+                data.currentNomination = { name: text, team, position };
+                break;
+              }
+            }
           }
         }
       }
@@ -97,14 +104,15 @@ function scanForEspnState() {
       try {
         const nflTeams = new Set(['DET', 'LAR', 'ATL', 'CIN', 'SEA', 'SF', 'GB', 'KC', 'BUF', 'DAL', 'PHI', 'MIA', 'NYJ', 'NE', 'LV', 'DEN', 'LAC', 'MIN', 'CHI', 'TB', 'NO', 'CAR', 'WAS', 'NYG', 'ARI', 'JAX', 'IND', 'TEN', 'HOU', 'BAL', 'PIT', 'CLE', 'FA']);
         const positions = new Set(['QB', 'RB', 'WR', 'TE', 'D/ST', 'K', 'FLEX']);
-        const headings = document.querySelectorAll('h1, h2, h3, h4, [class*="name" i], [class*="PlayerName" i]');
-        for (const h of headings) {
-          const text = h.innerText.trim();
-          if (text.length > 2 && text.length < 35 && !text.includes('\n')) {
-            let parentText = h.parentElement ? h.parentElement.innerText : '';
+        const all = document.querySelectorAll('div, span, h1, h2, h3, h4, p');
+        for (const el of all) {
+          if (el.children.length > 2) continue;
+          const text = el.innerText ? el.innerText.trim() : '';
+          if (text.length > 3 && text.length < 35 && !text.includes('\n')) {
+            let parentText = el.parentElement ? el.parentElement.innerText : '';
             const parentParts = parentText.split(/[\s\n]+/);
-            let team = 'FA';
-            let position = 'RB';
+            let team = '';
+            let position = '';
             let hasTeam = false;
             let hasPos = false;
             for (const p of parentParts) {
@@ -113,7 +121,13 @@ function scanForEspnState() {
               if (positions.has(pUpper)) { position = pUpper; hasPos = true; }
             }
             if (hasTeam && hasPos) {
-              return { name: text, team, position };
+              const parts = text.split(/\s+/);
+              if (parts.length >= 2 && parts.length <= 4) {
+                const isCapitalized = parts.every(p => p[0] === p[0].toUpperCase());
+                if (isCapitalized && !text.toUpperCase().includes('STATS') && !text.toUpperCase().includes('PROJECTED') && !text.toUpperCase().includes('BID') && !text.toUpperCase().includes('TEAM')) {
+                  return { name: text, team, position };
+                }
+              }
             }
           }
         }
@@ -264,10 +278,19 @@ function scanForEspnState() {
         }
       });
 
-      if (selections.length > 0) {
-        selections.sort((a, b) => a.overallPickNumber - b.overallPickNumber);
+      const currentNom = findCurrentNomination();
+      const isDraftPage = window.location.pathname.includes('/draft');
+
+      if (selections.length > 0 || (isDraftPage && currentNom)) {
+        if (selections.length > 0) {
+          selections.sort((a, b) => a.overallPickNumber - b.overallPickNumber);
+        }
         
-        const uniqueTeams = Array.from(new Set(selections.map(p => p.drafterTeamName)));
+        let uniqueTeams = Array.from(new Set(selections.map(p => p.drafterTeamName)));
+        if (uniqueTeams.length === 0) {
+          uniqueTeams = ["Team 1", "Team 2", "Team 3", "Team 4", "Team 5", "Team 6", "Team 7", "Team 8"];
+        }
+
         const teams = uniqueTeams.map((tName, index) => ({
           teamId: index + 1,
           teamName: tName,
@@ -295,7 +318,7 @@ function scanForEspnState() {
             draftDetail: {
               picks: finalPicks
             },
-            currentNomination: findCurrentNomination()
+            currentNomination: currentNom
           }
         };
       }
