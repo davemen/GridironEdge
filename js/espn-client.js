@@ -68,7 +68,7 @@ class ESPNClient {
         teamId: t.teamId,
         teamName: t.teamName,
         managerName: t.managerName,
-        faabRemaining: 100,
+        faabRemaining: typeof t.faabRemaining === 'number' ? t.faabRemaining : 200,
         roster: [],
         record: { wins: 0, losses: 0, ties: 0 },
         pointsScored: 0,
