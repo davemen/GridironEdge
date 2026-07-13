@@ -1198,18 +1198,46 @@ function renderChampionshipPage(league = store.getActiveLeague()) {
 
       // Threat assessment rivals list
       const threatBox = document.getElementById('sim-threat-assessment');
-      threatBox.innerHTML = `
-        <div style="display:flex; flex-direction:column; gap:0.5rem;">
-          <div style="padding:0.75rem; background:var(--accent-red-glow); border:1px solid rgba(255,23,68,0.2); border-radius:4px;">
-            <strong>Competitor: ${sim.rivalName}</strong>
-            <span style="font-size:0.8rem; display:block; color:var(--text-secondary); margin-top:0.25rem;">Simulation champion in 32.5% of remaining runs. Strongest roster depth.</span>
-          </div>
-          <div style="padding:0.75rem; background:var(--bg-surface); border:1px solid var(--border-color); border-radius:4px;">
-            <strong>Competitor: Red Zone Threat</strong>
-            <span style="font-size:0.8rem; display:block; color:var(--text-secondary); margin-top:0.25rem;">Simulation champion in 18.2% of runs. Dangerous WR stack.</span>
-          </div>
-        </div>
-      `;
+      threatBox.innerHTML = '';
+      
+      const threatContainer = document.createElement('div');
+      threatContainer.style.display = 'flex';
+      threatContainer.style.flexDirection = 'column';
+      threatContainer.style.gap = '0.5rem';
+
+      if (sim.competitors && sim.competitors.length > 0) {
+        sim.competitors.forEach((rival, index) => {
+          const item = document.createElement('div');
+          item.style.padding = '0.75rem';
+          item.style.borderRadius = '4px';
+          
+          if (index === 0) {
+            // Top rival gets high threat styling
+            item.style.background = 'var(--accent-red-glow)';
+            item.style.border = '1px solid rgba(255, 23, 68, 0.2)';
+            item.innerHTML = `
+              <strong>Competitor: ${rival.teamName}</strong>
+              <span style="font-size:0.8rem; display:block; color:var(--text-secondary); margin-top:0.25rem;">
+                Simulation champion in <strong>${rival.pct}%</strong> of remaining runs. Strongest rival threat.
+              </span>
+            `;
+          } else {
+            // Secondary rivals get standard surface styling
+            item.style.background = 'var(--bg-surface)';
+            item.style.border = '1px solid var(--border-color)';
+            item.innerHTML = `
+              <strong>Competitor: ${rival.teamName}</strong>
+              <span style="font-size:0.8rem; display:block; color:var(--text-secondary); margin-top:0.25rem;">
+                Simulation champion in <strong>${rival.pct}%</strong> of remaining runs.
+              </span>
+            `;
+          }
+          threatContainer.appendChild(item);
+        });
+      } else {
+        threatContainer.innerHTML = '<div class="empty-state">No major competitors identified.</div>';
+      }
+      threatBox.appendChild(threatContainer);
 
       hideLoading();
     }, 600);
