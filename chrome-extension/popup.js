@@ -61,6 +61,10 @@ async function scrapeEspnData() {
 // Scraper function that runs in the MAIN world to search for Redux state in the page JS
 function scanForEspnState() {
   try {
+    const urlParams = new URLSearchParams(window.location.search);
+    let leagueId = urlParams.get('leagueId') || urlParams.get('leagueid') || 'scraped-draft';
+    let season = urlParams.get('seasonId') || urlParams.get('seasonid') || new Date().getFullYear();
+
     function findStoreState() {
       // 1. Direct window objects
       if (window.__PRELOADED_STATE__) return window.__PRELOADED_STATE__;
@@ -80,18 +84,58 @@ function scanForEspnState() {
         }
       }
 
+      // Check if any object has Redux store shape
+      function isReduxStore(obj) {
+        return obj && typeof obj.getState === 'function' && typeof obj.dispatch === 'function' && typeof obj.subscribe === 'function';
+      }
+
+      // Helper to search properties of an object for a Redux store
+      function searchObjForStore(obj, visited = new Set()) {
+        if (!obj || typeof obj !== 'object' || visited.has(obj)) return null;
+        visited.add(obj);
+
+        if (isReduxStore(obj)) return obj;
+        if (isReduxStore(obj.store)) return obj.store;
+
+        try {
+          for (const k of Object.keys(obj)) {
+            try {
+              const val = obj[k];
+              if (isReduxStore(val)) return val;
+            } catch (e) {}
+          }
+        } catch (e) {}
+        return null;
+      }
+
       // 3. React Fiber tree search for Redux store
       const allElements = document.querySelectorAll('*');
+      const visitedFibers = new Set();
       for (const el of allElements) {
         const keys = Object.keys(el);
         const reactKey = keys.find(key => key.startsWith('__reactContainer$') || key.startsWith('__reactFiber$') || key.startsWith('__reactInternalInstance$'));
         if (reactKey) {
           let node = el[reactKey];
           while (node) {
-            const store = node.memoizedProps?.store || node.stateNode?.store || node.memoizedState?.store;
-            if (store && typeof store.getState === 'function') {
-              return store.getState();
-            }
+            if (visitedFibers.has(node)) break;
+            visitedFibers.add(node);
+
+            let store = searchObjForStore(node.memoizedProps) || 
+                        searchObjForStore(node.stateNode) || 
+                        searchObjForStore(node.memoizedState);
+            
+            if (store) return store.getState();
+
+            try {
+              let dep = node.dependencies;
+              while (dep) {
+                const s = searchObjForStore(dep.firstContext?.memoizedValue) || 
+                          searchObjForStore(dep.firstContext);
+                if (s) return s.getState();
+                dep = dep.next;
+              }
+            } catch (e) {}
+
             node = node.return;
           }
         }
@@ -100,8 +144,106 @@ function scanForEspnState() {
     }
 
     const rawState = findStoreState();
+    
+    // Fallback: If no React/Redux store state is found, scrape the HTML DOM for draft summary
     if (!rawState) {
-      return { success: false, error: 'Could not find ESPN draft state in window or React store.' };
+      const nflTeams = new Set(['DET', 'LAR', 'ATL', 'CIN', 'SEA', 'SF', 'GB', 'KC', 'BUF', 'DAL', 'PHI', 'MIA', 'NYJ', 'NE', 'LV', 'DEN', 'LAC', 'MIN', 'CHI', 'TB', 'NO', 'CAR', 'WAS', 'NYG', 'ARI', 'JAX', 'IND', 'TEN', 'HOU', 'BAL', 'PIT', 'CLE', 'FA']);
+      const positions = new Set(['QB', 'RB', 'WR', 'TE', 'D/ST', 'K', 'FLEX']);
+      
+      const elements = document.querySelectorAll('tr, [role="row"], [class*="row" i], [class*="item" i], div');
+      const selections = [];
+      const seenPicks = new Set();
+
+      elements.forEach(el => {
+        if (el.children.length > 8 || el.innerText.length > 150 || el.innerText.length < 10) return;
+        
+        const text = el.innerText.trim();
+        const parts = text.split(/[\s\n]+/).map(p => p.trim()).filter(Boolean);
+        if (parts.length < 3) return;
+        
+        let pick = -1;
+        let nameStartIdx = 1;
+        
+        const firstPartNum = parseInt(parts[0], 10);
+        if (!isNaN(firstPartNum) && firstPartNum > 0 && firstPartNum <= 300) {
+          pick = firstPartNum;
+          nameStartIdx = 1;
+        } else if (parts[0].toLowerCase() === 'pick' || parts[0].toLowerCase() === 'pk') {
+          const secondPartNum = parseInt(parts[1], 10);
+          if (!isNaN(secondPartNum) && secondPartNum > 0 && secondPartNum <= 300) {
+            pick = secondPartNum;
+            nameStartIdx = 2;
+          }
+        }
+
+        if (pick === -1 || seenPicks.has(pick)) return;
+
+        let teamIdx = -1;
+        let posIdx = -1;
+        for (let i = nameStartIdx; i < parts.length; i++) {
+          const pUpper = parts[i].toUpperCase();
+          if (nflTeams.has(pUpper)) teamIdx = i;
+          if (positions.has(pUpper)) posIdx = i;
+        }
+
+        if (teamIdx !== -1 && posIdx !== -1) {
+          seenPicks.add(pick);
+          
+          const endIdx = Math.min(teamIdx, posIdx);
+          const nameParts = parts.slice(nameStartIdx, endIdx);
+          const playerName = nameParts.join(' ');
+
+          const maxIdx = Math.max(teamIdx, posIdx);
+          const remaining = parts.slice(maxIdx + 1);
+          const drafterParts = remaining.filter(p => !p.startsWith('$') && !p.startsWith('-$') && isNaN(parseFloat(p)));
+          const drafterTeamName = drafterParts.join(' ') || `Team ${pick}`;
+
+          selections.push({
+            overallPickNumber: pick,
+            playerName,
+            playerTeam: parts[teamIdx],
+            playerPosition: parts[posIdx],
+            drafterTeamName
+          });
+        }
+      });
+
+      if (selections.length > 0) {
+        selections.sort((a, b) => a.overallPickNumber - b.overallPickNumber);
+        
+        const uniqueTeams = Array.from(new Set(selections.map(p => p.drafterTeamName)));
+        const teams = uniqueTeams.map((tName, index) => ({
+          teamId: index + 1,
+          teamName: tName,
+          managerName: `Manager ${index + 1}`
+        }));
+
+        const finalPicks = selections.map(p => {
+          const team = teams.find(t => t.teamName === p.drafterTeamName);
+          return {
+            overallPickNumber: p.overallPickNumber,
+            playerName: p.playerName,
+            drafterTeamId: team ? team.teamId : 1
+          };
+        });
+
+        return {
+          success: true,
+          isDOMScraped: true,
+          data: {
+            isDOMScraped: true,
+            leagueId,
+            season,
+            leagueName: document.title || 'ESPN Mock Draft Room',
+            teams,
+            draftDetail: {
+              picks: finalPicks
+            }
+          }
+        };
+      }
+
+      return { success: false, error: 'Could not find ESPN draft state in window, React store, or page DOM.' };
     }
 
     // Extract only necessary parts of the state to avoid serialization errors or excessive payload size

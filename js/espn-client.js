@@ -46,7 +46,7 @@ class ESPNClient {
   importScrapedPayload(jsonPayload) {
     try {
       const parsed = typeof jsonPayload === 'string' ? JSON.parse(jsonPayload) : jsonPayload;
-      if (!parsed.teams || !parsed.settings) {
+      if (!parsed.isDOMScraped && (!parsed.teams || !parsed.settings)) {
         throw new Error('Invalid scraped payload. Missing core structures.');
       }
       
@@ -59,10 +59,105 @@ class ESPNClient {
     }
   }
 
+  mapDOMScrapedLeague(espnData) {
+    const leagueId = String(espnData.leagueId);
+    
+    // Map teams
+    const teams = (espnData.teams || []).map(t => {
+      return {
+        teamId: t.teamId,
+        teamName: t.teamName,
+        managerName: t.managerName,
+        faabRemaining: 100,
+        roster: [],
+        record: { wins: 0, losses: 0, ties: 0 },
+        pointsScored: 0,
+        pointsAllowed: 0
+      };
+    });
+
+    // Match draft picks to players in mockPlayers database
+    const selections = [];
+    const db = mockPlayers;
+    
+    if (espnData.draftDetail && espnData.draftDetail.picks) {
+      espnData.draftDetail.picks.forEach(p => {
+        // Try finding a matching player by name in mockPlayers
+        let match = Object.values(db).find(pl => pl.name.toLowerCase() === p.playerName.toLowerCase());
+        
+        if (!match) {
+          // Substring match
+          match = Object.values(db).find(pl => {
+            const pName = p.playerName.toLowerCase();
+            const plName = pl.name.toLowerCase();
+            return pName.includes(plName) || plName.includes(pName);
+          });
+        }
+
+        if (match) {
+          selections.push({
+            pick: p.overallPickNumber,
+            playerId: String(match.id),
+            teamId: p.drafterTeamId
+          });
+          
+          // Dynamically populate roster for the team
+          const team = teams.find(t => t.teamId === p.drafterTeamId);
+          if (team) {
+            team.roster.push(String(match.id));
+          }
+        }
+      });
+    }
+
+    const draftState = {
+      draftType: 'snake',
+      draftOrder: teams.map(t => t.teamId),
+      currentPick: selections.length + 1,
+      selections: selections
+    };
+
+    const positionLimits = {
+      QB: 1,
+      RB: 2,
+      WR: 2,
+      TE: 1,
+      FLEX: 1,
+      "D/ST": 1,
+      K: 1,
+      BE: 7,
+      IR: 1,
+      startersCount: 9,
+      benchCount: 7
+    };
+
+    return {
+      leagueId,
+      leagueName: espnData.leagueName || 'Scraped ESPN Draft',
+      leagueSize: teams.length || 8,
+      myTeamId: 1, // Default user's team
+      scoringFormat: 'PPR',
+      rosterSettings: positionLimits,
+      waiverSettings: {
+        faabBudget: 100,
+        processingDays: ['Wednesday', 'Thursday'],
+        waiverType: 'FAAB'
+      },
+      teams,
+      schedule: [],
+      draftState,
+      transactionHistory: [],
+      playerDatabase: Object.assign({}, mockPlayers)
+    };
+  }
+
   /**
    * Maps ESPN's complex JSON into Gridiron Edge normalized schema.
    */
   mapESPNLeague(espnData) {
+    if (espnData.isDOMScraped) {
+      return this.mapDOMScrapedLeague(espnData);
+    }
     const settings = espnData.settings || {};
     const rosterSettings = settings.rosterSettings || {};
     const scheduleSettings = settings.scheduleSettings || {};
