@@ -1,5 +1,5 @@
 // Content script for Gridiron Edge ESPN Sync extension
-// Periodically scrapes the draft page and sends updates to the background service worker
+// Periodically scrapes the draft page (React store or DOM) and sends updates to the background service worker
 
 (function() {
   console.log("[Gridiron Edge Sync] Content script initialized.");
@@ -171,67 +171,185 @@
     return null;
   }
 
+  // --- React / Redux Store Scraper Helpers ---
+  function isReduxStore(obj) {
+    return obj && typeof obj.getState === 'function' && typeof obj.dispatch === 'function' && typeof obj.subscribe === 'function';
+  }
+
+  function searchObjForStore(obj, visited = new Set()) {
+    if (!obj || typeof obj !== 'object' || visited.has(obj)) return null;
+    visited.add(obj);
+
+    if (isReduxStore(obj)) return obj;
+    if (isReduxStore(obj.store)) return obj.store;
+
+    try {
+      for (const k of Object.keys(obj)) {
+        try {
+          const val = obj[k];
+          if (isReduxStore(val)) return val;
+        } catch (e) {}
+      }
+    } catch (e) {}
+    return null;
+  }
+
+  function findStoreState() {
+    if (window.__PRELOADED_STATE__) return window.__PRELOADED_STATE__;
+    if (window.espn?.draft) return window.espn.draft;
+
+    for (const key of Object.keys(window)) {
+      if (key.toLowerCase().includes('draft') || key.toLowerCase().includes('espn') || key.toLowerCase().includes('redux') || key.toLowerCase().includes('state')) {
+        try {
+          const val = window[key];
+          if (val && typeof val === 'object') {
+            if (val.picks || val.selections || val.teams || val.draftDetail || val.settings) {
+              return val;
+            }
+          }
+        } catch (e) {}
+      }
+    }
+
+    const allElements = document.querySelectorAll('*');
+    const visitedFibers = new Set();
+    for (const el of allElements) {
+      const keys = Object.keys(el);
+      const reactKey = keys.find(key => key.startsWith('__reactContainer$') || key.startsWith('__reactFiber$') || key.startsWith('__reactInternalInstance$'));
+      if (reactKey) {
+        let node = el[reactKey];
+        while (node) {
+          if (visitedFibers.has(node)) break;
+          visitedFibers.add(node);
+
+          let store = searchObjForStore(node.memoizedProps) || 
+                      searchObjForStore(node.stateNode) || 
+                      searchObjForStore(node.updateQueue) || 
+                      searchObjForStore(node.memoizedState);
+          if (store) {
+            const state = store.getState();
+            if (state) return state;
+          }
+          node = node.return;
+        }
+      }
+    }
+    return null;
+  }
+
+  function extractDataFromStore(state) {
+    if (!state) return null;
+    
+    let dState = state;
+    if (state.draft && typeof state.draft === 'object') dState = state.draft;
+    else if (state.draftroom && typeof state.draftroom === 'object') dState = state.draftroom;
+
+    let picksList = dState.picks || dState.selections || dState.draftDetail?.picks || [];
+    let teamsList = dState.teams || dState.draftDetail?.teams || dState.settings?.teams || [];
+
+    if (!picksList.length && !teamsList.length) {
+      return null;
+    }
+
+    const teams = teamsList.map(t => ({
+      teamId: t.teamId || t.id,
+      teamName: t.teamName || t.name || `Team ${t.teamId || t.id}`,
+      managerName: t.managerName || `Manager ${t.teamId || t.id}`
+    }));
+
+    const picks = picksList.map(p => ({
+      overallPickNumber: p.overallPickNumber || p.pickNumber || p.pick,
+      playerName: p.playerName || p.player?.fullName || p.name,
+      drafterTeamId: p.drafterTeamId || p.teamId || 1
+    }));
+
+    return { teams, picks };
+  }
+
   function checkAndSync() {
     try {
-      const selections = scrapeDraftDOM() || [];
+      let data = null;
+      const urlParams = new URLSearchParams(window.location.search);
+      let leagueId = urlParams.get('leagueId') || urlParams.get('leagueid') || 'scraped-draft';
+      let season = urlParams.get('seasonId') || urlParams.get('seasonid') || new Date().getFullYear();
       const currentNom = findCurrentNomination();
 
-      const isDraftPage = window.location.pathname.includes('/draft');
-      if (selections.length === 0 && !(isDraftPage && currentNom)) return;
+      // 1. Try React/Redux Store extraction
+      try {
+        const storeState = findStoreState();
+        const extracted = extractDataFromStore(storeState);
+        if (extracted) {
+          data = {
+            isDOMScraped: false,
+            leagueId,
+            season,
+            leagueName: document.title || 'ESPN Mock Draft Room',
+            teams: extracted.teams,
+            draftDetail: {
+              picks: extracted.picks
+            },
+            currentNomination: currentNom
+          };
+        }
+      } catch (e) {
+        console.warn("[Gridiron Edge Sync] Store extraction failed:", e.message);
+      }
 
-      const picksCount = selections.length;
+      // 2. Fallback to DOM scraper
+      if (!data) {
+        const selections = scrapeDraftDOM() || [];
+        const isDraftPage = window.location.pathname.includes('/draft');
+        if (selections.length === 0 && !(isDraftPage && currentNom)) return;
+
+        let uniqueTeams = Array.from(new Set(selections.map(p => p.drafterTeamName)));
+        if (uniqueTeams.length === 0) {
+          uniqueTeams = ["Team 1", "Team 2", "Team 3", "Team 4", "Team 5", "Team 6", "Team 7", "Team 8"];
+        }
+
+        const teams = uniqueTeams.map((tName, index) => ({
+          teamId: index + 1,
+          teamName: tName,
+          managerName: `Manager ${index + 1}`
+        }));
+
+        const finalPicks = selections.map(p => {
+          const team = teams.find(t => t.teamName === p.drafterTeamName);
+          return {
+            overallPickNumber: p.overallPickNumber,
+            playerName: p.playerName,
+            drafterTeamId: team ? team.teamId : 1
+          };
+        });
+
+        data = {
+          isDOMScraped: true,
+          leagueId,
+          season,
+          leagueName: document.title || 'ESPN Mock Draft Room',
+          teams,
+          draftDetail: {
+            picks: finalPicks
+          },
+          currentNomination: currentNom
+        };
+      }
+
+      // Deduplicate Sync triggers
+      const picksCount = data.draftDetail.picks.length;
       const nomName = currentNom ? currentNom.name : '';
       const syncKey = `${picksCount}_${nomName}`;
 
       if (lastSyncKey === syncKey) {
-        return; // State unchanged
+        return;
       }
 
       lastSyncKey = syncKey;
-      console.log("[Gridiron Edge Sync] Auto-sync detected change. Sending update...", syncKey);
+      console.log("[Gridiron Edge Sync] Auto-sync detected changes. Syncing...", syncKey, "isDOMScraped:", data.isDOMScraped);
 
-      // Extract query parameters for ID context
-      const urlParams = new URLSearchParams(window.location.search);
-      let leagueId = urlParams.get('leagueId') || urlParams.get('leagueid') || 'scraped-draft';
-      let season = urlParams.get('seasonId') || urlParams.get('seasonid') || new Date().getFullYear();
-
-      // Group unique drafter teams
-      let uniqueTeams = Array.from(new Set(selections.map(p => p.drafterTeamName)));
-      if (uniqueTeams.length === 0) {
-        uniqueTeams = ["Team 1", "Team 2", "Team 3", "Team 4", "Team 5", "Team 6", "Team 7", "Team 8"];
-      }
-
-      const teams = uniqueTeams.map((tName, index) => ({
-        teamId: index + 1,
-        teamName: tName,
-        managerName: `Manager ${index + 1}`
-      }));
-
-      const finalPicks = selections.map(p => {
-        const team = teams.find(t => t.teamName === p.drafterTeamName);
-        return {
-          overallPickNumber: p.overallPickNumber,
-          playerName: p.playerName,
-          drafterTeamId: team ? team.teamId : 1
-        };
-      });
-
-      const data = {
-        isDOMScraped: true,
-        leagueId,
-        season,
-        leagueName: document.title || 'ESPN Mock Draft Room',
-        teams,
-        draftDetail: {
-          picks: finalPicks
-        },
-        currentNomination: currentNom
-      };
-
-      // Direct IPC dispatch to MV3 background service worker
+      // Send to background service worker
       chrome.runtime.sendMessage({ action: 'sync', data });
     } catch (err) {
-      console.warn("[Gridiron Edge Sync] Check error:", err.message);
+      console.warn("[Gridiron Edge Sync] Sync loop check error:", err.message);
     }
   }
 
