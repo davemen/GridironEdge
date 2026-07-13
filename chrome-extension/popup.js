@@ -203,6 +203,42 @@ function scanForEspnState() {
         }
       }
 
+      function scrapeTeamsAndBudgets() {
+        const teams = [];
+        try {
+          const elements = document.querySelectorAll('div');
+          const seenTeams = new Set();
+          
+          elements.forEach(el => {
+            if (!el || el.children.length > 5) return;
+            const text = el.innerText ? el.innerText.trim() : '';
+            if (!text || text.length > 100 || text.length < 5) return;
+            
+            const lines = text.split('\n');
+            if (lines.length >= 2) {
+              let nameLine = lines[0].trim();
+              let budgetLine = lines[1].trim();
+              
+              nameLine = nameLine.replace(/^\d+\.\s*/, '');
+              
+              if (budgetLine.startsWith('$')) {
+                const budgetVal = parseInt(budgetLine.replace('$', ''), 10);
+                if (!isNaN(budgetVal) && budgetVal >= 0 && budgetVal <= 260) {
+                  if (nameLine.length > 2 && nameLine.length < 30 && !seenTeams.has(nameLine)) {
+                    seenTeams.add(nameLine);
+                    teams.push({
+                      teamName: nameLine,
+                      budget: budgetVal
+                    });
+                  }
+                }
+              }
+            }
+          });
+        } catch (e) {}
+        return teams;
+      }
+
       // Check if any object has Redux store shape
       function isReduxStore(obj) {
         return obj && typeof obj.getState === 'function' && typeof obj.dispatch === 'function' && typeof obj.subscribe === 'function';
@@ -347,11 +383,18 @@ function scanForEspnState() {
           uniqueTeams = ["Team 1", "Team 2", "Team 3", "Team 4", "Team 5", "Team 6", "Team 7", "Team 8"];
         }
 
-        const teams = uniqueTeams.map((tName, index) => ({
-          teamId: index + 1,
-          teamName: tName,
-          managerName: `Manager ${index + 1}`
-        }));
+        const scrapedBudgets = scrapeTeamsAndBudgets();
+
+        const teams = uniqueTeams.map((tName, index) => {
+          const budgetMatch = scrapedBudgets.find(b => b.teamName.toLowerCase() === tName.toLowerCase() || tName.toLowerCase().includes(b.teamName.toLowerCase()) || b.teamName.toLowerCase().includes(tName.toLowerCase()));
+          const budget = budgetMatch ? budgetMatch.budget : 200;
+          return {
+            teamId: index + 1,
+            teamName: tName,
+            managerName: `Manager ${index + 1}`,
+            faabRemaining: budget
+          };
+        });
 
         const finalPicks = selections.map(p => {
           const team = teams.find(t => t.teamName === p.drafterTeamName);
