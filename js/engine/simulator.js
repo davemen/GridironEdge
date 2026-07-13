@@ -21,7 +21,7 @@ export function runSeasonSimulation(league, runs = 1000) {
   }
 
   // Helper to calculate a team's dynamic weekly projected score
-  const calculateTeamProjection = (team, isWindy = false) => {
+  const calculateTeamProjection = (team, week = null, isWindy = false) => {
     if (!team || !team.roster || team.roster.length === 0) return 105.0; // fallback
 
     const rosterPlayers = team.roster.map(pid => db[pid]).filter(Boolean);
@@ -48,6 +48,9 @@ export function runSeasonSimulation(league, runs = 1000) {
 
       rosterPlayers.forEach(p => {
         if (allocatedIds.has(p.id)) return;
+
+        // Skip players on bye weeks
+        if (week !== null && p.byeWeek === week) return;
         
         // Match position
         const isMatch = slot.isFlex 
@@ -127,13 +130,18 @@ export function runSeasonSimulation(league, runs = 1000) {
     return totalTeamProj > 0 ? totalTeamProj : 105.0;
   };
 
-  // Pre-calculate normal and windy projections for all teams
-  const teamProjectionsNormal = {};
-  const teamProjectionsWindy = {};
-  teams.forEach(t => {
-    teamProjectionsNormal[t.teamId] = calculateTeamProjection(t, false);
-    teamProjectionsWindy[t.teamId] = calculateTeamProjection(t, true);
-  });
+  // Pre-calculate normal and windy projections per week for all teams (Weeks 5-14)
+  const teamProjectionsPerWeek = {};
+  for (let w = 5; w <= 14; w++) {
+    teamProjectionsPerWeek[w] = {
+      normal: {},
+      windy: {}
+    };
+    teams.forEach(t => {
+      teamProjectionsPerWeek[w].normal[t.teamId] = calculateTeamProjection(t, w, false);
+      teamProjectionsPerWeek[w].windy[t.teamId] = calculateTeamProjection(t, w, true);
+    });
+  }
 
   // Count wins/losses from initial record state
   const initialWins = {};
@@ -171,7 +179,8 @@ export function runSeasonSimulation(league, runs = 1000) {
 
       // Simulate a 10% chance of adverse weather (high wind/rain) for each matchup
       const isWindyMatchup = Math.random() < 0.10;
-      const projections = isWindyMatchup ? teamProjectionsWindy : teamProjectionsNormal;
+      const weekProjections = teamProjectionsPerWeek[matchup.week] || { normal: {}, windy: {} };
+      const projections = isWindyMatchup ? weekProjections.windy : weekProjections.normal;
 
       let team1Proj = projections[matchup.team1Id] || 105.0;
       let team2Proj = projections[matchup.team2Id] || 105.0;
