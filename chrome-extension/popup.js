@@ -301,12 +301,31 @@ function scanForEspnState() {
 
     const rawState = findStoreState();
     
+    function findDraftSummaryContainer() {
+      const containers = document.querySelectorAll('div, table, tbody');
+      for (const el of containers) {
+        if (!el || el.children.length === 0) continue;
+        const text = el.innerText ? el.innerText.trim() : '';
+        if (text.includes('Round 1') && text.includes('PLAYER') && text.includes('TEAM') && (text.includes('PROJ PTS') || text.includes('PTS'))) {
+          if (text.length < 15000 && !text.includes('No players in queue')) {
+            return el;
+          }
+        }
+      }
+      return null;
+    }
+
     // Fallback: If no React/Redux store state is found, scrape the HTML DOM for draft summary
     if (!rawState) {
+      const container = findDraftSummaryContainer();
+      if (!container) {
+        return { success: false, error: 'Draft Summary tab is not active. Switch to Draft Summary tab to scrape picks.' };
+      }
+
       const nflTeams = new Set(['DET', 'LAR', 'ATL', 'CIN', 'SEA', 'SF', 'GB', 'KC', 'BUF', 'DAL', 'PHI', 'MIA', 'NYJ', 'NE', 'LV', 'DEN', 'LAC', 'MIN', 'CHI', 'TB', 'NO', 'CAR', 'WAS', 'NYG', 'ARI', 'JAX', 'IND', 'TEN', 'HOU', 'BAL', 'PIT', 'CLE', 'FA']);
       const positions = new Set(['QB', 'RB', 'WR', 'TE', 'D/ST', 'K', 'FLEX']);
       
-      const elements = document.querySelectorAll('tr, [role="row"], [class*="row" i], [class*="item" i], div');
+      const elements = container.querySelectorAll('tr, [role="row"], [class*="row" i], [class*="item" i], div');
       const selections = [];
       const seenPicks = new Set();
 
