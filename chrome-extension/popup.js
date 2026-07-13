@@ -3,39 +3,59 @@ const syncBtn = document.getElementById('sync-btn');
 
 // Scraper function that runs in the context of the active ESPN tab
 async function scrapeEspnData() {
-  const views = ['mSettings', 'mRoster', 'mTeam', 'mMatchup', 'mMatchupScore', 'mStandings', 'mTransactionHistory'];
-  
-  // Try parsing query params first (robust for both league home and draft pages)
-  const urlParams = new URLSearchParams(window.location.search);
-  let leagueId = urlParams.get('leagueId') || urlParams.get('leagueid');
-  let season = urlParams.get('seasonId') || urlParams.get('seasonid') || new Date().getFullYear();
+  try {
+    const views = ['mSettings', 'mRoster', 'mTeam', 'mMatchup', 'mMatchupScore', 'mStandings', 'mTransactionHistory'];
+    
+    // Try parsing query params first (robust for both league home and draft pages)
+    const urlParams = new URLSearchParams(window.location.search);
+    let leagueId = urlParams.get('leagueId') || urlParams.get('leagueid');
+    let season = urlParams.get('seasonId') || urlParams.get('seasonid') || new Date().getFullYear();
 
-  // Fallback: Try parsing from path if query parameters are missing
-  const pathParts = window.location.pathname.split('/');
-  if (!leagueId) {
-    const leaguesIdx = pathParts.indexOf('leagues');
-    if (leaguesIdx !== -1 && pathParts[leaguesIdx + 1]) {
-      leagueId = pathParts[leaguesIdx + 1];
+    // Fallback: Try parsing from path if query parameters are missing
+    const pathParts = window.location.pathname.split('/');
+    if (!leagueId) {
+      const leaguesIdx = pathParts.indexOf('leagues');
+      if (leaguesIdx !== -1 && pathParts[leaguesIdx + 1]) {
+        leagueId = pathParts[leaguesIdx + 1];
+      }
     }
-  }
-  if (!urlParams.get('seasonId') && !urlParams.get('seasonid')) {
-    const fflIdx = pathParts.indexOf('ffl');
-    if (fflIdx !== -1 && pathParts[fflIdx + 1]) {
-      season = pathParts[fflIdx + 1];
+    if (!urlParams.get('seasonId') && !urlParams.get('seasonid')) {
+      const fflIdx = pathParts.indexOf('ffl');
+      if (fflIdx !== -1 && pathParts[fflIdx + 1]) {
+        season = pathParts[fflIdx + 1];
+      }
     }
-  }
 
-  if (!leagueId) {
-    throw new Error('League ID not found in URL. Make sure you are on fantasy.espn.com league home page.');
-  }
+    if (!leagueId) {
+      throw new Error('League ID not found in URL. Make sure you are on fantasy.espn.com league home page.');
+    }
 
-  const url = `https://fantasy.espn.com/apis/v3/games/ffl/seasons/${season}/segments/0/leagues/${leagueId}?view=${views.join('&view=')}`;
-  
-  const response = await fetch(url);
-  if (!response.ok) {
-    throw new Error(`HTTP Status: ${response.status}`);
+    let url = `https://fantasy.espn.com/apis/v3/games/ffl/seasons/${season}/segments/0/leagues/${leagueId}?view=${views.join('&view=')}`;
+    
+    let response = await fetch(url);
+    
+    // Check for redirects to landing page (indicating unauthorized/invalid league)
+    if (response.redirected && response.url.includes('/fantasy/')) {
+      throw new Error('ESPN redirected the request. This league ID may not exist or require session authorization.');
+    }
+
+    if (!response.ok) {
+      // Fallback: Try minimal views in case matchup/standings are not yet generated
+      const fallbackViews = ['mSettings', 'mRoster', 'mTeam', 'mDraftDetail'];
+      const fallbackUrl = `https://fantasy.espn.com/apis/v3/games/ffl/seasons/${season}/segments/0/leagues/${leagueId}?view=${fallbackViews.join('&view=')}`;
+      const fallbackResponse = await fetch(fallbackUrl);
+      
+      if (!fallbackResponse.ok) {
+        throw new Error(`ESPN API returned status: ${response.status} (Fallback: ${fallbackResponse.status})`);
+      }
+      response = fallbackResponse;
+    }
+
+    const data = await response.json();
+    return { success: true, data };
+  } catch (err) {
+    return { success: false, error: err.message };
   }
-  return await response.json();
 }
 
 document.addEventListener('DOMContentLoaded', async () => {
@@ -67,10 +87,15 @@ document.addEventListener('DOMContentLoaded', async () => {
         });
 
         if (!results || results.length === 0 || !results[0].result) {
-          throw new Error('Failed to retrieve league data from tab.');
+          throw new Error('Failed to retrieve league data from tab (empty result).');
         }
 
         const payload = results[0].result;
+        if (!payload.success) {
+          throw new Error(payload.error);
+        }
+
+        const data = payload.data;
         statusEl.innerHTML = 'Sending to local server...';
 
         try {
@@ -78,7 +103,7 @@ document.addEventListener('DOMContentLoaded', async () => {
           const response = await fetch('http://localhost:8000/sync', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(payload)
+            body: JSON.stringify(data)
           });
 
           if (response.ok) {
@@ -88,7 +113,7 @@ document.addEventListener('DOMContentLoaded', async () => {
           }
         } catch (serverErr) {
           // Fallback: Copy to clipboard
-          await navigator.clipboard.writeText(JSON.stringify(payload));
+          await navigator.clipboard.writeText(JSON.stringify(data));
           statusEl.innerHTML = '<span style="color:#00e5ff;">Copied to clipboard! (Local server offline)</span>';
         }
       } catch (err) {
