@@ -1,8 +1,8 @@
-// Content script for Gridiron Edge ESPN Sync extension
-// Periodically scrapes the draft page (React store or DOM) and sends updates to the background service worker
+// Main world content script for Gridiron Edge ESPN Sync extension
+// Accesses the page's React/Redux store directly and posts updates to the isolated content script
 
 (function() {
-  console.log("[Gridiron Edge Sync] Content script initialized.");
+  console.log("[Gridiron Edge Sync] Main world script initialized.");
 
   let lastSyncKey = null;
 
@@ -171,7 +171,6 @@
     return null;
   }
 
-  // --- React / Redux Store Scraper Helpers ---
   function isReduxStore(obj) {
     return obj && typeof obj.getState === 'function' && typeof obj.dispatch === 'function' && typeof obj.subscribe === 'function';
   }
@@ -274,7 +273,7 @@
       let season = urlParams.get('seasonId') || urlParams.get('seasonid') || new Date().getFullYear();
       const currentNom = findCurrentNomination();
 
-      // 1. Try React/Redux Store extraction
+      // 1. Try React store extraction
       try {
         const storeState = findStoreState();
         const extracted = extractDataFromStore(storeState);
@@ -295,7 +294,7 @@
         console.warn("[Gridiron Edge Sync] Store extraction failed:", e.message);
       }
 
-      // 2. Fallback to DOM scraper
+      // 2. Fallback to DOM Scraper
       if (!data) {
         const selections = scrapeDraftDOM() || [];
         const isDraftPage = window.location.pathname.includes('/draft');
@@ -334,7 +333,6 @@
         };
       }
 
-      // Deduplicate Sync triggers
       const picksCount = data.draftDetail.picks.length;
       const nomName = currentNom ? currentNom.name : '';
       const syncKey = `${picksCount}_${nomName}`;
@@ -344,12 +342,12 @@
       }
 
       lastSyncKey = syncKey;
-      console.log("[Gridiron Edge Sync] Auto-sync detected changes. Syncing...", syncKey, "isDOMScraped:", data.isDOMScraped);
+      console.log("[Gridiron Edge Sync] Auto-sync detected change. Dispatching postMessage...", syncKey, "isDOMScraped:", data.isDOMScraped);
 
-      // Send to background service worker
-      chrome.runtime.sendMessage({ action: 'sync', data });
+      // Dispatch to the window for content-isolated.js to pick up
+      window.postMessage({ type: 'GRIDIRON_EDGE_SYNC', data }, '*');
     } catch (err) {
-      console.warn("[Gridiron Edge Sync] Sync loop check error:", err.message);
+      console.warn("[Gridiron Edge Sync] Sync loop error:", err.message);
     }
   }
 
