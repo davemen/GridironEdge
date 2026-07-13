@@ -12,34 +12,49 @@
 
 // Raw Bookmarklet Code:
 /*
-javascript:(function(){
+javascript:(async function(){
   const views = ['mSettings', 'mRoster', 'mTeam', 'mMatchup', 'mMatchupScore', 'mStandings', 'mTransactionHistory'];
-  const parts = window.location.pathname.split('/');
-  const leagueIdIdx = parts.indexOf('leagues');
-  if(leagueIdIdx === -1){
-    alert('Error: Gridiron Edge could not find your League ID. Make sure you are on fantasy.espn.com league homepage!');
+  const urlParams = new URLSearchParams(window.location.search);
+  let leagueId = urlParams.get('leagueId') || urlParams.get('leagueid');
+  let season = urlParams.get('seasonId') || urlParams.get('seasonid') || new Date().getFullYear();
+
+  if (!leagueId) {
+    const parts = window.location.pathname.split('/');
+    const leagueIdIdx = parts.indexOf('leagues');
+    if (leagueIdIdx !== -1 && parts[leagueIdIdx + 1]) {
+      leagueId = parts[leagueIdIdx + 1];
+    }
+  }
+
+  if (!urlParams.get('seasonId') && !urlParams.get('seasonid')) {
+    const parts = window.location.pathname.split('/');
+    const fflIdx = parts.indexOf('ffl');
+    if (fflIdx !== -1 && parts[fflIdx + 1]) {
+      season = parts[fflIdx + 1];
+    }
+  }
+
+  if(!leagueId){
+    alert('Error: Gridiron Edge could not find your League ID. Make sure you are on fantasy.espn.com league page or draft page!');
     return;
   }
-  const leagueId = parts[leagueIdIdx + 1];
-  const season = parts[parts.indexOf('ffl') + 1] || new Date().getFullYear();
+
   const url = 'https://fantasy.espn.com/apis/v3/games/ffl/seasons/' + season + '/segments/0/leagues/' + leagueId + '?view=' + views.join('&view=');
   
-  fetch(url)
-    .then(response => {
-      if (!response.ok) throw new Error('Status: ' + response.status);
-      return response.json();
-    })
-    .then(data => {
-      const textarea = document.createElement('textarea');
-      textarea.value = JSON.stringify(data);
-      document.body.appendChild(textarea);
-      textarea.select();
-      document.execCommand('copy');
-      document.body.removeChild(textarea);
-      alert('League payload successfully copied to clipboard! Return to Gridiron Edge and paste it in.');
-    })
-    .catch(err => {
-      alert('Error extracting ESPN league data: ' + err.message + '. Make sure you are signed in and viewing your league.');
-    });
+  try {
+    const response = await fetch(url);
+    if (!response.ok) throw new Error('Status: ' + response.status);
+    const data = await response.json();
+    
+    const textarea = document.createElement('textarea');
+    textarea.value = JSON.stringify(data);
+    document.body.appendChild(textarea);
+    textarea.select();
+    document.execCommand('copy');
+    document.body.removeChild(textarea);
+    alert('League payload successfully copied to clipboard! Return to Gridiron Edge and paste it in.');
+  } catch (err) {
+    alert('Error extracting ESPN league data: ' + err.message + '. Make sure you are signed in and viewing your league.');
+  }
 })();
 */
