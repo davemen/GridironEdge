@@ -723,7 +723,7 @@ function renderDraftPage(league = store.getActiveLeague()) {
       <td><strong>${p.name}</strong></td>
       <td><span class="badge-solid badge-cyan">${p.position}</span></td>
       <td>${p.team}</td>
-      <td>${p.projectedPoints.toFixed(1)}</td>
+      <td><span style="display:inline-flex; align-items:center;">${p.projectedPoints.toFixed(1)}${generateSparkline(p.matchProjs)}</span></td>
       <td>${p.adp.toFixed(1)}</td>
       <td><span class="badge-solid ${avBadge}">${avPct}%</span></td>
       <td>
@@ -820,7 +820,7 @@ function renderRosterPage(league = store.getActiveLeague()) {
         </div>
       `;
       opp = s.player.opponent ? `vs ${s.player.opponent}` : 'FA';
-      proj = s.player.projectedPoints.toFixed(1);
+      proj = `<span style="display:inline-flex; align-items:center;">${s.player.projectedPoints.toFixed(1)}${generateSparkline(s.player.matchProjs)}</span>`;
       badge = `<span class="badge-solid badge-cyan">Starter</span>`;
     }
 
@@ -853,7 +853,7 @@ function renderRosterPage(league = store.getActiveLeague()) {
         </div>
       </div>
       <span class="player-opponent">${b.opponent ? `vs ${b.opponent}` : 'FA'}</span>
-      <span class="player-proj">${b.projectedPoints.toFixed(1)}</span>
+      <span class="player-proj" style="display:inline-flex; align-items:center;">${b.projectedPoints.toFixed(1)}${generateSparkline(b.matchProjs)}</span>
       <div class="player-status" style="text-align:right;">
         <span class="badge-solid badge-gold" style="background:transparent; border-color:var(--text-muted); color:var(--text-secondary);">Bench</span>
       </div>
@@ -1322,4 +1322,35 @@ function showLoading(text) {
 
 function hideLoading() {
   loadingOverlay.classList.remove('active');
+}
+
+// Helper to generate an inline SVG sparkline for a player's weekly projection trends
+function generateSparkline(matchProjs) {
+  if (!matchProjs) return '';
+  const values = [matchProjs.w1, matchProjs.w2, matchProjs.w3, matchProjs.w4, matchProjs.w5].filter(v => v !== undefined);
+  if (values.length < 2) return '';
+
+  const width = 45;
+  const height = 14;
+  const padding = 1;
+
+  const min = Math.min(...values);
+  const max = Math.max(...values);
+  const range = max - min === 0 ? 1 : max - min;
+
+  const points = values.map((val, index) => {
+    const x = padding + (index / (values.length - 1)) * (width - 2 * padding);
+    const y = height - padding - ((val - min) / range) * (height - 2 * padding);
+    return `${x.toFixed(1)},${y.toFixed(1)}`;
+  });
+
+  const path = points.join(' ');
+  const color = values[values.length - 1] >= values[0] ? '#00e676' : '#ff1744';
+
+  return `
+    <svg width="${width}" height="${height}" style="vertical-align: middle; margin-left: 0.35rem; display: inline-block;" title="Trend: ${values.join(' ➔ ')}">
+      <polyline fill="none" stroke="${color}" stroke-width="1.5" points="${path}" />
+      <circle cx="${points[points.length - 1].split(',')[0]}" cy="${points[points.length - 1].split(',')[1]}" r="1.5" fill="${color}" />
+    </svg>
+  `;
 }
