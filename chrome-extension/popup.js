@@ -155,9 +155,9 @@ function scanForEspnState() {
       const seenPicks = new Set();
 
       elements.forEach(el => {
-        if (el.children.length > 8 || el.innerText.length > 150 || el.innerText.length < 10) return;
-        
+        if (!el || typeof el.innerText !== 'string') return;
         const text = el.innerText.trim();
+        if (el.children.length > 8 || text.length > 150 || text.length < 10) return;
         const parts = text.split(/[\s\n]+/).map(p => p.trim()).filter(Boolean);
         if (parts.length < 3) return;
         
