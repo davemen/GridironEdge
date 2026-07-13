@@ -1,0 +1,176 @@
+{
+  "draftDetail": {
+    "picks": [
+      {
+        "drafterTeamId": 1,
+        "overallPickNumber": 1,
+        "playerName": "Jahmyr Gibbs"
+      },
+      {
+        "drafterTeamId": 1,
+        "overallPickNumber": 2,
+        "playerName": "Puka Nacua"
+      },
+      {
+        "drafterTeamId": 1,
+        "overallPickNumber": 3,
+        "playerName": "Bijan Robinson"
+      },
+      {
+        "drafterTeamId": 1,
+        "overallPickNumber": 4,
+        "playerName": "Ja'Marr Chase"
+      },
+      {
+        "drafterTeamId": 1,
+        "overallPickNumber": 5,
+        "playerName": "Jaxon Smith-Njigba"
+      },
+      {
+        "drafterTeamId": 1,
+        "overallPickNumber": 6,
+        "playerName": "Christian McCaffrey"
+      },
+      {
+        "drafterTeamId": 1,
+        "overallPickNumber": 7,
+        "playerName": "Amon-Ra St. Brown"
+      },
+      {
+        "drafterTeamId": 1,
+        "overallPickNumber": 8,
+        "playerName": "Jonathan Taylor"
+      },
+      {
+        "drafterTeamId": 1,
+        "overallPickNumber": 9,
+        "playerName": "Justin Jefferson"
+      },
+      {
+        "drafterTeamId": 1,
+        "overallPickNumber": 10,
+        "playerName": "Rashee Rice Q"
+      },
+      {
+        "drafterTeamId": 1,
+        "overallPickNumber": 11,
+        "playerName": "CeeDee Lamb"
+      },
+      {
+        "drafterTeamId": 1,
+        "overallPickNumber": 12,
+        "playerName": "De'Von Achane Q"
+      },
+      {
+        "drafterTeamId": 1,
+        "overallPickNumber": 13,
+        "playerName": "Drake London Q"
+      },
+      {
+        "drafterTeamId": 2,
+        "overallPickNumber": 14,
+        "playerName": "Jeremiyah Love"
+      },
+      {
+        "drafterTeamId": 1,
+        "overallPickNumber": 15,
+        "playerName": "Omarion Hampton"
+      },
+      {
+        "drafterTeamId": 1,
+        "overallPickNumber": 16,
+        "playerName": "Trey McBride"
+      },
+      {
+        "drafterTeamId": 1,
+        "overallPickNumber": 17,
+        "playerName": "Ashton Jeanty"
+      },
+      {
+        "drafterTeamId": 1,
+        "overallPickNumber": 18,
+        "playerName": "Saquon Barkley"
+      },
+      {
+        "drafterTeamId": 1,
+        "overallPickNumber": 19,
+        "playerName": "James Cook III"
+      },
+      {
+        "drafterTeamId": 1,
+        "overallPickNumber": 20,
+        "playerName": "Chase Brown"
+      },
+      {
+        "drafterTeamId": 1,
+        "overallPickNumber": 21,
+        "playerName": "Josh Jacobs"
+      },
+      {
+        "drafterTeamId": 1,
+        "overallPickNumber": 22,
+        "playerName": "Derrick Henry"
+      },
+      {
+        "drafterTeamId": 1,
+        "overallPickNumber": 23,
+        "playerName": "Brock Bowers"
+      },
+      {
+        "drafterTeamId": 1,
+        "overallPickNumber": 24,
+        "playerName": "Breece Hall"
+      },
+      {
+        "drafterTeamId": 1,
+        "overallPickNumber": 25,
+        "playerName": "Nico Collins"
+      },
+      {
+        "drafterTeamId": 1,
+        "overallPickNumber": 26,
+        "playerName": "Garrett Wilson"
+      },
+      {
+        "drafterTeamId": 1,
+        "overallPickNumber": 27,
+        "playerName": "A.J. Brown"
+      },
+      {
+        "drafterTeamId": 1,
+        "overallPickNumber": 28,
+        "playerName": "Kenneth Walker III"
+      },
+      {
+        "drafterTeamId": 1,
+        "overallPickNumber": 29,
+        "playerName": "Josh Allen"
+      },
+      {
+        "drafterTeamId": 1,
+        "overallPickNumber": 30,
+        "playerName": "Chris Olave"
+      }
+    ]
+  },
+  "isDOMScraped": true,
+  "leagueId": "700223416",
+  "leagueName": "Fantasy Football Draft - ESPN",
+  "season": "2026",
+  "teams": [
+    {
+      "managerName": "Manager 1",
+      "teamId": 1,
+      "teamName": "Team"
+    },
+    {
+      "managerName": "Manager 2",
+      "teamId": 2,
+      "teamName": "Team -"
+    }
+  ],
+  "id": "700223416",
+  "settings": {
+    "leagueId": "700223416"
+  }
+}

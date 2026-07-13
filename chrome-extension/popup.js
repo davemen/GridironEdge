@@ -52,6 +52,34 @@ async function scrapeEspnData() {
     }
 
     const data = await response.json();
+    
+    // Find current nomination details inside the page context
+    try {
+      const nflTeams = new Set(['DET', 'LAR', 'ATL', 'CIN', 'SEA', 'SF', 'GB', 'KC', 'BUF', 'DAL', 'PHI', 'MIA', 'NYJ', 'NE', 'LV', 'DEN', 'LAC', 'MIN', 'CHI', 'TB', 'NO', 'CAR', 'WAS', 'NYG', 'ARI', 'JAX', 'IND', 'TEN', 'HOU', 'BAL', 'PIT', 'CLE', 'FA']);
+      const positions = new Set(['QB', 'RB', 'WR', 'TE', 'D/ST', 'K', 'FLEX']);
+      const headings = document.querySelectorAll('h1, h2, h3, h4, [class*="name" i], [class*="PlayerName" i]');
+      for (const h of headings) {
+        const text = h.innerText.trim();
+        if (text.length > 2 && text.length < 35 && !text.includes('\n')) {
+          let parentText = h.parentElement ? h.parentElement.innerText : '';
+          const parentParts = parentText.split(/[\s\n]+/);
+          let team = 'FA';
+          let position = 'RB';
+          let hasTeam = false;
+          let hasPos = false;
+          for (const p of parentParts) {
+            const pUpper = p.toUpperCase();
+            if (nflTeams.has(pUpper)) { team = pUpper; hasTeam = true; }
+            if (positions.has(pUpper)) { position = pUpper; hasPos = true; }
+          }
+          if (hasTeam && hasPos) {
+            data.currentNomination = { name: text, team, position };
+            break;
+          }
+        }
+      }
+    } catch (e) {}
+
     return { success: true, data };
   } catch (err) {
     return { success: false, error: err.message };
@@ -64,6 +92,34 @@ function scanForEspnState() {
     const urlParams = new URLSearchParams(window.location.search);
     let leagueId = urlParams.get('leagueId') || urlParams.get('leagueid') || 'scraped-draft';
     let season = urlParams.get('seasonId') || urlParams.get('seasonid') || new Date().getFullYear();
+
+    function findCurrentNomination() {
+      try {
+        const nflTeams = new Set(['DET', 'LAR', 'ATL', 'CIN', 'SEA', 'SF', 'GB', 'KC', 'BUF', 'DAL', 'PHI', 'MIA', 'NYJ', 'NE', 'LV', 'DEN', 'LAC', 'MIN', 'CHI', 'TB', 'NO', 'CAR', 'WAS', 'NYG', 'ARI', 'JAX', 'IND', 'TEN', 'HOU', 'BAL', 'PIT', 'CLE', 'FA']);
+        const positions = new Set(['QB', 'RB', 'WR', 'TE', 'D/ST', 'K', 'FLEX']);
+        const headings = document.querySelectorAll('h1, h2, h3, h4, [class*="name" i], [class*="PlayerName" i]');
+        for (const h of headings) {
+          const text = h.innerText.trim();
+          if (text.length > 2 && text.length < 35 && !text.includes('\n')) {
+            let parentText = h.parentElement ? h.parentElement.innerText : '';
+            const parentParts = parentText.split(/[\s\n]+/);
+            let team = 'FA';
+            let position = 'RB';
+            let hasTeam = false;
+            let hasPos = false;
+            for (const p of parentParts) {
+              const pUpper = p.toUpperCase();
+              if (nflTeams.has(pUpper)) { team = pUpper; hasTeam = true; }
+              if (positions.has(pUpper)) { position = pUpper; hasPos = true; }
+            }
+            if (hasTeam && hasPos) {
+              return { name: text, team, position };
+            }
+          }
+        }
+      } catch (e) {}
+      return null;
+    }
 
     function findStoreState() {
       // 1. Direct window objects
@@ -238,7 +294,8 @@ function scanForEspnState() {
             teams,
             draftDetail: {
               picks: finalPicks
-            }
+            },
+            currentNomination: findCurrentNomination()
           }
         };
       }
@@ -271,6 +328,9 @@ function scanForEspnState() {
     data.id = rawState.leagueId || rawState.league?.id || rawState.id;
     data.name = rawState.leagueName || rawState.league?.name || rawState.name;
 
+    // Active nomination
+    data.currentNomination = findCurrentNomination();
+
     if (!data.settings && !data.teams && !data.draftDetail) {
       // If we couldn't find subkeys, return a trimmed version of the rawState itself
       const trimmed = {};
@@ -279,6 +339,7 @@ function scanForEspnState() {
           trimmed[k] = rawState[k];
         }
       }
+      trimmed.currentNomination = data.currentNomination;
       return { success: true, isScrapedFromStore: true, data: trimmed };
     }
 
