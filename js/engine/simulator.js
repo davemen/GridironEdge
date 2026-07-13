@@ -21,7 +21,7 @@ export function runSeasonSimulation(league, runs = 1000) {
   }
 
   // Helper to calculate a team's dynamic weekly projected score
-  const calculateTeamProjection = (team) => {
+  const calculateTeamProjection = (team, isWindy = false) => {
     if (!team || !team.roster || team.roster.length === 0) return 105.0; // fallback
 
     const rosterPlayers = team.roster.map(pid => db[pid]).filter(Boolean);
@@ -102,6 +102,15 @@ export function runSeasonSimulation(league, runs = 1000) {
           }
           playerProj = playerProj * matchupAdjustment;
 
+          // Weather adjustments (windy/rainy conditions impact passing/kicking, boost rushing)
+          if (isWindy) {
+            if (['QB', 'WR', 'TE', 'K'].includes(p.position)) {
+              playerProj = playerProj * 0.92; // 8% penalty
+            } else if (p.position === 'RB') {
+              playerProj = playerProj * 1.05; // 5% boost
+            }
+          }
+
           if (playerProj > bestScore) {
             bestScore = playerProj;
             bestPlayer = p;
@@ -118,10 +127,12 @@ export function runSeasonSimulation(league, runs = 1000) {
     return totalTeamProj > 0 ? totalTeamProj : 105.0;
   };
 
-  // Pre-calculate dynamic projections for all teams
-  const teamProjections = {};
+  // Pre-calculate normal and windy projections for all teams
+  const teamProjectionsNormal = {};
+  const teamProjectionsWindy = {};
   teams.forEach(t => {
-    teamProjections[t.teamId] = calculateTeamProjection(t);
+    teamProjectionsNormal[t.teamId] = calculateTeamProjection(t, false);
+    teamProjectionsWindy[t.teamId] = calculateTeamProjection(t, true);
   });
 
   // Count wins/losses from initial record state
@@ -158,10 +169,17 @@ export function runSeasonSimulation(league, runs = 1000) {
 
       if (!team1 || !team2) return;
 
-      // Simulate team score: dynamic projected points + normal noise based on volatility
-      const team1Proj = teamProjections[matchup.team1Id] || 105.0;
-      const team2Proj = teamProjections[matchup.team2Id] || 105.0;
+      // Simulate a 10% chance of adverse weather (high wind/rain) for each matchup
+      const isWindyMatchup = Math.random() < 0.10;
+      const projections = isWindyMatchup ? teamProjectionsWindy : teamProjectionsNormal;
 
+      let team1Proj = projections[matchup.team1Id] || 105.0;
+      let team2Proj = projections[matchup.team2Id] || 105.0;
+
+      // Apply Home-Field Advantage (+2.0 points to home team, which is team1)
+      team1Proj += 2.0;
+
+      // Simulate scores with volatility variance
       const score1 = Math.max(50, randomNormal(team1Proj, 12));
       const score2 = Math.max(50, randomNormal(team2Proj, 12));
 
