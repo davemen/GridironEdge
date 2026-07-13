@@ -1,0 +1,575 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Gridiron Edge — Championship Strategy Platform</title>
+  <link rel="stylesheet" href="css/styles.css">
+  <script type="module" src="js/app.js"></script>
+</head>
+<body>
+
+  <!-- Loading Screen Overlay -->
+  <div id="loading-overlay" class="loading-overlay">
+    <div class="spinner"></div>
+    <div class="loading-text" id="loading-text">Synchronizing with ESPN...</div>
+  </div>
+
+  <div class="app-container">
+    <!-- Top Brand Header -->
+    <header class="app-header">
+      <div class="brand-section">
+        <div class="logo-icon">Ω</div>
+        <div class="brand-name">GRIDIRON EDGE</div>
+      </div>
+      <div class="header-controls">
+        <span id="sync-indicator" class="badge-solid badge-cyan" style="display:none;">Synced: 12:00 PM</span>
+        <button id="theme-toggle" class="theme-btn" title="Toggle Theme">◐</button>
+      </div>
+    </header>
+
+    <!-- Navigation Bar -->
+    <nav class="navigation-bar" id="app-nav" style="display:none;">
+      <div class="nav-link active" data-tab="home">Home</div>
+      <div class="nav-link" data-tab="draft">Live Draft</div>
+      <div class="nav-link" data-tab="roster">My Team</div>
+      <div class="nav-link" data-tab="matchup">Matchup</div>
+      <div class="nav-link" data-tab="waivers">Waivers</div>
+      <div class="nav-link" data-tab="trades">Trades</div>
+      <div class="nav-link" data-tab="league">League</div>
+      <div class="nav-link" data-tab="championship">Championship Plan</div>
+      <div class="nav-link" data-tab="alerts">Alerts</div>
+      <div class="nav-link" data-tab="settings">Settings</div>
+    </nav>
+
+    <!-- Main Viewport -->
+    <main class="main-content">
+      
+      <!-- Top Alert Ribbon (In-Season Notification Center) -->
+      <div id="urgent-alert-ribbon" class="alert-banner" style="display:none;">
+        <div class="alert-content">
+          <span class="alert-badge">Alert</span>
+          <span class="alert-text" id="urgent-alert-text">Lineup issue detected: Christian McCaffrey is questionable for game time.</span>
+        </div>
+        <button class="btn-secondary" id="alert-action-btn" style="padding: 0.3rem 0.75rem; font-size: 0.8rem;">Fix Roster</button>
+      </div>
+
+      <!-- VIEW: setup (Shown when no league is loaded) -->
+      <section id="view-setup" class="page-view active">
+        <div class="setup-container">
+          <h1 class="setup-heading">Maximize Your Odds of Winning</h1>
+          <p class="setup-intro">Gridiron Edge calculates advanced waiver bids, drafts optimal lineups, generates fair trades, and simulates your path to the championship using your actual league context.</p>
+          
+          <div class="glass-card glow-cyan" style="margin-bottom: 2rem; text-align: left;">
+            <div class="card-header">
+              <h3 class="card-title">Connect ESPN League</h3>
+            </div>
+            
+            <div class="form-group">
+              <label class="form-label" for="setup-league-id">ESPN League ID</label>
+              <input type="text" class="input-control" id="setup-league-id" placeholder="e.g. 12345678">
+              <span style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.25rem; display: block;">You can find your League ID in your ESPN URL parameters.</span>
+            </div>
+
+            <div style="display: flex; flex-direction: column; gap: 0.75rem;">
+              <button class="btn-primary" id="btn-sync-public">Connect Public League</button>
+              
+              <div style="border-top: 1px solid var(--border-color); padding-top: 1rem; margin-top: 0.5rem;">
+                <h4 style="font-size: 0.9rem; margin-bottom: 0.5rem; color: var(--text-secondary);">For Private Leagues:</h4>
+                <p style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 0.75rem;">Private leagues require authorization. Save our Bookmarklet to extract league context in 1 tap.</p>
+                <div style="display: flex; gap: 0.5rem;">
+                  <button class="btn-secondary" id="btn-show-bookmarklet" style="flex:1;">Setup Bookmarklet</button>
+                  <button class="btn-secondary" id="btn-paste-json" style="flex:1;">Paste JSON Payload</button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div style="margin-top: 2rem;">
+            <span style="color: var(--text-muted); display: block; margin-bottom: 0.75rem; font-size: 0.85rem;">Or try our system instantly with realistic data:</span>
+            <button class="btn-success" id="btn-load-sandbox">Load Sandbox Mock League</button>
+          </div>
+        </div>
+      </section>
+
+      <!-- VIEW: home (Dashboard) -->
+      <section id="view-home" class="page-view">
+        <div class="grid-3-col">
+          <!-- Championship Chance Card -->
+          <div class="glass-card glow-cyan">
+            <div class="card-header">
+              <h3 class="card-title">Championship Outlook</h3>
+            </div>
+            <div style="text-align: center; padding: 1rem 0;">
+              <span style="font-size: 3.5rem; font-weight: 800; color: var(--accent-cyan); display: block; line-height: 1;" id="dashboard-champ-prob">14%</span>
+              <span style="font-size: 0.8rem; color: var(--text-muted); text-transform: uppercase;">Probability of Winning Title</span>
+            </div>
+            <div class="meter-container">
+              <div class="meter-fill cyan" style="width: 14%;" id="dashboard-champ-bar"></div>
+            </div>
+            <div style="display: flex; justify-content: space-between; font-size: 0.8rem; margin-top: 0.75rem; color: var(--text-secondary);">
+              <span>Playoff Odds: <strong id="dashboard-playoff-prob">78%</strong></span>
+              <span>Standings Rank: <strong id="dashboard-rank">#4</strong></span>
+            </div>
+          </div>
+
+          <!-- Top Recommendations Card -->
+          <div class="glass-card glow-green">
+            <div class="card-header">
+              <h3 class="card-title">Highest-Impact Moves</h3>
+            </div>
+            <div class="recommendation-list" id="home-recommendations">
+              <!-- Dynamically populated -->
+            </div>
+          </div>
+
+          <!-- Quick Statistics Summary -->
+          <div class="glass-card">
+            <div class="card-header">
+              <h3 class="card-title">Team Assessment</h3>
+            </div>
+            <div style="display: flex; flex-direction: column; gap: 1rem;" id="home-team-stats">
+              <div>
+                <span style="font-size: 0.8rem; color: var(--text-muted); text-transform: uppercase; display: block;">Roster Strength</span>
+                <span style="font-weight: 700; font-size: 1.1rem; color: var(--accent-green);" id="home-strength">Wide Receiver (Jefferson, Lamb)</span>
+              </div>
+              <div>
+                <span style="font-size: 0.8rem; color: var(--text-muted); text-transform: uppercase; display: block;">Roster Weakness</span>
+                <span style="font-weight: 700; font-size: 1.1rem; color: var(--accent-red);" id="home-weakness">Running Back depth</span>
+              </div>
+              <div>
+                <span style="font-size: 0.8rem; color: var(--text-muted); text-transform: uppercase; display: block;">Most Dangerous Competitor</span>
+                <span style="font-weight: 700; font-size: 1.1rem; color: var(--accent-gold);" id="home-rival">Red Zone Threat (Michael)</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="grid-split-main-side">
+          <!-- Matchup Quickview -->
+          <div class="glass-card">
+            <div class="card-header">
+              <h3 class="card-title">Matchup Analysis (Week <span class="current-week-num">5</span>)</h3>
+            </div>
+            <div style="display: flex; justify-content: space-around; align-items: center; margin-bottom: 1.5rem;">
+              <div style="text-align: center;">
+                <span style="font-size: 1.25rem; font-weight: 700; display: block;" id="match-my-name">Championship Bound</span>
+                <span style="font-size: 2.2rem; font-weight: 800; color: var(--accent-cyan);" id="match-my-proj">114.2</span>
+                <span style="font-size: 0.8rem; color: var(--text-muted); display: block;">Projected Points</span>
+              </div>
+              <div style="font-size: 1.5rem; font-weight: 800; color: var(--text-muted);">VS</div>
+              <div style="text-align: center;">
+                <span style="font-size: 1.25rem; font-weight: 700; display: block;" id="match-opp-name">Fumble Recovery</span>
+                <span style="font-size: 2.2rem; font-weight: 800; color: var(--text-muted);" id="match-opp-proj">121.5</span>
+                <span style="font-size: 0.8rem; color: var(--text-muted); display: block;">Projected Points</span>
+              </div>
+            </div>
+            <div style="background: var(--bg-surface-elevated); padding: 1rem; border-radius: var(--border-radius-sm); border: 1px solid var(--border-color);" id="matchup-strategy-hint">
+              <strong>Matchup Strategy: Underdog (45% Win Probability)</strong><br>
+              We recommend switching to a high-ceiling lineup strategy. Swap in high-volatility players like <strong>Zamir White</strong> to maximize scoring variance.
+            </div>
+          </div>
+
+          <!-- Standings Card -->
+          <div class="glass-card">
+            <div class="card-header">
+              <h3 class="card-title">League Standings</h3>
+            </div>
+            <div class="table-responsive">
+              <table class="data-table" id="home-standings-table">
+                <thead>
+                  <tr>
+                    <th>Rank</th>
+                    <th>Team</th>
+                    <th>Record</th>
+                    <th>Points</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <!-- Dynamically populated -->
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- VIEW: draft (Live Draft Command Center) -->
+      <section id="view-draft" class="page-view">
+        <div class="grid-split-main-side">
+          <!-- Draft Recommendation & Controls -->
+          <div>
+            <div class="glass-card glow-cyan" style="margin-bottom: 1.5rem;">
+              <div class="card-header">
+                <h3 class="card-title">Draft Advisor</h3>
+                <div>
+                  <button class="btn-danger" id="btn-draft-reset" style="padding: 0.35rem 0.75rem; font-size: 0.8rem;">Reset Draft</button>
+                  <button class="btn-secondary" id="btn-draft-undo" style="padding: 0.35rem 0.75rem; font-size: 0.8rem;">Undo Pick</button>
+                </div>
+              </div>
+
+              <!-- Recommendation Panel -->
+              <div id="draft-rec-panel" style="padding: 1rem; background: var(--bg-surface-elevated); border-radius: var(--border-radius-sm); border: 1px solid var(--border-color); margin-bottom: 1.5rem;">
+                <!-- Loaded Dynamically -->
+                <div style="text-align: center; padding: 2rem; color: var(--text-muted);">
+                  Configure or select draft order in Settings to initialize draft tracking.
+                </div>
+              </div>
+
+              <!-- Draft Availability Probability / Scarcity Tier warnings -->
+              <div id="draft-tier-warning" class="alert-banner" style="display:none; background: linear-gradient(90deg, var(--accent-gold-glow), transparent); border-color: rgba(255, 215, 0, 0.3); margin-bottom: 1rem;">
+                <div class="alert-content">
+                  <span class="alert-badge" style="background: var(--accent-gold); color: #000;">Tier Alert</span>
+                  <span class="alert-text" style="color: var(--text-primary);" id="draft-tier-warning-text">Top-tier Tight Ends (Kelce, LaPorta) are almost gone! Draft TE now or wait until Round 9.</span>
+                </div>
+              </div>
+
+              <!-- Live Draft Action Grid -->
+              <div class="tabs-inline">
+                <div class="tab-inline-link active" data-draft-tab="all">All Players</div>
+                <div class="tab-inline-link" data-draft-tab="QB">QB</div>
+                <div class="tab-inline-link" data-draft-tab="RB">RB</div>
+                <div class="tab-inline-link" data-draft-tab="WR">WR</div>
+                <div class="tab-inline-link" data-draft-tab="TE">TE</div>
+                <div class="tab-inline-link" data-draft-tab="flex">FLEX</div>
+                <div class="tab-inline-link" data-draft-tab="dst-k">D/ST & K</div>
+              </div>
+
+              <!-- Player Draft Search & Filter -->
+              <div class="form-group">
+                <input type="text" class="input-control" id="draft-player-search" placeholder="Search available players by name or NFL team...">
+              </div>
+
+              <div class="table-responsive" style="max-height: 500px; overflow-y: auto;">
+                <table class="data-table">
+                  <thead>
+                    <tr>
+                      <th>Player</th>
+                      <th>Pos</th>
+                      <th>Team</th>
+                      <th>Projected</th>
+                      <th>ADP</th>
+                      <th>Availability at Next Pick</th>
+                      <th>Action</th>
+                    </tr>
+                  </thead>
+                  <tbody id="draft-player-table-body">
+                    <!-- Dynamically populated -->
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+
+          <!-- Draft Board Status -->
+          <div class="glass-card">
+            <div class="card-header">
+              <h3 class="card-title">Draft Status</h3>
+            </div>
+            <div style="display:flex; justify-content:space-between; margin-bottom: 1rem; font-size: 0.9rem;">
+              <span>Current Pick: <strong id="draft-info-pick">1</strong></span>
+              <span>Round: <strong id="draft-info-round">1</strong></span>
+            </div>
+            
+            <div class="recommendation-list" id="draft-recent-picks" style="max-height: 600px; overflow-y: auto;">
+              <!-- Recent selections dynamically populated -->
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- VIEW: roster (My Team) -->
+      <section id="view-roster" class="page-view">
+        <div class="grid-split-main-side">
+          <!-- Team Roster -->
+          <div class="glass-card">
+            <div class="card-header">
+              <h3 class="card-title">My Roster Grid</h3>
+            </div>
+            <div class="roster-grid" id="roster-list-grid">
+              <!-- Loaded Dynamically -->
+            </div>
+          </div>
+
+          <!-- Depth charts & Positional breakdown -->
+          <div class="glass-card">
+            <div class="card-header">
+              <h3 class="card-title">Roster Health & Limits</h3>
+            </div>
+            <div style="display:flex; flex-direction:column; gap: 1.25rem;" id="roster-health-analysis">
+              <!-- Filled programmatically -->
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- VIEW: matchup (Weekly lineups) -->
+      <section id="view-matchup" class="page-view">
+        <div class="glass-card glow-cyan" style="margin-bottom: 1.5rem;">
+          <div class="card-header">
+            <h3 class="card-title">Lineup Optimization (Week <span class="current-week-num">5</span>)</h3>
+            <div style="display: flex; gap: 0.5rem; align-items: center;">
+              <span style="font-size:0.85rem; color:var(--text-secondary);">Optimizer Strategy:</span>
+              <button class="btn-secondary" id="btn-lineup-strategy-floor" style="padding:0.3rem 0.6rem; font-size:0.8rem;">Reliability (Floor)</button>
+              <button class="btn-primary" id="btn-lineup-strategy-ceil" style="padding:0.3rem 0.6rem; font-size:0.8rem;">Upside (Ceiling)</button>
+            </div>
+          </div>
+          
+          <div class="grid-2-col" style="margin-bottom: 0;">
+            <!-- Starter Selection list -->
+            <div>
+              <h4 style="margin-bottom:0.75rem; text-transform:uppercase; font-size:0.85rem; color:var(--text-secondary);">Suggested Lineup Grid</h4>
+              <div class="roster-grid" id="matchup-starters-grid">
+                <!-- Dynamically populated -->
+              </div>
+            </div>
+
+            <!-- Optimization decisions rationale -->
+            <div style="display:flex; flex-direction:column; gap: 1rem;">
+              <div style="background: var(--bg-surface-elevated); padding: 1.25rem; border-radius: var(--border-radius-sm); border: 1px solid var(--border-color);">
+                <h4 style="font-size:0.95rem; margin-bottom: 0.5rem; color: var(--accent-cyan);">Lineup Optimization Rationale</h4>
+                <div style="font-size:0.9rem; color: var(--text-secondary); display:flex; flex-direction:column; gap:0.75rem;" id="matchup-rationale-text">
+                  <!-- Generated programmatically -->
+                </div>
+              </div>
+
+              <!-- Weather/News Assessment -->
+              <div style="background: var(--bg-surface-elevated); padding: 1.25rem; border-radius: var(--border-radius-sm); border: 1px solid var(--border-color);">
+                <h4 style="font-size:0.95rem; margin-bottom: 0.5rem; color: var(--accent-gold);">Game Day Assessment</h4>
+                <ul style="font-size:0.85rem; color:var(--text-secondary); padding-left:1.25rem; display:flex; flex-direction:column; gap:0.4rem;" id="matchup-weather-news">
+                  <li>KC vs LV: Mild winds, no impact on Patrick Mahomes.</li>
+                  <li>SF vs LAR: Christian McCaffrey (Questionable) is a game-time decision. Roster backup plan active.</li>
+                  <li>LAC vs DEN: Rain projected (80% probability). Kicker Harrison Butker has reduced projection.</li>
+                </ul>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- VIEW: waivers (Waiver Wire Recommendations) -->
+      <section id="view-waivers" class="page-view">
+        <div class="glass-card glow-green">
+          <div class="card-header">
+            <h3 class="card-title">Weekly Waiver Priorities</h3>
+          </div>
+          
+          <div class="table-responsive">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>Add</th>
+                  <th>Drop</th>
+                  <th>FAAB Bid</th>
+                  <th>Expected Value</th>
+                  <th>Confidence</th>
+                  <th>Reasoning</th>
+                  <th>Action</th>
+                </tr>
+              </table>
+            </div>
+
+            <div class="recommendation-list" id="waiver-recommendations-list">
+              <!-- Loaded Dynamically -->
+            </div>
+        </div>
+      </section>
+
+      <!-- VIEW: trades (Trade Engine) -->
+      <section id="view-trades" class="page-view">
+        <div class="glass-card glow-gold" style="margin-bottom: 1.5rem;">
+          <div class="card-header">
+            <h3 class="card-title">Realistic Trade Suggestions</h3>
+          </div>
+          
+          <div class="recommendation-list" id="trade-proposals-list">
+            <!-- Loaded Dynamically -->
+          </div>
+        </div>
+      </section>
+
+      <!-- VIEW: league (Standings & Team profiles) -->
+      <section id="view-league" class="page-view">
+        <div class="glass-card">
+          <div class="card-header">
+            <h3 class="card-title">League Intelligence Dashboard</h3>
+          </div>
+          
+          <div class="form-group">
+            <label class="form-label" for="league-team-selector">Select Team Profile</label>
+            <select class="input-control" id="league-team-selector">
+              <!-- Options loaded dynamically -->
+            </select>
+          </div>
+
+          <div class="grid-split-main-side" id="league-team-profile-container" style="display:none;">
+            <!-- Team profile details loaded dynamically -->
+          </div>
+        </div>
+      </section>
+
+      <!-- VIEW: championship (Monte Carlo outcomes) -->
+      <section id="view-championship" class="page-view">
+        <div class="glass-card glow-cyan" style="margin-bottom: 1.5rem;">
+          <div class="card-header">
+            <h3 class="card-title">Path to the Championship</h3>
+            <button class="btn-primary" id="btn-run-simulations">Re-run 1,000 Simulations</button>
+          </div>
+
+          <div class="grid-3-col">
+            <!-- Simulated Playoff Odds -->
+            <div class="glass-card" style="box-shadow: none; border-color: var(--border-color); background: var(--bg-surface-elevated);">
+              <h4 style="font-size:0.9rem; text-transform:uppercase; color:var(--text-muted); margin-bottom:0.5rem;">Playoff Qualification Rate</h4>
+              <span style="font-size: 2.5rem; font-weight: 800; color: var(--accent-cyan);" id="sim-playoff-pct">78.2%</span>
+              <p style="font-size: 0.8rem; color:var(--text-secondary); margin-top:0.5rem;">Projected standings project a #3 seed finish in 55% of simulation tracks.</p>
+            </div>
+            
+            <!-- Simulated Champion Odds -->
+            <div class="glass-card" style="box-shadow: none; border-color: var(--border-color); background: var(--bg-surface-elevated);">
+              <h4 style="font-size:0.9rem; text-transform:uppercase; color:var(--text-muted); margin-bottom:0.5rem;">Championship Win Rate</h4>
+              <span style="font-size: 2.5rem; font-weight: 800; color: var(--accent-gold);" id="sim-champ-pct">14.1%</span>
+              <p style="font-size: 0.8rem; color:var(--text-secondary); margin-top:0.5rem;">Calculated based on roster variance and playoff opponent replacement depth.</p>
+            </div>
+
+            <!-- Simulated Bye Odds -->
+            <div class="glass-card" style="box-shadow: none; border-color: var(--border-color); background: var(--bg-surface-elevated);">
+              <h4 style="font-size:0.9rem; text-transform:uppercase; color:var(--text-muted); margin-bottom:0.5rem;">First-Round Bye Rate</h4>
+              <span style="font-size: 2.5rem; font-weight: 800; color: var(--accent-green);" id="sim-bye-pct">22.4%</span>
+              <p style="font-size: 0.8rem; color:var(--text-secondary); margin-top:0.5rem;">Requires finishing #1 or #2 in overall conference standing.</p>
+            </div>
+          </div>
+
+          <div class="grid-split-main-side">
+            <!-- Simulated Standings distribution -->
+            <div class="glass-card" style="box-shadow: none; border-color: var(--border-color); background: var(--bg-surface-elevated);">
+              <div class="card-header">
+                <h3 class="card-title">Championship Pathway Action Plan</h3>
+              </div>
+              <div style="display:flex; flex-direction:column; gap:1.25rem;" id="sim-action-plan">
+                <!-- Loaded programmatically -->
+              </div>
+            </div>
+
+            <!-- Dangerous Opponents list -->
+            <div class="glass-card" style="box-shadow: none; border-color: var(--border-color); background: var(--bg-surface-elevated);">
+              <div class="card-header">
+                <h3 class="card-title">Threat Assessment</h3>
+              </div>
+              <div style="display:flex; flex-direction:column; gap:1rem;" id="sim-threat-assessment">
+                <!-- Loaded programmatically -->
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- VIEW: alerts (Notifications list) -->
+      <section id="view-alerts" class="page-view">
+        <div class="glass-card">
+          <div class="card-header">
+            <h3 class="card-title">Strategy Notifications</h3>
+          </div>
+          <div class="recommendation-list" id="alerts-list-container">
+            <!-- Dynamically populated -->
+          </div>
+        </div>
+      </section>
+
+      <!-- VIEW: settings -->
+      <section id="view-settings" class="page-view">
+        <div class="glass-card" style="max-width: 800px; margin: 0 auto;">
+          <div class="card-header">
+            <h3 class="card-title">System Settings</h3>
+          </div>
+          
+          <div class="form-group">
+            <label class="form-label">League Settings Reconciler</label>
+            <div style="background: var(--bg-surface-elevated); padding: 1.25rem; border-radius: var(--border-radius-sm); border: 1px solid var(--border-color); margin-bottom: 1.25rem;">
+              <p style="font-size:0.9rem; color:var(--text-secondary); margin-bottom:0.75rem;">Connected League: <strong id="settings-league-name">None</strong></p>
+              <div style="display: flex; gap: 0.5rem;">
+                <button class="btn-danger" id="btn-settings-disconnect">Disconnect League</button>
+              </div>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label" for="settings-my-team-id">Who is your team?</label>
+            <select class="input-control" id="settings-my-team-id">
+              <!-- Loaded Dynamically -->
+            </select>
+          </div>
+
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label" for="settings-scoring">Scoring format</label>
+              <select class="input-control" id="settings-scoring">
+                <option value="Standard">Standard (No PPR)</option>
+                <option value="Half-PPR">Half-PPR (0.5 pts/rec)</option>
+                <option value="PPR" selected>PPR (1.0 pts/rec)</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label class="form-label" for="settings-draft-type">Draft format</label>
+              <select class="input-control" id="settings-draft-type">
+                <option value="snake" selected>Snake Draft</option>
+                <option value="linear">Linear Draft</option>
+                <option value="auction">Auction Draft</option>
+              </select>
+            </div>
+          </div>
+
+          <div style="border-top: 1px solid var(--border-color); padding-top: 1.5rem; margin-top: 1rem; display: flex; justify-content: flex-end; gap: 0.5rem;">
+            <button class="btn-secondary" id="btn-settings-cancel">Cancel</button>
+            <button class="btn-primary" id="btn-settings-save">Save Settings</button>
+          </div>
+        </div>
+      </section>
+
+    </main>
+  </div>
+
+  <!-- MODAL: Bookmarklet Configuration Details -->
+  <div id="modal-bookmarklet" class="loading-overlay" style="opacity: 0; pointer-events: none;">
+    <div class="glass-card" style="max-width: 600px; width: 90%;">
+      <div class="card-header">
+        <h3 class="card-title">Setup Bookmarklet Sync</h3>
+        <button class="btn-secondary" id="btn-close-bookmarklet-modal" style="padding: 0.25rem 0.5rem;">X</button>
+      </div>
+      <p style="font-size:0.9rem; color:var(--text-secondary); margin-bottom: 1rem;">Drag this link below directly into your bookmarks bar. When on your ESPN League page, click it, and paste the clipboard contents in the JSON text field below.</p>
+      
+      <div style="text-align: center; margin: 1.5rem 0;">
+        <a href="" id="bookmarklet-drag-link" class="btn-success" style="font-size: 1rem; padding: 0.75rem 1.5rem; display: inline-block;">+ Sync Gridiron Edge</a>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Instructional steps:</label>
+        <ol style="font-size:0.85rem; color:var(--text-secondary); padding-left: 1.25rem; display:flex; flex-direction:column; gap:0.4rem;">
+          <li>Drag the green link above to your browser's bookmarks bar.</li>
+          <li>Navigate to your league homepage on <a href="https://fantasy.espn.com" target="_blank">fantasy.espn.com</a>.</li>
+          <li>Click the bookmarklet you just saved. A success dialog will appear indicating your league data was copied.</li>
+          <li>Return here, click <strong>Paste JSON Payload</strong>, and paste the contents.</li>
+        </ol>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL: JSON Payload Paste Input -->
+  <div id="modal-paste" class="loading-overlay" style="opacity: 0; pointer-events: none;">
+    <div class="glass-card" style="max-width: 650px; width: 90%;">
+      <div class="card-header">
+        <h3 class="card-title">Paste League JSON Payload</h3>
+        <button class="btn-secondary" id="btn-close-paste-modal" style="padding: 0.25rem 0.5rem;">X</button>
+      </div>
+      <div class="form-group">
+        <label class="form-label" for="paste-text-area">JSON Data</label>
+        <textarea class="input-control" id="paste-text-area" rows="12" style="font-family: monospace; font-size: 0.8rem;" placeholder="Paste scraped JSON league object here..."></textarea>
+      </div>
+      <div style="display: flex; justify-content: flex-end; gap: 0.5rem;">
+        <button class="btn-secondary" id="btn-paste-modal-cancel">Cancel</button>
+        <button class="btn-primary" id="btn-paste-modal-submit">Import Data</button>
+      </div>
+    </div>
+  </div>
+
+</body>
+</html>
