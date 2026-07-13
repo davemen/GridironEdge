@@ -161,13 +161,30 @@ export function getDraftRecommendations(league) {
  * Recommends bids for auction drafts based on budgets.
  */
 export function calculateAuctionBid(player, currentBudget, remainingRosterSpots, maxOpponentBid, leagueSize = 10) {
-  // 1. Calculate a base value based on projected points relative to average starter baseline
-  const valueOverBaseline = Math.max(0, player.projectedPoints - 8.0);
+  // 1. Establish position-specific baseline thresholds
+  let baseline = 8.0;
+  let multiplier = 0.45;
+  
+  if (player.position === 'QB') {
+    baseline = 14.5;
+    multiplier = 0.8;
+  } else if (player.position === 'RB') {
+    baseline = 9.0;
+    multiplier = 0.45;
+  } else if (player.position === 'WR') {
+    baseline = 9.5;
+    multiplier = 0.45;
+  } else if (player.position === 'TE') {
+    baseline = 8.0;
+    multiplier = 0.45;
+  }
+
+  const valueOverBaseline = Math.max(0, player.projectedPoints - baseline);
   
   // 2. Adjust base dollar value relative to a standard $200 starting budget
   // Scale value based on league size (inflation factor)
   const inflationFactor = Math.max(0.6, leagueSize / 12); 
-  let standardValue = valueOverBaseline * valueOverBaseline * 0.45 * inflationFactor;
+  let standardValue = valueOverBaseline * valueOverBaseline * multiplier * inflationFactor;
   
   // Cap defense and kicker value at reasonable amounts (usually $1)
   if (player.position === 'D/ST' || player.position === 'K') {

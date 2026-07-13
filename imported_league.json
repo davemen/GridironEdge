@@ -3,6 +3,7 @@
   "leagueId": "1236759477",
   "season": "2026",
   "leagueName": "Fantasy Football Draft - ESPN",
+  "myTeamId": 4,
   "teams": [
     {
       "teamId": 1,
@@ -20,7 +21,7 @@
       "teamId": 3,
       "teamName": "Team 6",
       "managerName": "Manager 3",
-      "faabRemaining": 11
+      "faabRemaining": 9
     },
     {
       "teamId": 4,
@@ -32,25 +33,25 @@
       "teamId": 5,
       "teamName": "Team 8",
       "managerName": "Manager 5",
-      "faabRemaining": 13
+      "faabRemaining": 6
     },
     {
       "teamId": 6,
       "teamName": "Team 3",
       "managerName": "Manager 6",
-      "faabRemaining": 12
+      "faabRemaining": 5
     },
     {
       "teamId": 7,
       "teamName": "Team 2 -",
       "managerName": "Manager 7",
-      "faabRemaining": 11
+      "faabRemaining": 8
     },
     {
       "teamId": 8,
       "teamName": "Team 2",
       "managerName": "Manager 8",
-      "faabRemaining": 11
+      "faabRemaining": 8
     },
     {
       "teamId": 9,
@@ -69,12 +70,6 @@
       "teamName": "Team 1 -",
       "managerName": "Manager 11",
       "faabRemaining": 6
-    },
-    {
-      "teamId": 12,
-      "teamName": "REMOVE",
-      "managerName": "Manager 12",
-      "faabRemaining": 200
     }
   ],
   "draftDetail": {
@@ -355,15 +350,35 @@
         "drafterTeamId": 11
       },
       {
-        "overallPickNumber": 204,
-        "playerName": "C. Stroud",
-        "drafterTeamId": 12
+        "overallPickNumber": 58,
+        "playerName": "Jameson Williams",
+        "drafterTeamId": 6
+      },
+      {
+        "overallPickNumber": 59,
+        "playerName": "Harold Fannin Jr. Q",
+        "drafterTeamId": 5
+      },
+      {
+        "overallPickNumber": 60,
+        "playerName": "DJ Moore",
+        "drafterTeamId": 8
+      },
+      {
+        "overallPickNumber": 61,
+        "playerName": "TreVeyon Henderson",
+        "drafterTeamId": 5
+      },
+      {
+        "overallPickNumber": 62,
+        "playerName": "Luther Burden III",
+        "drafterTeamId": 3
       }
     ]
   },
   "currentNomination": {
-    "name": "Jameson Williams",
-    "team": "DET",
-    "position": "WR"
+    "name": "C.J. Stroud",
+    "team": "HOU",
+    "position": "QB"
   }
 }
