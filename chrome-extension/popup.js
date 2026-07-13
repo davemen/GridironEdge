@@ -203,42 +203,7 @@ function scanForEspnState() {
         }
       }
 
-      function scrapeTeamsAndBudgets() {
-        const teams = [];
-        try {
-          const elements = document.querySelectorAll('div');
-          const seenTeams = new Set();
-          
-          elements.forEach(el => {
-            if (!el || el.children.length > 5) return;
-            const text = el.innerText ? el.innerText.trim() : '';
-            if (!text || text.length > 100 || text.length < 5) return;
-            
-            const lines = text.split('\n');
-            if (lines.length >= 2) {
-              let nameLine = lines[0].trim();
-              let budgetLine = lines[1].trim();
-              
-              nameLine = nameLine.replace(/^\d+\.\s*/, '');
-              
-              if (budgetLine.startsWith('$')) {
-                const budgetVal = parseInt(budgetLine.replace('$', ''), 10);
-                if (!isNaN(budgetVal) && budgetVal >= 0 && budgetVal <= 260) {
-                  if (nameLine.length > 2 && nameLine.length < 30 && !seenTeams.has(nameLine)) {
-                    seenTeams.add(nameLine);
-                    teams.push({
-                      teamName: nameLine,
-                      budget: budgetVal
-                    });
-                  }
-                }
-              }
-            }
-          });
-        } catch (e) {}
-        return teams;
-      }
-
+      
       // Check if any object has Redux store shape
       function isReduxStore(obj) {
         return obj && typeof obj.getState === 'function' && typeof obj.dispatch === 'function' && typeof obj.subscribe === 'function';
@@ -296,6 +261,42 @@ function scanForEspnState() {
         }
       }
       return null;
+    }
+
+    function scrapeTeamsAndBudgets() {
+      const teams = [];
+      try {
+        const elements = document.querySelectorAll('div');
+        const seenTeams = new Set();
+        
+        elements.forEach(el => {
+          if (!el || el.children.length > 5) return;
+          const text = el.innerText ? el.innerText.trim() : '';
+          if (!text || text.length > 100 || text.length < 5) return;
+          
+          const lines = text.split('\n');
+          if (lines.length >= 2) {
+            let nameLine = lines[0].trim();
+            let budgetLine = lines[1].trim();
+            
+            nameLine = nameLine.replace(/^\d+\.\s*/, '');
+            
+            if (budgetLine.startsWith('$')) {
+              const budgetVal = parseInt(budgetLine.replace('$', ''), 10);
+              if (!isNaN(budgetVal) && budgetVal >= 0 && budgetVal <= 260) {
+                if (nameLine.length > 2 && nameLine.length < 30 && !seenTeams.has(nameLine)) {
+                  seenTeams.add(nameLine);
+                  teams.push({
+                    teamName: nameLine,
+                    budget: budgetVal
+                  });
+                }
+              }
+            }
+          }
+        });
+      } catch (e) {}
+      return teams;
     }
 
     const rawState = findStoreState();
