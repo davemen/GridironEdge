@@ -16,6 +16,7 @@
       for (const el of all) {
         if (el.children.length > 2) continue;
         const text = el.innerText ? el.innerText.trim() : '';
+        if (positions.has(text.toUpperCase())) continue;
         if (text.length > 3 && text.length < 35 && !text.includes('\n')) {
           let parentText = el.parentElement ? el.parentElement.innerText : '';
           const parentParts = parentText.split(/[\s\n]+/);
