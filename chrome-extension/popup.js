@@ -314,7 +314,14 @@ function scanForEspnState() {
 
           const maxIdx = Math.max(teamIdx, posIdx);
           const remaining = parts.slice(maxIdx + 1);
-          const drafterParts = remaining.filter(p => !p.startsWith('$') && !p.startsWith('-$') && isNaN(parseFloat(p)));
+          const drafterParts = remaining.filter(p => {
+            if (p.startsWith('$') || p.startsWith('-$')) return false;
+            const num = parseFloat(p);
+            if (!isNaN(num)) {
+              if (p.includes('.') || num > 32) return false;
+            }
+            return true;
+          });
           const drafterTeamName = drafterParts.join(' ') || `Team ${pick}`;
 
           selections.push({
