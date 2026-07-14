@@ -298,11 +298,23 @@
       faabRemaining: typeof t.faabRemaining === 'number' ? t.faabRemaining : (typeof t.draftBudget === 'number' ? t.draftBudget : (typeof t.budget === 'number' ? t.budget : 200))
     }));
 
-    const picks = extracted.picks.map(p => ({
-      overallPickNumber: p.overallPickNumber || p.pickNumber || p.pick,
-      playerName: p.playerName || p.player?.fullName || p.name,
-      drafterTeamId: p.drafterTeamId || p.teamId || 1
-    }));
+    const picks = extracted.picks.map(p => {
+      const posMap = { 0: 'QB', 2: 'RB', 4: 'WR', 6: 'TE', 16: 'D/ST', 17: 'K' };
+      const posId = p.player?.defaultPositionId;
+      const position = posMap[posId] || p.playerPosition || p.player?.position || 'RB';
+      
+      const teamMap = { 1: 'ATL', 2: 'BUF', 3: 'CHI', 4: 'CIN', 5: 'CLE', 6: 'DAL', 7: 'DEN', 8: 'DET', 9: 'GB', 10: 'HOU', 11: 'IND', 12: 'JAX', 13: 'KC', 14: 'LV', 15: 'LAR', 16: 'MIA', 17: 'MIN', 18: 'NE', 19: 'NO', 20: 'NYG', 21: 'NYJ', 22: 'PHI', 23: 'PIT', 24: 'SF', 25: 'SEA', 26: 'TB', 27: 'TEN', 28: 'WAS', 29: 'CAR', 30: 'ARI', 33: 'BAL', 34: 'HOU' };
+      const nflTeamId = p.player?.proTeamId;
+      const team = teamMap[nflTeamId] || p.playerTeam || p.player?.proTeam || 'FA';
+
+      return {
+        overallPickNumber: p.overallPickNumber || p.pickNumber || p.pick,
+        playerName: p.playerName || p.player?.fullName || p.name,
+        playerPosition: position,
+        playerTeam: team,
+        drafterTeamId: p.drafterTeamId || p.teamId || 1
+      };
+    });
 
     return { teams, picks };
   }
@@ -424,6 +436,8 @@
           return {
             overallPickNumber: p.overallPickNumber,
             playerName: p.playerName,
+            playerPosition: p.playerPosition || p.position,
+            playerTeam: p.playerTeam || p.team,
             drafterTeamId: team ? team.teamId : 1
           };
         });
