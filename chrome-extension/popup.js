@@ -469,6 +469,8 @@ function scanForEspnState() {
           return {
             overallPickNumber: p.overallPickNumber,
             playerName: p.playerName,
+            playerPosition: p.playerPosition || p.position,
+            playerTeam: p.playerTeam || p.team,
             drafterTeamId: team ? team.teamId : 1
           };
         });
