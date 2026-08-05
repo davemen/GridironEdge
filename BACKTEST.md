@@ -462,6 +462,133 @@ favourable run would be cherry-picking.
 
 ---
 
+## Part 7 — Rescoring with five in-season levers
+
+Everything up to here froze rosters at the draft and handed every team a
+*perfect* weekly lineup chosen with hindsight. That made two levers invisible by
+construction — you cannot measure start/sit skill, or variance management, in a
+world where everyone already plays the optimal lineup.
+
+So the simulator was rebuilt: lineups are now **decided** each week from
+information available at the time, and scored on what those players actually
+did. Every team lands at 70–85% of the hindsight ceiling, which is where real
+managers land. The baseline drops accordingly, and is more honest for it.
+
+Five levers, added cumulatively (480 drafts each, 40 simulated seasons apiece):
+
+| Configuration | Points | Playoff % | Title % | Step |
+|---|---|---|---|---|
+| Expert board, no in-season work | 1392 | 49.8% | 8.6% | — |
+| + v5 draft | 1464 | 65.6% | 7.8% | −0.8 |
+| + start/sit (opponent-adjusted) | 1461 | 66.5% | 7.8% | **+0.1** |
+| + waivers | 1476 | 68.4% | 10.9% | **+3.1** |
+| + playoff-week draft targeting | 1471 | 66.2% | 12.1% | **+1.1** |
+| + bracket variance switching | 1471 | 66.2% | 16.0% | **+4.0** |
+| + trade consolidation (all five) | 1465 | 63.0% | 15.0% | **−1.0** |
+| All five, but rivals also work the wire | 1447 | 55.7% | 8.3% | −6.7 |
+
+**Championship probability 8.6% → 15.0%, +6.4 points, 95% CI [+4.1, +8.7],
+t = 5.4.** A 74% relative increase.
+
+### Three of the five earn their place. Two do not.
+
+**Bracket variance switching (+4.0) is the biggest single lever in this project**
+and it costs nothing — season points are identical, because it only changes three
+lineups. Every lineup tool maximises expected points, which is right for 14 weeks
+and wrong for the three that award a trophy. In a single-elimination game you are
+not trying to score a lot, you are trying to beat one team once. A favourite
+should play the floor; an underdog should play the ceiling and accept the
+downside, because the downside was a loss anyway. Shipped in
+`js/engine/bracket-strategy.js`.
+
+**Waivers (+3.1)** and **playoff-week targeting (+1.1)** also pay. Note that
+playoff targeting *lowers* season points (1476 → 1471) while raising titles: it
+is deliberately buying strength in the only three weeks that matter.
+
+**Start/sit opponent adjustment (+0.1) is a dud.** Measuring every reasonable
+estimator against the hindsight ceiling on one roster explains why:
+
+| Estimator | Points | Efficiency |
+|---|---|---|
+| Hindsight-optimal | 2125 | 100% |
+| Preseason projection | 1838 | 86.5% |
+| Projection shrunk toward season-to-date | 1803 | 84.8% |
+| Trailing 3 games | 1781 | 83.8% |
+
+The ~15% managers leave on the bench is real but almost entirely
+**irreducible** — it is the gap between any forecast and hindsight, not between
+good and bad forecasting. The spread among sane methods is ~57 points. An earlier
+draft of this document claimed a start/sit engine was worth 150–250 points; that
+was wrong.
+
+**Trade consolidation (−1.0) is also a dud**, and costs playoff odds (66.2% →
+63.0%). Trading depth for a star makes the roster top-heavy, and the thinner
+bench loses more to byes and injuries than the upgrade gains.
+
+> A bug that nearly published two false nulls: `sim.load_pool()` rebuilds each
+> player as a fresh dict with an explicit field list, and `team` and
+> `playoff_mult` were not in it. Both schedule-aware levers silently fell back to
+> a multiplier of 1.0 and reported "+0.0" — which reads like a measured null but
+> was a wiring failure. The tell was the points column being identical *to the
+> digit* across those rows; a real null still jitters.
+
+---
+
+## Part 8 — What happens when the whole league is sharp
+
+Every edge in this document was measured against opponents drafting off ADP with
+noise. That raises a fair objection: are these strategies good, or are they just
+arbitraging bad opponents? Two experiments settle it.
+
+### The draft is an equilibrium
+
+All eleven rival seats were filled with v5 instead of ADP bots, and challengers
+were dropped into the twelfth. A fair seat in a 12-team league is 8.3%.
+
+| Challenger in one seat | Points | Playoff % | Title % |
+|---|---|---|---|
+| VONA (untuned) | 1436 | 49.2% | 8.6% |
+| v5 (same as the room) | 1440 | 49.9% | 8.2% |
+| Expert consensus board | 1317 | 28.5% | **2.3%** |
+| Static VOR | 1349 | 37.4% | 2.2% |
+| Old Gridiron Edge v1 | 1345 | 31.0% | 1.9% |
+| Market ADP | 1283 | 22.2% | **1.1%** |
+
+**Nothing exploits a sharp room.** The best challengers sit exactly at their fair
+share — no edge in either direction. That is what an equilibrium looks like, and
+it confirms from a completely different direction that the draft has no title
+upside left to find.
+
+**But the punishment for being behind explodes.** A plain consensus cheat sheet
+takes 12% of titles in a naive room and **2.3%** in a sharp one. Drafting off raw
+ADP takes 1.1%. So a league getting sharper does not create an opportunity — it
+raises the stakes on not being the weakest drafter in it.
+
+### The sharpness curve: how fast the waiver edge dies
+
+The waiver edge was measured at +7 points against passive rivals and roughly zero
+against fully active ones. The shape in between is what actually tells a manager
+whether the wire is worth their Tuesday nights:
+
+| Active rivals | Points | Playoff % | Title % |
+|---|---|---|---|
+| 0 | 1493 | 69.9% | **18.8%** |
+| 2 | 1484 | 68.4% | 13.7% |
+| 4 | 1479 | 66.7% | 12.5% |
+| 7 | 1478 | 64.5% | 11.7% |
+| 11 | 1475 | 62.2% | **10.3%** |
+
+The decay is steep and front-loaded: **the first two active managers take 60% of
+your edge.** By four, most of it is gone. Note that your own points barely move
+across the whole sweep (1493 → 1475) while your title odds nearly halve — the wire
+is a positional battle, not a scoring one.
+
+The practical read: count how many managers in your league actually make weekly
+claims. At zero or one, the wire is the best lever you have. At four or more, you
+are working it to stand still.
+
+---
+
 ## Honest summary
 
 | Claim | Verdict |
@@ -470,7 +597,7 @@ favourable run would be cherry-picking.
 | The app can out-predict fantasy experts | **No.** Real signals exist (t = 5–7) but are too small to reorder the board. |
 | The app's snake logic beat expert consensus | Marginally — +10 pts, negative in 2 of 5 seasons. Now +47 and positive in all five. |
 | The app's auction logic was sound | **No.** Quarterbacks priced ~5× market, 75% of the budget never deployed. |
-| Following these picks assures a championship | **No.** 12.2% per season against 12.0% for an expert board and 8.3% for a random team. |
+| Following these picks assures a championship | **No.** With all five levers, 15.0% against an 8.6% baseline. |
 | An 80% per-season title rate is reachable by tuning | **No.** Perfect foresight reaches 85.8%, and essentially the entire gap to it is forecast error. |
 | This is "the world's best fantasy football selector" | Unsupported. It is measurably better than a consensus cheat sheet at building a roster, by a margin that is real, repeatable and modest. |
 

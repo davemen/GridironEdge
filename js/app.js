@@ -7,6 +7,7 @@ import espnClient from './espn-client.js';
 import { getDraftRecommendations, calculateAuctionBid } from './engine/draft-assistant.js';
 import { recommendBid, targetBoard, buildLeagueState } from './engine/auction-advisor.js';
 import { optimizeLineup } from './engine/lineup-optimizer.js';
+import { recommendLineupStrategy } from './engine/bracket-strategy.js';
 import { evaluateWaivers, getWaiverRecommendations, CATEGORY, ACTION } from './engine/roster-manager.js';
 import { generateTradeProposals } from './engine/trade-generator.js';
 import { runSeasonSimulation } from './engine/simulator.js';
@@ -34,7 +35,9 @@ const loadingText = document.getElementById('loading-text');
 
 let activeDraftFilter = 'all';
 let draftSearchQuery = '';
-let weeklyLineupStrategy = 'floor'; // default
+// 'auto' lets the bracket engine decide floor vs ceiling from who you play.
+// The manual buttons override it.
+let weeklyLineupStrategy = 'auto';
 
 let lastSyncFileTimestamp = null;
 
@@ -187,21 +190,24 @@ function setupDraftControls() {
 
 // Setup Matchup Lineup Strategy Buttons
 function setupMatchupControls() {
+  const btnAuto = document.getElementById('btn-lineup-strategy-auto');
   const btnFloor = document.getElementById('btn-lineup-strategy-floor');
   const btnCeil = document.getElementById('btn-lineup-strategy-ceil');
+  const all = [btnAuto, btnFloor, btnCeil].filter(Boolean);
+  const select = (active, mode) => {
+    all.forEach(b => b.className = b === active ? 'btn-primary' : 'btn-secondary');
+    weeklyLineupStrategy = mode;
+    renderMatchupPage();
+  };
+
+  if (btnAuto) btnAuto.addEventListener('click', () => select(btnAuto, 'auto'));
 
   btnFloor.addEventListener('click', () => {
-    btnFloor.classList.replace('btn-secondary', 'btn-primary');
-    btnCeil.classList.replace('btn-primary', 'btn-secondary');
-    weeklyLineupStrategy = 'floor';
-    renderMatchupPage();
+    select(btnFloor, 'floor');
   });
 
   btnCeil.addEventListener('click', () => {
-    btnCeil.classList.replace('btn-secondary', 'btn-primary');
-    btnFloor.classList.replace('btn-primary', 'btn-secondary');
-    weeklyLineupStrategy = 'ceiling';
-    renderMatchupPage();
+    select(btnCeil, 'ceiling');
   });
 }
 
@@ -1133,12 +1139,62 @@ function renderRosterPage(league = store.getActiveLeague()) {
   `;
 }
 
+/**
+ * Show what the bracket calls for, and why. Rendered above the lineup so the
+ * reasoning arrives before the roster does.
+ */
+function renderBracketAdvice(advice, applied) {
+  const host = document.getElementById('matchup-strategy-hint');
+  if (!host) return;
+  if (!advice) { host.innerHTML = ''; return; }
+
+  const tone = advice.strategy === 'ceiling' ? '#a78bfa' : '#16c784';
+  const badge = advice.isPlayoffs
+    ? `<span style="font-size:0.68rem; font-weight:800; letter-spacing:0.6px;
+         color:${tone};">PLAYOFF WEEK ${advice.week} — PLAY THE
+         ${advice.strategy === 'ceiling' ? 'CEILING' : 'FLOOR'}</span>`
+    : `<span style="font-size:0.68rem; font-weight:700; letter-spacing:0.6px;
+         color:var(--text-secondary);">WEEK ${advice.week} — REGULAR SEASON</span>`;
+
+  host.innerHTML = `
+    <div style="padding:0.7rem 0.9rem; border-radius:6px; margin-bottom:0.75rem;
+                background:rgba(255,255,255,0.03); border-left:3px solid ${tone};">
+      <div style="display:flex; gap:0.9rem; flex-wrap:wrap; align-items:center;">
+        ${badge}
+        ${advice.opponent ? `<span style="font-size:0.78rem; color:var(--text-secondary);">
+          vs ${advice.opponent.teamName} — win probability
+          <strong>${Math.round(advice.winProbability * 100)}%</strong></span>` : ''}
+        <span style="font-size:0.72rem; color:var(--text-secondary);">
+          confidence ${advice.confidence}</span>
+        ${applied !== advice.strategy ? `<span style="font-size:0.72rem; color:#ffb020;">
+          (you have overridden this to ${applied})</span>` : ''}
+      </div>
+      <div style="font-size:0.83rem; color:var(--text-secondary); margin-top:0.35rem;
+                  line-height:1.45;">${advice.reason}</div>
+    </div>`;
+}
+
 // Render Matchup View
 function renderMatchupPage(league = store.getActiveLeague()) {
   const myTeam = store.getMyTeam();
   if (!myTeam) return;
 
-  const opt = optimizeLineup(myTeam.roster, league.playerDatabase, league.rosterSettings, weeklyLineupStrategy);
+  // The engine's own read on floor vs ceiling. In the bracket this is the
+  // single most valuable in-season call there is (+4.0 points of championship
+  // probability in backtest), and it is the opposite of intuition half the
+  // time: favourites should play it safe, underdogs should chase variance.
+  let advice = null;
+  try {
+    advice = recommendLineupStrategy(league);
+  } catch (e) {
+    console.error('Bracket strategy failed:', e);
+  }
+  const strategy = weeklyLineupStrategy === 'auto' && advice
+    ? advice.strategy
+    : weeklyLineupStrategy;
+
+  const opt = optimizeLineup(myTeam.roster, league.playerDatabase, league.rosterSettings, strategy);
+  renderBracketAdvice(advice, strategy);
   const startersGrid = document.getElementById('matchup-starters-grid');
   startersGrid.innerHTML = '';
 
