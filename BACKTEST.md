@@ -309,11 +309,39 @@ Season phase shifts the weighting: upside is a long-dated option that decays as
 the season runs out, so a week-2 stash and a week-13 stash are not the same bet.
 FAAB likewise stops being hoarded late, because unspent budget expires worthless.
 
-**This part is not backtested.** Doing it properly needs in-season transaction
-histories, weekly usage and injury timelines that the current data pipeline does
-not carry. The engine is covered by 44 behavioural tests, but its point value is
-unmeasured, and it should be read as a well-specified model rather than a proven
-one.
+### The lever is real, and larger than the draft
+
+The engine's specific recommendations are not backtested, but the *lever* now is.
+A deliberately simple weekly policy — one add/drop, choosing the free agent who
+most improves the startable lineup, valued by preseason projection shrunk toward
+actual production so far — was run over the same five seasons on top of v5
+drafts. Nothing looks ahead: the week-8 decision sees only weeks 1-7.
+
+| Scenario | Points | Playoff % | **Title %** | Adds/season |
+|---|---|---|---|---|
+| Frozen rosters (every earlier result) | 1945 | 72.0% | **12.5%** | 0 |
+| I work the wire, rivals do not | 1976 | 77.6% | **19.4%** | 3.6 |
+| All 12 teams work the wire | 1960 | 68.1% | **11.2%** | 1.2 |
+
+Working the wire against passive opponents: **+7.0 points of title probability**,
+95% CI [+4.7, +9.2] over 300 seasons. That is a 55% relative increase, and it is
+the largest single effect measured anywhere in this document — larger than the
+entire draft rewrite.
+
+**And it breaks the convexity rule from Part 6.** Those +7 points of title
+probability come from only +31 points of roster quality. The draft edge of +41
+points bought +0.2. The difference is *what kind* of points they are: draft
+capital adds to your mean, while waiver claims repair holes — the injured
+starter, the bye week, the back who lost his job — that would otherwise put a
+zero in your lineup on a specific Sunday. Head-to-head football rewards raising
+your floor far more than raising your average, which is why playoff rate moves
+5.6 points on a 31-point gain.
+
+The competitive caveat is equally important. When all twelve teams run the same
+policy the edge vanishes (−1.3 points of title probability, CI [−3.1, +0.4],
+indistinguishable from zero). **The wire is a lever against a passive league and
+a tax in a sharp one.** Which one you are in is worth knowing before assuming
+the +7 applies to you.
 
 Inputs the strategy calls for that no current data source supplies are declared
 in `MISSING_INPUTS` and surfaced in the UI rather than guessed at: depth-chart
