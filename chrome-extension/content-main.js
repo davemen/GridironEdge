@@ -2,7 +2,11 @@
 // Accesses the page's React/Redux store directly and posts updates to the isolated content script
 
 (function() {
-  console.log("[Gridiron Edge Sync] Main world script initialized.");
+  // Version marker: lets a console check confirm whether Chrome is running the
+  // current content script or a cached older one, which is the first thing to
+  // rule out when a fix appears to have had no effect.
+  try { window.__GRIDIRON_EDGE_VERSION__ = '2026.08.05-bidfix'; } catch (e) {}
+  console.log("[Gridiron Edge Sync] Main world script initialized (2026.08.05-bidfix).");
 
   let lastSyncKey = null;
 
