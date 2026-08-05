@@ -335,6 +335,12 @@ export function recommendBid(league, player, currentBid = 0, options = {}) {
 
   const state = buildLeagueState(league, parById);
   const me = state.me;
+  // If the draft room told us the most we may bid, trust it over our own
+  // budget arithmetic -- it accounts for league rules we cannot see.
+  const roomMax = league.draftState?.currentNominationMax;
+  if (typeof roomMax === 'number' && roomMax >= 0 && roomMax < me.maxBid) {
+    me.maxBid = roomMax;
+  }
 
   const remainingPar = par.reduce((a, b) => a + b, 0);
   const infl = marketInflation(state, remainingPar);

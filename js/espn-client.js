@@ -224,6 +224,7 @@ class ESPNClient {
 
     let currentNomination = null;
     let currentNominationBid = null;
+    let currentNominationMax = null;
     if (espnData.currentNomination) {
       const nomName = typeof espnData.currentNomination === 'object' ? espnData.currentNomination.name : espnData.currentNomination;
       const nomTeam = typeof espnData.currentNomination === 'object' ? espnData.currentNomination.team : 'FA';
@@ -260,6 +261,12 @@ class ESPNClient {
       currentNominationBid = typeof espnData.currentNomination === 'object'
         && typeof espnData.currentNomination.bid === 'number'
         ? espnData.currentNomination.bid : null;
+      // ESPN publishes the most this manager can still bid. Preferring it over
+      // our own arithmetic means the ceiling can never exceed what the draft
+      // room will actually accept.
+      currentNominationMax = typeof espnData.currentNomination === 'object'
+        && typeof espnData.currentNomination.maxAffordable === 'number'
+        ? espnData.currentNomination.maxAffordable : null;
     }
 
     const draftState = {
@@ -268,7 +275,8 @@ class ESPNClient {
       currentPick: selections.length + 1,
       selections: selections,
       currentNomination: currentNomination,
-      currentNominationBid: currentNominationBid
+      currentNominationBid: currentNominationBid,
+      currentNominationMax: currentNominationMax
     };
 
     const positionLimits = {
@@ -396,6 +404,7 @@ class ESPNClient {
 
     let currentNomination = null;
     let currentNominationBid = null;
+    let currentNominationMax = null;
     if (espnData.currentNomination) {
       const nomName = typeof espnData.currentNomination === 'object' ? espnData.currentNomination.name : espnData.currentNomination;
       const nomTeam = typeof espnData.currentNomination === 'object' ? espnData.currentNomination.team : 'FA';
@@ -423,6 +432,12 @@ class ESPNClient {
       currentNominationBid = typeof espnData.currentNomination === 'object'
         && typeof espnData.currentNomination.bid === 'number'
         ? espnData.currentNomination.bid : null;
+      // ESPN publishes the most this manager can still bid. Preferring it over
+      // our own arithmetic means the ceiling can never exceed what the draft
+      // room will actually accept.
+      currentNominationMax = typeof espnData.currentNomination === 'object'
+        && typeof espnData.currentNomination.maxAffordable === 'number'
+        ? espnData.currentNomination.maxAffordable : null;
     }
 
     const draftState = {
@@ -431,7 +446,8 @@ class ESPNClient {
       currentPick: selections.length + 1,
       selections: selections,
       currentNomination: currentNomination,
-      currentNominationBid: currentNominationBid
+      currentNominationBid: currentNominationBid,
+      currentNominationMax: currentNominationMax
     };
 
     // 5. Map Schedule Matchups

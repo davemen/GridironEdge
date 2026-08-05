@@ -56,32 +56,50 @@
             else if (lowerName.includes('browns')) team = 'CLE';
             else if (lowerName.includes('bengals')) team = 'CIN';
           }
-          // The live bid. ESPN does not label it consistently, so try an
-          // explicitly-named element first and fall back to reading a dollar
-          // amount out of the card. Without this the advisor has no idea what
-          // the player is currently going for and can only price him from
-          // scratch, which is the one number that changes second to second.
+          // The live bid, read from ESPN's actual markup rather than inferred.
+          // The draft room renders:
+          //   <div data-testid="bidding-form" class="bidding-form__container">
+          //     <div class="current-amount">Current offer: $35</div>
+          //     <div class="manual-bid">Manual offer (max $99)</div>
+          //
+          // ".current-amount" is the number that ticks up as people bid, and
+          // ".manual-bid" carries the most this manager can still afford, which
+          // is worth having because it is ESPN's own answer to the budget
+          // question the advisor otherwise computes itself.
           let bid = null;
+          let maxAffordable = null;
           try {
-            const bidEl = card.querySelector(
-              '[data-testid*="bid" i], [class*="bidAmount" i], [class*="currentBid" i], [class*="bid-amount" i]');
-            if (bidEl && bidEl.innerText) {
-              const m = bidEl.innerText.match(/\$?(\d+)/);
-              if (m) bid = parseInt(m[1], 10);
+            const amountEl = card.querySelector('.current-amount')
+              || document.querySelector('[data-testid="bidding-form"] .current-amount')
+              || document.querySelector('.current-amount');
+            if (amountEl && amountEl.innerText) {
+              const m = amountEl.innerText.match(/\$\s?([\d,]+)/);
+              if (m) bid = parseInt(m[1].replace(/,/g, ''), 10);
             }
+
+            const maxEl = card.querySelector('.manual-bid')
+              || document.querySelector('[data-testid="bidding-form"] .manual-bid')
+              || document.querySelector('.manual-bid');
+            if (maxEl && maxEl.innerText) {
+              const m = maxEl.innerText.match(/max\s*\$\s?([\d,]+)/i);
+              if (m) maxAffordable = parseInt(m[1].replace(/,/g, ''), 10);
+            }
+
+            // Only if the labelled elements are missing does it fall back to
+            // scanning the card for a dollar figure.
             if (bid === null) {
-              const cardText = card.innerText || '';
-              const all = cardText.match(/\$\s?\d+/g) || [];
+              const all = (card.innerText || '').match(/\$\s?\d+/g) || [];
               if (all.length) {
-                // The largest dollar figure on the card is the live bid; smaller
-                // ones tend to be projected value or average cost.
                 bid = Math.max(...all.map(t => parseInt(t.replace(/[^0-9]/g, ''), 10)));
               }
             }
             if (bid !== null && (isNaN(bid) || bid < 0 || bid > 400)) bid = null;
-          } catch (e) { bid = null; }
+            if (maxAffordable !== null && (isNaN(maxAffordable) || maxAffordable < 0)) {
+              maxAffordable = null;
+            }
+          } catch (e) { bid = null; maxAffordable = null; }
 
-          return { name, team, position, bid };
+          return { name, team, position, bid, maxAffordable };
         }
       }
     } catch (e) {}
@@ -304,11 +322,22 @@
           const nameLineRaw = lines[0].trim();
           if (/^\d+\.\s+/.test(nameLineRaw)) {
             const nameLine = nameLineRaw.replace(/^\d+\.\s*/, '');
-            const budgetLine = lines[1].trim();
-            
+
+            // The pick train renders three lines, not two:
+            //   "1. Team 7" / "AUTO" / "$103"
+            // Reading lines[1] therefore found "AUTO", never a dollar amount,
+            // so every budget silently fell back to $200 and the whole market
+            // model -- who is broke, who can still outbid you -- ran blind.
+            // Take the first dollar figure anywhere below the name instead.
+            let budgetLine = '';
+            for (let i = 1; i < lines.length; i++) {
+              const candidate = lines[i].trim();
+              if (/^\$\s?[\d,]+$/.test(candidate)) { budgetLine = candidate; break; }
+            }
+
             if (budgetLine.startsWith('$')) {
-              const budgetVal = parseInt(budgetLine.replace('$', ''), 10);
-              if (!isNaN(budgetVal) && budgetVal >= 0 && budgetVal <= 260) {
+              const budgetVal = parseInt(budgetLine.replace(/[^0-9]/g, ''), 10);
+              if (!isNaN(budgetVal) && budgetVal >= 0 && budgetVal <= 400) {
                 if (nameLine.length > 2 && nameLine.length < 30 && !seenTeams.has(nameLine)) {
                   seenTeams.add(nameLine);
                   teams.push({
