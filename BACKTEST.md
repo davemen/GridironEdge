@@ -589,6 +589,66 @@ are working it to stand still.
 
 ---
 
+## Part 9 — Is there any public information left?
+
+Three candidate sources remained untested. All were run through the same filter:
+does the signal predict the RESIDUAL of the estimate already in use? A signal
+that only correlates with points, and not with the error, is already priced in.
+
+### The betting market: already absorbed
+
+Vegas publishes a total and a spread for every game, which together imply how
+many points each team is expected to score. It is the only public source with
+money enforcing its accuracy.
+
+| Year | Player-weeks | r(Vegas, residual) | r(Vegas, points) |
+|---|---|---|---|
+| 2021 | 5,055 | 0.0147 | 0.1141 |
+| 2022 | 4,706 | 0.0104 | 0.1099 |
+| 2023 | 4,852 | 0.0151 | 0.1262 |
+| 2024 | 5,190 | 0.0080 | 0.1041 |
+| 2025 | 4,801 | 0.0165 | 0.1100 |
+| **Mean** | | **0.0130** | 0.1128 |
+
+Vegas correlates with scoring (0.113) and almost not at all with the error
+(0.013 — **0.02% of the residual variance**). Statistically nonzero, practically
+worthless. The projections have already absorbed it.
+
+### Within-season usage trend: the one survivor
+
+Every in-season estimate here has been driven by points scored so far. But points
+are the noisy output; opportunity is the persistent input.
+
+| Signal (last 3 weeks vs the 6 before) | 2021 | 2022 | 2023 | 2024 | 2025 | Mean | t |
+|---|---|---|---|---|---|---|---|
+| **Opportunity (targets + carries + ½ att)** | .067 | .063 | .106 | .134 | .061 | **.086** | **5.9** |
+| Target share | .061 | .040 | .090 | .057 | .074 | .065 | 7.7 |
+| Weighted opportunity (WOPR) | .066 | .029 | .088 | .048 | .073 | .061 | 5.9 |
+| Air yards | .050 | −.041 | .035 | .050 | .020 | .023 | 1.3 |
+
+**Opportunity trend is the only public signal found that the projections have not
+already priced.** Same sign in all five seasons, 8,199 player-weeks. It is modest
+— r = 0.086 explains under 1% of the residual — but it operates in-season, which
+is where every lever that actually converts to titles lives. Shipped as
+`opportunityTrend()` in `roster-manager.js`, requiring weekly `metricsHistory`
+and returning 0 rather than inventing a trend when that is absent.
+
+### What this means
+
+The public information space is essentially fully priced. Tested and exhausted:
+prior-season box scores, expert consensus, betting markets, air-yards trends.
+The one survivor is a nudge, not a verdict.
+
+**Dramatic improvement is therefore not available from modelling.** It requires
+either information that is not public (injury and inactive news, practice
+reports, beat reporting — an engineering problem, not a modelling one), or
+choosing a different game to play. Which brings up the largest single number in
+this document: a passive league is worth 18.8% and a sharp one 10.3%. That 8.5
+point gap exceeds everything the five engineered levers add combined (+6.4). It
+cannot be tuned for. It can only be chosen.
+
+---
+
 ## Honest summary
 
 | Claim | Verdict |

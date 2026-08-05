@@ -11,7 +11,7 @@ import {
   seasonPhase, restOfSeasonPoints, playoffPoints, breakoutProbability,
   bustProbability, lineupBreakdown, lineupGain, startProbability, blockingValue,
   evaluateBench, evaluateWaivers, faabLadder, getWaiverRecommendations,
-  CATEGORY, ACTION, MISSING_INPUTS,
+  opportunityTrend, CATEGORY, ACTION, MISSING_INPUTS,
 } from '../js/engine/roster-manager.js';
 
 let passed = 0, failed = 0;
@@ -61,6 +61,28 @@ console.log('\nplayer value');
     bustProbability(nobody, phase) > bustProbability(workhorse, phase));
   check('breakout upside decays late in the season',
     breakoutProbability(workhorse, seasonPhase(15)) < breakoutProbability(workhorse, seasonPhase(2)));
+}
+
+console.log('\nopportunity trend');
+{
+  const hist = (vals) => vals.map((t) => ({ targets: t, carries: 0, attempts: 0 }));
+  const rising = { ...P('WR_08'), metricsHistory: hist([3, 4, 3, 4, 5, 4, 9, 10, 11]) };
+  const falling = { ...P('WR_08'), metricsHistory: hist([10, 11, 9, 10, 9, 10, 4, 3, 4]) };
+  const flat = { ...P('WR_08'), metricsHistory: hist([6, 6, 6, 6, 6, 6, 6, 6, 6]) };
+  check('rising usage reads positive', opportunityTrend(rising) > 2,
+    `got ${opportunityTrend(rising).toFixed(1)}`);
+  check('falling usage reads negative', opportunityTrend(falling) < -2);
+  check('flat usage reads zero', Math.abs(opportunityTrend(flat)) < 0.01);
+  check('no history invents no trend', opportunityTrend(P('WR_08')) === 0);
+  check('too little history invents no trend',
+    opportunityTrend({ ...P('WR_08'), metricsHistory: hist([5, 6, 7]) }) === 0);
+
+  const phase = seasonPhase(8);
+  check('rising usage raises breakout probability',
+    breakoutProbability(rising, phase) > breakoutProbability(flat, phase),
+    `${breakoutProbability(rising, phase).toFixed(2)} vs ${breakoutProbability(flat, phase).toFixed(2)}`);
+  check('the trend bonus is bounded, not unlimited',
+    breakoutProbability(rising, phase) - breakoutProbability(flat, phase) < 0.20);
 }
 
 console.log('\nlineup mechanics');
