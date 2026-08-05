@@ -32,7 +32,7 @@
  * Backtested over 2021-2025 against real NFL results, real preseason ADP and
  * FantasyPros expert consensus. The previous `calculateAuctionBid()` priced
  * quarterbacks at roughly five times market and deployed only ~44% of the
- * league's money; replacing it is worth several hundred points a season. See
+ * league's money; replacing it is worth +306 points a season. See
  * BACKTEST.md for the numbers, and for the parts that are not yet proven --
  * notably whether this beats, or only matches, a well-built static value chart.
  */

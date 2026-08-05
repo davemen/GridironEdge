@@ -190,31 +190,45 @@ In simulation these compound exactly as you would predict: the app wins the
 quarterback auctions nobody else wants, then bids $1–3 on everything else and
 loses every contested player.
 
-**Simulated 12-team, $200, second-price auctions, 2021–2025 (300 auctions per model):**
+**Simulated 12-team, $200, second-price auctions, 2021–2025 (120 auctions per
+model, run after the planner bug described below was fixed):**
 
 | Bid model | Points | Avg rank | Budget spent | QBs rostered |
 |---|---|---|---|---|
-| Gridiron Edge `calculateAuctionBid()` | 1478 | 7.21 / 12 | **$50 of $200** | **3.00** |
-| Static VOR dollar chart | 1729 | 5.00 | $200 | 1.73 |
-| Market-adaptive engine (new) | 1733 | 5.31 | $200 | 1.91 |
+| Gridiron Edge `calculateAuctionBid()` | 1530 | 6.67 / 12 | **$49 of $200** | **3.00** |
+| Static VOR dollar chart | 1820 | 4.12 | $200 | 1.82 |
+| Market-adaptive engine (new) | 1836 | 4.03 | $200 | 2.17 |
 
-Adaptive vs the app's formula: **+255 points**, 95% CI [+223, +287], t = 15.7.
-Adaptive vs a static value chart: **+4 points**, 95% CI [-26, +35], t = 0.3.
+Adaptive vs the app's formula: **+306 points**, 95% CI [+261, +351], t = 13.4.
+Adaptive vs a static value chart: **+16 points**, 95% CI [−20, +52], t = 0.9.
 
 **The old formula was catastrophically broken.** It finishes 7th of 12 while
 leaving three quarters of its budget unspent, and it wins the quarterback
 auctions nobody else wants because it is the only bidder who thinks they are
-worth $58. Replacing it is worth roughly 255 points a season, and that result is
-overwhelming and robust.
+worth $58. Replacing it is worth roughly 300 points a season — overwhelming and
+robust.
 
-**The adaptive-versus-static-chart comparison is not settled, and the tie above
-should not be trusted.** After that run I found a bug in the planner: it clamped
-each candidate's price down to whatever cash was left, so it could "buy" a $50
-player for $1. Budget stopped constraining the plan, which pinned every bid
-ceiling to the maximum possible bid and made the engine wildly overpay. The fix
-is in (`if (px > afford) continue`, plus a board deep enough to contain the $1-3
-tail a roster is actually finished with), and the effect on live recommendations
-is large and visibly correct:
+**Against a well-built static value chart, the adaptive engine is a tie.** It is
+nominally ahead on points and on average finish, but the interval spans zero.
+That is the theoretically correct outcome for this simulation: the bots bid
+their private values around par, so the room is *efficient*, and in an efficient
+market there is nothing for adaptivity to exploit. The machinery that tracks who
+is broke, who still needs the position, and how observed prices compare to par
+only earns its keep when the room misprices — which real auction rooms famously
+do, front-loading their budgets on the first two dozen names. A `human` room
+mode exists in the harness to test exactly that and has not been run to
+completion, so **the case for adaptivity over a good static chart remains
+unproven.**
+
+### A bug that invalidated an earlier version of this table
+
+The first run of this comparison was measured with a defect in the planner: it
+clamped each candidate's price down to whatever cash was left, so the plan could
+"buy" a $50 player for $1. Budget stopped constraining anything, which pinned
+every bid ceiling to the maximum possible bid. The fix is `if (px > afford)
+continue`, plus a board deep enough to contain the $1–3 tail a roster is
+actually finished with. The effect on live recommendations is large and visibly
+correct:
 
 | Situation | Before fix | After fix |
 |---|---|---|
@@ -222,21 +236,9 @@ is large and visibly correct:
 | Opening bid, QB1 (market $35) | ceiling $185, "Must Buy" | ceiling $36, not a Must Buy |
 | Mid-auction, last elite RB, rivals hold cash | — | ceiling $61 vs market $51, **Must Buy** |
 
-That is exactly the intended behaviour: nothing is urgent while the board is
-full, and scarcity plus rival purchasing power is what creates a Must Buy. Six
-regression tests now pin it. But the head-to-head re-run against the static
-chart had not finished when this was written, so **the honest status is that the
-adaptive engine is proven far better than what the app had, and unproven against
-a well-built static value chart.**
-
-There is also a structural reason to expect a tie in this particular simulation:
-the bots bid their private values around par, so the simulated room is
-*efficient*. In an efficient market there is nothing for adaptivity to exploit.
-The machinery that tracks who is broke, who still needs the position, and how
-observed prices compare to par only earns its keep when the room misprices --
-which real auction rooms famously do, front-loading their budgets on the first
-two dozen names. A `human` room mode exists in the harness to test exactly that
-and has not yet been run to completion.
+Exactly the intended behaviour: nothing is urgent while the board is full, and
+scarcity plus rival purchasing power is what creates a Must Buy. Six regression
+tests pin it.
 
 ### The replacement
 
@@ -377,7 +379,7 @@ favourable run would be cherry-picking.
 | The app can identify the optimal player before the season | **No.** Nobody can; consensus nails it 20% of the time. |
 | The app can out-predict fantasy experts | **No.** Real signals exist (t = 5–7) but are too small to reorder the board. |
 | The app's snake logic beat expert consensus | Marginally — +10 pts, negative in 2 of 5 seasons. Now +47 and positive in all five. |
-| The app's auction logic was sound | **No.** Quarterbacks priced ~5× market and 56% of the budget never deployed. |
+| The app's auction logic was sound | **No.** Quarterbacks priced ~5× market and 75% of the budget never deployed; worth +306 pts/season to replace. |
 | Following these picks assures a championship | **No.** 12.2% per season against 12.0% for an expert board and 8.3% for a random team. |
 | An 80% per-season title rate is reachable by tuning | **No.** Perfect foresight reaches 85.8%, and essentially the entire gap to it is forecast error. |
 | This is "the world's best fantasy football selector" | Unsupported. It is measurably better than a consensus cheat sheet at building a roster, by a margin that is real, repeatable and modest. |
