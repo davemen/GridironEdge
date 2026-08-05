@@ -31,10 +31,13 @@
  *
  * Backtested over 2021-2025 against real NFL results, real preseason ADP and
  * FantasyPros expert consensus. The previous `calculateAuctionBid()` priced
- * quarterbacks at roughly five times market and deployed only ~44% of the
- * league's money; replacing it is worth +306 points a season. See
- * BACKTEST.md for the numbers, and for the parts that are not yet proven --
- * notably whether this beats, or only matches, a well-built static value chart.
+ * quarterbacks at roughly five times market and deployed only a quarter of the
+ * league's money; replacing it is worth +306 points a season. Against a well-built static value chart the
+ * result depends on the room: in an efficient one they tie (+16, t = 0.9), but
+ * in a realistically front-loaded room -- where the first two dozen names go
+ * for far more than par and half the league is then broke -- this wins by +125
+ * points a season (t = 5.8). Seeing that four rivals just spent themselves out
+ * is the whole point, and a static chart cannot. See BACKTEST.md.
  */
 
 const STARTER_SLOTS = { QB: 1, RB: 2, WR: 2, TE: 1, 'D/ST': 1, K: 1 };

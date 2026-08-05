@@ -208,17 +208,43 @@ auctions nobody else wants because it is the only bidder who thinks they are
 worth $58. Replacing it is worth roughly 300 points a season — overwhelming and
 robust.
 
-**Against a well-built static value chart, the adaptive engine is a tie.** It is
-nominally ahead on points and on average finish, but the interval spans zero.
-That is the theoretically correct outcome for this simulation: the bots bid
-their private values around par, so the room is *efficient*, and in an efficient
-market there is nothing for adaptivity to exploit. The machinery that tracks who
-is broke, who still needs the position, and how observed prices compare to par
-only earns its keep when the room misprices — which real auction rooms famously
-do, front-loading their budgets on the first two dozen names. A `human` room
-mode exists in the harness to test exactly that and has not been run to
-completion, so **the case for adaptivity over a good static chart remains
-unproven.**
+**Against a well-built static value chart, the result depends entirely on
+whether the room is efficient.** In the table above the bots bid their private
+values around par, so the market is efficient — and in an efficient market there
+is nothing for adaptivity to exploit. The two models tie.
+
+Real auction rooms are not efficient. They front-load: the first two dozen names
+go for far more than par while everyone has money, and then good players go for
+$2 because half the league is broke. The harness models this as a `human` room,
+where bots bid 45% over their value on the opening 30 nominations and 15% under
+thereafter. Same seasons, same players, same seats:
+
+| Bid model | Points | Avg rank | Budget spent | QBs rostered |
+|---|---|---|---|---|
+| **Market-adaptive engine** | **1991** | **3.24** | $200 | 1.64 |
+| Gridiron Edge `calculateAuctionBid()` | 1917 | 3.58 | $75 | 2.99 |
+| Static VOR dollar chart | 1865 | 4.11 | $200 | 1.82 |
+
+Adaptive vs the static chart: **+125 points**, 95% CI [+83, +168], **t = 5.8**.
+Adaptive vs the app's formula: **+73 points**, 95% CI [+32, +115], t = 3.5.
+
+This is the case the engine was built for, and it is the one that justifies its
+complexity:
+
+| Room | Adaptive − static chart | Verdict |
+|---|---|---|
+| Efficient (bots bid at par) | +16, CI [−20, +52] | tie, as theory predicts |
+| Front-loaded (real behaviour) | **+125, CI [+83, +168]** | **decisive** |
+
+A static value chart cannot see that four rivals just spent themselves broke.
+The adaptive engine reprices every remaining player against who can still
+actually bid, and buys the stars that fall.
+
+One honest oddity worth recording: in the front-loaded room the *old* formula
+beats the static chart by 52 points, despite being badly broken. It underspends
+so severely that it accidentally hoards cash while everyone else overpays early,
+then buys cheap. That is luck, not logic — it still loses to the adaptive engine,
+and in the efficient room it finishes 7th of 12.
 
 ### A bug that invalidated an earlier version of this table
 
@@ -379,7 +405,7 @@ favourable run would be cherry-picking.
 | The app can identify the optimal player before the season | **No.** Nobody can; consensus nails it 20% of the time. |
 | The app can out-predict fantasy experts | **No.** Real signals exist (t = 5–7) but are too small to reorder the board. |
 | The app's snake logic beat expert consensus | Marginally — +10 pts, negative in 2 of 5 seasons. Now +47 and positive in all five. |
-| The app's auction logic was sound | **No.** Quarterbacks priced ~5× market and 75% of the budget never deployed; worth +306 pts/season to replace. |
+| The app's auction logic was sound | **No.** Quarterbacks priced ~5× market, 75% of the budget never deployed. |
 | Following these picks assures a championship | **No.** 12.2% per season against 12.0% for an expert board and 8.3% for a random team. |
 | An 80% per-season title rate is reachable by tuning | **No.** Perfect foresight reaches 85.8%, and essentially the entire gap to it is forecast error. |
 | This is "the world's best fantasy football selector" | Unsupported. It is measurably better than a consensus cheat sheet at building a roster, by a margin that is real, repeatable and modest. |
