@@ -396,6 +396,42 @@ per year, the probability of winning **at least one** title is roughly 48% over
 five seasons and 73% over ten. Any per-season figure near 80% would require
 information that does not exist when you draft.
 
+### You cannot win the season in the draft. You can lose it there.
+
+Six drafters spanning the realistic range, through identical rooms:
+
+| Drafter | Points | Playoff % | **Title %** | 95% CI | vs board |
+|---|---|---|---|---|---|
+| Perfect foresight | 2611 | 100.0% | 87.1% | [84.8, 89.3] | +75.0 |
+| Expert consensus board | 1887 | 56.9% | **12.0%** | [9.9, 14.1] | — |
+| Gridiron Edge v5 | 1910 | 67.7% | 8.9% | [7.1, 10.7] | −3.1 |
+| Old Gridiron Edge (v1) | 1885 | 64.8% | 8.1% | [6.3, 9.9] | −3.9 |
+| QB-first (a common human error) | 1747 | 35.1% | **1.6%** | [1.0, 2.3] | −10.4 |
+| Random from the top 200 | 1430 | 1.7% | **0.1%** | [0.0, 0.3] | −11.9 |
+
+**The upside is statistically zero.** Across three independent runs, v5's title
+rate against a plain consensus board has come out +0.2, −0.3 and −3.1 points —
+all inside the noise. A free cheat sheet already captures essentially all of the
+title probability the draft has to offer.
+
+**The downside is enormous and unambiguous.** Spending premium picks on
+quarterbacks — not a contrived strategy, but the single most common mistake in
+casual leagues, and exactly what the app's original logic did 69% of the time —
+costs 10.4 points of title probability and cuts playoff odds from 57% to 35%.
+Drafting without regard to rank at all ends the season in August: 1.7% playoff
+odds, 0.1% titles.
+
+So the draft is a **hazard to be avoided, not an edge to be won**. Its realistic
+downside is at least 3.8x its realistic upside, and against a competent baseline
+the upside is indistinguishable from nothing.
+
+One genuine qualification: a better draft does reliably buy *playoff
+appearances* — v5 runs 67.7% against the board's 56.9%, and 71.8% vs 59.9% in
+the larger run, roughly +11 points either way. That is a real and repeatable
+improvement in how often your season stays alive into December. It simply does
+not convert into trophies, because three single-elimination games do not care
+who had the better regular season.
+
 ### Would tuning for titles instead of points help?
 
 Maximising points and maximising championship probability are not obviously the
