@@ -349,25 +349,44 @@ function scanForEspnState() {
 
     const rawState = findStoreState();
     
+    /**
+     * Locate the results table, in either draft format.
+     *
+     * This used to require the literal string "Round 1", which is a snake-draft
+     * artefact. An auction has no rounds -- players are nominated and bid on --
+     * so the check could never pass in an auction room, and the extension was
+     * unusable for exactly the format the auction engine exists to serve.
+     *
+     * Now it accepts either signature: round labelling for a snake, or a column
+     * of dollar amounts for an auction.
+     */
     function findDraftSummaryContainer() {
       const containers = document.querySelectorAll('div, table, tbody');
+      let best = null;
       for (const el of containers) {
         if (!el || el.children.length === 0) continue;
         const text = el.innerText ? el.innerText.trim() : '';
-        if (text.includes('Round 1') && text.includes('PLAYER') && text.includes('TEAM') && (text.includes('PROJ PTS') || text.includes('PTS'))) {
-          if (text.length < 15000 && !text.includes('No players in queue')) {
-            return el;
-          }
-        }
+        if (text.length >= 15000 || text.includes('No players in queue')) continue;
+        if (!text.includes('PLAYER') || !text.includes('TEAM')) continue;
+
+        const isSnake = /\bRound\s+1\b/.test(text);
+        // Several "$45"-style tokens is what an auction results table looks like.
+        const priceTokens = (text.match(/\$\d+/g) || []).length;
+        const isAuction = priceTokens >= 3;
+        if (!isSnake && !isAuction) continue;
+
+        // Prefer the tightest container that still holds the results, so we do
+        // not scrape a whole page wrapper.
+        if (!best || text.length < best.innerText.trim().length) best = el;
       }
-      return null;
+      return best;
     }
 
     // Fallback: If no React/Redux store state is found, scrape the HTML DOM for draft summary
     if (!rawState) {
       const container = findDraftSummaryContainer();
       if (!container) {
-        return { success: false, error: 'Draft Summary tab is not active. Switch to Draft Summary tab to scrape picks.' };
+        return { success: false, error: 'Could not find the draft results table. Open the Draft Summary tab (snake) or the results panel showing bid amounts (auction).' };
       }
 
       const nflTeams = new Set(['DET', 'LAR', 'ATL', 'CIN', 'SEA', 'SF', 'GB', 'KC', 'BUF', 'DAL', 'PHI', 'MIA', 'NYJ', 'NE', 'LV', 'DEN', 'LAC', 'MIN', 'CHI', 'TB', 'NO', 'CAR', 'WAS', 'NYG', 'ARI', 'JAX', 'IND', 'TEN', 'HOU', 'BAL', 'PIT', 'CLE', 'FA']);
