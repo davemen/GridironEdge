@@ -649,6 +649,92 @@ cannot be tuned for. It can only be chosen.
 
 ---
 
+## Part 10 — 100 seasons in a league of excellent managers
+
+All twelve seats running the full stack: tuned draft, opponent-aware start/sit,
+weekly waivers, playoff-week targeting, bracket variance switching. Excellent but
+not identical — each agent sees players through its own small projection noise,
+the way real analysts disagree at the margin. 100 seasons, 1,200 team-seasons,
+25 schedule draws each.
+
+By symmetry everyone wins one in twelve. The question is what the winners did.
+
+### Draft slot is worth nothing
+
+| Slot | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11 | 12 |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| Title % | 8.6 | 8.7 | 8.0 | 8.4 | 6.6 | 7.3 | 9.7 | 7.4 | 8.1 | 8.8 | 9.0 | 9.4 |
+
+Correlation between slot number and title rate: **+0.013**. The 6.6–9.7% spread
+is noise around the 8.3% fair share. Stop worrying about where you pick.
+
+### What actually separates champions
+
+| Feature | r(title) | Worst quartile | Best quartile |
+|---|---|---|---|
+| **Season points** | **+0.557** | 0.1% | **26.0%** |
+| Weekly floor (20th pct) | +0.513 | 0.3% | 23.4% |
+| Weekly ceiling (80th pct) | +0.476 | 0.4% | 23.1% |
+| Top-3 players' points | +0.412 | 0.9% | 20.2% |
+| Best player's points | +0.295 | 1.3% | 16.1% |
+| Draft picks that beat their ADP | +0.223 | 3.2% | 13.0% |
+| Concentration in top 3 | +0.102 | 4.9% | 9.8% |
+| Week-to-week volatility | +0.017 | 7.6% | 10.0% |
+| **Points added via waivers** | **−0.078** | 10.1% | 6.8% |
+
+Total points dominates everything. Floor and ceiling matter about equally, and
+realised volatility does not matter at all — there is no clever roster shape that
+beats simply scoring more.
+
+**Concentration is nearly worthless (+0.102) while total points is +0.557.** Being
+top-heavy does not win; being good everywhere does. This is the same result that
+sank trade consolidation in Part 7, arrived at from a different direction.
+
+### The waiver correlation is negative, and it is a trap
+
+Teams that added more from waivers won *less*. That is reverse causation:
+in a league where everyone works the wire, you make claims because your roster
+broke — injuries, busts — not because you found treasure. Waiver activity is a
+distress signal, not a strategy.
+
+It does **not** contradict Part 6. That was a controlled comparison — the same
+roster with and without waivers, worth +7 points of title probability. This is an
+observational correlation across *different* rosters. Both are true.
+
+Note also the volume: **0.9 adds per team per season**, against 3.5 when
+unopposed. When twelve good managers work the same wire, there is almost nothing
+left to add.
+
+### The league-winning player comes from the first three rounds
+
+Where each champion's single most valuable pick was drafted:
+
+| Round | 1 | 2 | 3 | 4 | 5 | 6+ |
+|---|---|---|---|---|---|---|
+| Share | **35.0%** | 19.5% | 13.0% | 9.5% | 9.5% | 13.5% |
+
+**67.5% of champions' best players came from rounds 1–3.** The folk wisdom that
+leagues are won on late-round sleepers is not what the data shows — sleepers are
+memorable because they are rare. Champions also hit on about one more pick than
+the field (5.69 vs 4.72 picks beating their ADP) and their best pick came
+earlier (round 3.07 vs 3.88).
+
+### How much of this is skill
+
+| Scoring quartile | Points | Playoff % | Title % |
+|---|---|---|---|
+| Q1 | 1236 | 9.1% | 0.1% |
+| Q2 | 1393 | 35.3% | 1.4% |
+| Q3 | 1499 | 65.6% | 5.8% |
+| Q4 | 1655 | 90.1% | **26.0%** |
+
+Season points explain **31%** of title variance — so 69% is luck, even among
+equals. The single highest-scoring team in a season wins the title **42%** of
+the time. That 42% is the practical ceiling on excellence: build the best roster
+in your league and you are still a coin flip away, twice.
+
+---
+
 ## Honest summary
 
 | Claim | Verdict |
