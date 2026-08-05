@@ -557,9 +557,97 @@ function renderHomePage(league = store.getActiveLeague()) {
   });
 }
 
+/**
+ * Is the local sync server up, and is the extension actually feeding it?
+ *
+ * A web page cannot start a process -- that is a browser security boundary with
+ * no way around it. What it can do is make the failure impossible to miss,
+ * because the states below look identical from the draft screen and only one of
+ * them means the advice on it is live.
+ */
+async function checkDraftReadiness() {
+  const onLocalhost = ['localhost', '127.0.0.1'].includes(location.hostname);
+  if (!onLocalhost) {
+    return { ok: false, kind: 'not-local',
+      message: 'This page is not served from your machine, so the ESPN extension '
+        + 'has nowhere to send draft data. Live sync only works on '
+        + 'http://localhost:8000.' };
+  }
+  try {
+    const res = await fetch('/health?cb=' + Date.now(), { cache: 'no-store' });
+    if (!res.ok) throw new Error('status ' + res.status);
+    const h = await res.json();
+    if (!h.syncFileExists) {
+      return { ok: false, kind: 'no-sync',
+        message: 'Server is running, but the extension has never synced. Open your '
+          + 'ESPN draft room and confirm the extension is loaded there.' };
+    }
+    if (h.syncFileAgeSeconds > 120) {
+      const mins = Math.round(h.syncFileAgeSeconds / 60);
+      return { ok: false, kind: 'stale',
+        message: `Server is running, but the last sync was ${mins} minutes ago. The `
+          + 'draft room may be closed, or Chrome may be running an old copy of the '
+          + 'extension \u2014 check window.__GRIDIRON_EDGE_VERSION__ in its console.' };
+    }
+    return { ok: true, kind: 'live',
+      message: `last sync ${Math.round(h.syncFileAgeSeconds)}s ago` };
+  } catch (e) {
+    return { ok: false, kind: 'down',
+      message: 'The local sync server is not running. Start it, then reload this page.' };
+  }
+}
+
+function renderDraftReadiness(state) {
+  const host = document.getElementById('draft-readiness');
+  if (!host) return;
+  if (state.ok) {
+    host.innerHTML = `
+      <div style="padding:0.5rem 0.85rem; border-radius:6px; margin-bottom:0.75rem;
+                  background:rgba(22,199,132,0.10); border-left:3px solid #16c784;
+                  font-size:0.82rem; color:var(--text-secondary);">
+        <strong style="color:#16c784;">DRAFT SYNC LIVE</strong> \u2014 ${state.message}
+      </div>`;
+    return;
+  }
+  const cmd = 'cd ~/Documents/Projects/GridironEdge && python3 server.py';
+  host.innerHTML = `
+    <div style="padding:0.85rem 1rem; border-radius:6px; margin-bottom:1rem;
+                background:rgba(255,82,82,0.10); border:1px solid rgba(255,82,82,0.45);">
+      <div style="font-weight:800; color:#ff5252; font-size:0.78rem;
+                  letter-spacing:0.6px; margin-bottom:0.3rem;">
+        DRAFT SYNC NOT LIVE \u2014 recommendations are running on stale or mock data
+      </div>
+      <div style="font-size:0.85rem; color:var(--text-secondary); line-height:1.45;">
+        ${state.message}
+      </div>
+      ${(state.kind === 'down' || state.kind === 'not-local') ? `
+        <div style="display:flex; align-items:center; gap:0.5rem; margin-top:0.6rem;">
+          <code style="flex:1; padding:0.4rem 0.6rem; border-radius:4px; font-size:0.78rem;
+                       background:rgba(0,0,0,0.3); color:var(--text-primary);
+                       overflow-x:auto; white-space:nowrap;">${cmd}</code>
+          <button class="btn-secondary" id="btn-copy-server-cmd"
+                  style="padding:0.35rem 0.7rem; font-size:0.78rem; white-space:nowrap;">
+            Copy command
+          </button>
+        </div>` : ''}
+    </div>`;
+  const btn = document.getElementById('btn-copy-server-cmd');
+  if (btn) {
+    btn.onclick = async () => {
+      try {
+        await navigator.clipboard.writeText(cmd);
+        btn.textContent = 'Copied \u2014 paste in Terminal';
+      } catch (e) {
+        btn.textContent = 'Copy failed \u2014 select it manually';
+      }
+    };
+  }
+}
+
 // Render Live Draft Command Center
 function renderDraftPage(league = store.getActiveLeague()) {
   if (!league) return;
+  checkDraftReadiness().then(renderDraftReadiness).catch(() => {});
 
   const currentPick = league.draftState.currentPick;
   const db = league.playerDatabase;

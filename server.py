@@ -1,6 +1,7 @@
 import http.server
 import json
 import os
+import time
 
 PORT = 8000
 
@@ -16,6 +17,32 @@ class GridironServer(http.server.SimpleHTTPRequestHandler):
         # Handle CORS preflight
         self.send_response(200)
         self.end_headers()
+
+    def do_GET(self):
+        """
+        /health lets the app tell three states apart that otherwise look alike:
+        the server is down, the server is up but the extension has never synced,
+        and everything is working. Without it a stale league file is
+        indistinguishable from a live one.
+        """
+        if self.path.startswith('/health'):
+            sync_path = os.path.join(os.getcwd(), 'imported_league.json')
+            payload = {
+                'status': 'ok',
+                'serverTime': time.time(),
+                'syncFileExists': os.path.exists(sync_path),
+                'syncFileAgeSeconds': (time.time() - os.path.getmtime(sync_path))
+                                      if os.path.exists(sync_path) else None,
+            }
+            body = json.dumps(payload).encode('utf-8')
+            self.send_response(200)
+            self.send_header('Content-Type', 'application/json')
+            self.send_header('Cache-Control', 'no-store')
+            self.send_header('Content-Length', str(len(body)))
+            self.end_headers()
+            self.wfile.write(body)
+            return
+        super().do_GET()
 
     def do_POST(self):
         if self.path == '/sync':
