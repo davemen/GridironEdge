@@ -207,7 +207,10 @@ class ESPNClient {
           selections.push({
             pick: p.overallPickNumber,
             playerId: String(match.id),
-            teamId: p.drafterTeamId
+            teamId: p.drafterTeamId,
+            // Price paid, when the draft room shows it. Drives the auction
+            // engine's read on which managers overpay.
+            bidAmount: typeof p.bidAmount === 'number' ? p.bidAmount : undefined
           });
           
           // Dynamically populate roster for the team

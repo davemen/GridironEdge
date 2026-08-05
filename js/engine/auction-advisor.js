@@ -62,7 +62,7 @@ const seasonPoints = (p) => num(p.projectedPoints) * GAMES;
  * observed bidding behaviour. Rebuilt from the live draft state on every render,
  * so it is always current.
  */
-export function buildLeagueState(league) {
+export function buildLeagueState(league, parById = null) {
   const db = league.playerDatabase || {};
   const rosterSize = (league.rosterSettings?.startersCount || 9)
     + (league.rosterSettings?.benchCount || 7);
@@ -84,8 +84,13 @@ export function buildLeagueState(league) {
     if (!team || !player) return;
     team.roster.push(player);
     team.counts[player.position] = (team.counts[player.position] || 0) + 1;
-    if (typeof s.bidAmount === 'number' && s.parValue > 2) {
-      team.paidVsPar.push(s.bidAmount / s.parValue);
+    // Observed bidding behaviour: what this manager actually paid against what
+    // the player was worth. Needs a par lookup, which only exists once values
+    // have been computed -- hence the optional argument rather than a field on
+    // the selection, which would go stale the moment the board moved.
+    const par = parById ? parById.get(s.playerId) : null;
+    if (typeof s.bidAmount === 'number' && par && par > 2) {
+      team.paidVsPar.push(s.bidAmount / par);
     }
   });
 
@@ -310,14 +315,26 @@ export function planValue(roster, budget, spots, board, extra, detail) {
  */
 export function recommendBid(league, player, currentBid = 0, options = {}) {
   const db = league.playerDatabase || {};
-  const state = buildLeagueState(league);
-  const me = state.me;
   const startBudget = options.startingBudget || 200;
 
   const draftedIds = new Set((league.draftState?.selections || []).map((s) => s.playerId));
   const available = Object.values(db).filter((p) => !draftedIds.has(p.id));
-  const par = parValues(available, state, startBudget);
+
+  // Values first, then state: the state needs par to score how aggressively
+  // each manager has been bidding, and par needs the league size and roster
+  // size that a bare state carries. Build a cheap state to price with, then a
+  // full one that knows what everyone paid.
+  const shell = buildLeagueState(league);
+  const par = parValues(available, shell, startBudget);
   const parById = new Map(available.map((p, i) => [p.id, par[i]]));
+  // Sold players still need a price for the aggression read.
+  const soldPar = parValues(Object.values(db), shell, startBudget);
+  Object.values(db).forEach((p, i) => {
+    if (!parById.has(p.id)) parById.set(p.id, soldPar[i]);
+  });
+
+  const state = buildLeagueState(league, parById);
+  const me = state.me;
 
   const remainingPar = par.reduce((a, b) => a + b, 0);
   const infl = marketInflation(state, remainingPar);

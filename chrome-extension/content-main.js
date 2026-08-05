@@ -130,6 +130,20 @@
 
           const maxIdx = Math.max(teamIdx, posIdx);
           const remaining = parts.slice(maxIdx + 1);
+
+          // The winning bid sits in this row as a "$45" token. It used to be
+          // discarded along with the other noise while isolating the team name,
+          // which left the auction engine unable to tell an aggressive manager
+          // from a disciplined one -- it had to assume every rival paid exactly
+          // par. Capture it before filtering.
+          let bidAmount = null;
+          remaining.forEach(tok => {
+            if (bidAmount === null && /^\$\d+$/.test(tok)) {
+              const v = parseInt(tok.slice(1), 10);
+              if (!isNaN(v) && v >= 0 && v <= 400) bidAmount = v;
+            }
+          });
+
           const drafterParts = remaining.filter(p => {
             if (p === '-' || p.startsWith('$') || p.startsWith('-$')) return false;
             const num = parseFloat(p);
@@ -145,7 +159,8 @@
             playerName,
             playerTeam: parts[teamIdx],
             playerPosition: parts[posIdx],
-            drafterTeamName
+            drafterTeamName,
+            bidAmount
           });
         }
       });
@@ -438,7 +453,8 @@
             playerName: p.playerName,
             playerPosition: p.playerPosition || p.position,
             playerTeam: p.playerTeam || p.team,
-            drafterTeamId: team ? team.teamId : 1
+            drafterTeamId: team ? team.teamId : 1,
+            bidAmount: typeof p.bidAmount === 'number' ? p.bidAmount : null
           };
         });
 

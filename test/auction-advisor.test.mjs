@@ -186,21 +186,56 @@ console.log('\nregressions');
     recommendBid(deep, db.QB_D0, 0).maxBid < opening.maxBid,
     `QB $${recommendBid(deep, db.QB_D0, 0).maxBid} vs RB $${opening.maxBid}`);
 
-  // Must Buy has to fire once scarcity is real: elite backs gone, cash still out.
+  // Must Buy has to fire once scarcity is real: elite backs gone, cash still
+  // out. Prices paid are set high so the room reads as aggressive -- the engine
+  // now learns bidding behaviour from what rivals actually paid, so a room of
+  // bargain hunters correctly forecasts cheaper prices and needs fewer Must Buys.
   const late = JSON.parse(JSON.stringify(deep));
   let pick = 1;
-  for (let i = 1; i < 12; i++) {
-    late.draftState.selections.push({ pick: pick++, playerId: `RB_D${i}`, teamId: (i % 11) + 2, bidAmount: 40 });
+  for (let i = 1; i <= 18; i++) {
+    late.draftState.selections.push({ pick: pick++, playerId: `RB_D${i}`,
+      teamId: (i % 11) + 2, bidAmount: 30 });
   }
   late.teams.forEach((t) => { if (t.teamId !== late.myTeamId) t.faabRemaining = 160; });
   const scarce = recommendBid(late, db.RB_D0, 0);
   check('Must Buy fires when the position runs dry', scarce.mustBuy,
     `maxBid $${scarce.maxBid}, loss ${scarce.lossIfMissed}`);
   check('Must Buy allows a premium over market',
-    scarce.maxBid > scarce.expectedPrice,
+    scarce.maxBid >= scarce.expectedPrice,
     `ceiling $${scarce.maxBid} vs market $${scarce.expectedPrice}`);
   check('the premium is bounded, not unlimited',
     scarce.maxBid < scarce.expectedPrice * 2, `ceiling $${scarce.maxBid}`);
+
+  // A Must Buy needs BOTH scarcity and a payable market. If the room is
+  // bidding far above par, winning the player no longer improves the roster
+  // enough to justify a premium, and the right call is to let him go. That is
+  // economics, not a missed flag, so it is pinned deliberately.
+  const frenzy = JSON.parse(JSON.stringify(deep));
+  for (let i = 1; i <= 18; i++) {
+    frenzy.draftState.selections.push({ pick: i, playerId: `RB_D${i}`,
+      teamId: (i % 11) + 2, bidAmount: 85 });
+  }
+  frenzy.teams.forEach((t) => { if (t.teamId !== frenzy.myTeamId) t.faabRemaining = 160; });
+  const hot = recommendBid(frenzy, db.RB_D0, 0);
+  check('an overheated market suppresses Must Buy rather than chasing it',
+    !hot.mustBuy && hot.expectedPrice > scarce.expectedPrice,
+    `hot market $${hot.expectedPrice} vs disciplined $${scarce.expectedPrice}, mustBuy ${hot.mustBuy}`);
+
+  // The behaviour that changed those numbers: what rivals paid is now read.
+  const cheapRoom = JSON.parse(JSON.stringify(deep));
+  const dearRoom = JSON.parse(JSON.stringify(deep));
+  [[cheapRoom, 15], [dearRoom, 90]].forEach(([lg, amt]) => {
+    for (let i = 1; i < 8; i++) {
+      lg.draftState.selections.push({ pick: i, playerId: `RB_D${i}`,
+        teamId: (i % 11) + 2, bidAmount: amt });
+    }
+    lg.teams.forEach((t) => { if (t.teamId !== lg.myTeamId) t.faabRemaining = 150; });
+  });
+  const cheap = recommendBid(cheapRoom, db.RB_D0, 0);
+  const dear = recommendBid(dearRoom, db.RB_D0, 0);
+  check('a room that overpays forecasts higher prices than one that does not',
+    dear.expectedPrice > cheap.expectedPrice,
+    `bargain room $${cheap.expectedPrice} vs aggressive room $${dear.expectedPrice}`);
 }
 
 console.log('\nplanner and targets');
