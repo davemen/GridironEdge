@@ -5,8 +5,9 @@
 import store from './store.js';
 import espnClient from './espn-client.js';
 import { getDraftRecommendations, calculateAuctionBid } from './engine/draft-assistant.js';
+import { recommendBid, targetBoard, buildLeagueState } from './engine/auction-advisor.js';
 import { optimizeLineup } from './engine/lineup-optimizer.js';
-import { getWaiverRecommendations } from './engine/waiver-evaluator.js';
+import { evaluateWaivers, getWaiverRecommendations, CATEGORY, ACTION } from './engine/roster-manager.js';
 import { generateTradeProposals } from './engine/trade-generator.js';
 import { runSeasonSimulation } from './engine/simulator.js';
 
@@ -626,137 +627,11 @@ function renderDraftPage(league = store.getActiveLeague()) {
   const isAuction = league.draftState.draftType === 'auction';
 
   if (isAuction) {
-    const myTeam = store.getMyTeam();
-    const budget = myTeam ? myTeam.faabRemaining : 200;
-    const remainingSpots = (league.rosterSettings.startersCount + league.rosterSettings.benchCount) - (myTeam ? myTeam.roster.length : 0);
-    const opponentsFaab = league.teams.filter(t => t.teamId !== league.myTeamId).map(t => t.faabRemaining);
-    const maxOpponentBid = Math.max(...opponentsFaab, 0);
-    
-    const bidInfo = calculateAuctionBid(rec.primaryPick, budget, Math.max(1, remainingSpots), maxOpponentBid, league.leagueSize);
+    renderAuctionBoard(league, db, rec);
+    return;
+  }
 
-    // Look up and calculate bid for the active nomination
-    const currentNominationName = league.draftState.currentNomination;
-    let nominatedPlayer = null;
-    let nomBidInfo = null;
-
-    if (currentNominationName) {
-      nominatedPlayer = Object.values(db).find(p => p.name.toLowerCase() === currentNominationName.toLowerCase());
-      if (!nominatedPlayer) {
-        nominatedPlayer = Object.values(db).find(p => {
-          const pName = p.name.toLowerCase();
-          const cName = currentNominationName.toLowerCase();
-          return pName.includes(cName) || cName.includes(pName);
-        });
-      }
-      if (nominatedPlayer) {
-        nomBidInfo = calculateAuctionBid(nominatedPlayer, budget, Math.max(1, remainingSpots), maxOpponentBid, league.leagueSize);
-      }
-    }
-
-    let activeNominationHtml = '';
-    if (nominatedPlayer && nomBidInfo) {
-      activeNominationHtml = `
-        <div style="background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%); padding: 1.25rem; border-radius: 8px; border: 2px solid var(--accent-cyan); margin-bottom: 1.5rem; box-shadow: 0 0 15px rgba(0, 229, 255, 0.2);">
-          <h4 style="color:var(--accent-cyan); text-transform:uppercase; letter-spacing:1px; font-size:0.72rem; margin-top:0; margin-bottom:0.5rem; font-weight:700;">⚡ Active ESPN Auction Nomination</h4>
-          <h2 style="margin:0 0 0.5rem 0; font-size:1.4rem; color:var(--text-main); font-family:var(--font-family-title);">${nominatedPlayer.name} <span style="font-size:0.9rem; color:var(--text-secondary);">(${nominatedPlayer.position} - ${nominatedPlayer.team})</span></h2>
-          
-          <div style="display:flex; gap:1.5rem; align-items:center; margin-bottom:1rem;">
-            <div>
-              <div style="font-size:0.72rem; color:var(--text-secondary); text-transform:uppercase; font-weight: 600;">Recommended Bid</div>
-              <div style="font-size:1.8rem; font-weight:800; color:var(--accent-green);">$${nomBidInfo.recommendedBid}</div>
-            </div>
-            <div style="border-left:1px solid rgba(255,255,255,0.1); padding-left:1.5rem;">
-              <div style="font-size:0.72rem; color:var(--text-secondary); text-transform:uppercase; font-weight: 600;">Walk-Away Limit</div>
-              <div style="font-size:1.8rem; font-weight:800; color:#ff9100;">$${nomBidInfo.maxBid}</div>
-            </div>
-          </div>
-          
-          <p style="margin:0 0 1rem 0; font-size:0.88rem; color:var(--text-secondary); line-height:1.4;">${nomBidInfo.reason}</p>
-          
-          <div style="background: rgba(0,0,0,0.25); padding: 0.75rem; border-radius: 6px; border: 1px solid rgba(255,255,255,0.05); margin-bottom: 0.25rem;">
-            <h5 style="margin:0 0 0.5rem 0; text-transform:uppercase; font-size:0.7rem; color:var(--text-secondary); font-weight: 700;">Record Nomination Winner</h5>
-            <div style="display:flex; align-items:center; gap:0.5rem;">
-              <div style="flex:2;">
-                <select class="input-control" id="nom-winner-team" style="padding:0.4rem; font-size:0.85rem; width:100%; height:32px; box-sizing:border-box;">
-                  ${league.teams.map(t => `<option value="${t.teamId}" ${t.teamId === league.myTeamId ? 'selected' : ''}>${t.teamName}</option>`).join('')}
-                </select>
-              </div>
-              <div style="flex:1;">
-                <input type="number" class="input-control" id="nom-winner-price" value="${nomBidInfo.recommendedBid}" min="1" max="${budget}" style="padding:0.4rem; font-size:0.85rem; width:100%; height:32px; box-sizing:border-box;">
-              </div>
-              <button class="btn btn-success" id="btn-nom-record-win" style="padding:0.45rem 1rem; font-size:0.85rem; flex:1.5; font-weight:700; height:32px; display:flex; align-items:center; justify-content:center; border:none; border-radius:4px; cursor:pointer; background:var(--accent-green); color:#fff;">Record Pick</button>
-            </div>
-          </div>
-        </div>
-      `;
-    }
-
-    recPanel.innerHTML = activeNominationHtml + `
-      <h3 style="color:var(--accent-cyan); font-size: 1.3rem; margin-bottom: 0.5rem; font-family:var(--font-family-title);">Draft ${rec.primaryPick.name} (Auction Recommended)</h3>
-      <div style="font-size: 0.95rem; color: var(--text-primary); display:flex; flex-direction:column; gap:0.4rem; margin-bottom: 1rem;">
-        <p><strong>Recommended Bid:</strong> <strong style="color:var(--accent-green); font-size:1.15rem;">$${bidInfo.recommendedBid}</strong> (Walk-away limit: $${bidInfo.maxBid})</p>
-        <p><strong>Auction Advice:</strong> ${bidInfo.reason}</p>
-        <p><strong>Player Value Rationale:</strong> ${rec.whyBest}</p>
-        <p><strong>Risk Level:</strong> ${rec.riskLevel}</p>
-      </div>
-
-      <div style="background:var(--bg-surface-elevated); padding:0.75rem; border:1px solid var(--border-color); border-radius:var(--border-radius-sm); margin-bottom:1rem;">
-        <h4 style="font-size:0.85rem; text-transform:uppercase; color:var(--text-secondary); margin-bottom:0.5rem;">Select Winning Team & Bid</h4>
-        <div class="form-row" style="margin-bottom:0.5rem; gap: 0.5rem;">
-          <div class="form-group" style="margin-bottom:0;">
-            <label class="form-label" style="font-size:0.75rem;">Winning Team</label>
-            <select class="input-control" id="auction-winner-team" style="padding:0.4rem; font-size:0.85rem;">
-              ${league.teams.map(t => `<option value="${t.teamId}" ${t.teamId === league.myTeamId ? 'selected' : ''}>${t.teamName}</option>`).join('')}
-            </select>
-          </div>
-          <div class="form-group" style="margin-bottom:0;">
-            <label class="form-label" style="font-size:0.75rem;">Winning Bid ($)</label>
-            <input type="number" class="input-control" id="auction-winner-price" value="${bidInfo.recommendedBid}" min="1" max="${budget}" style="padding:0.4rem; font-size:0.85rem;">
-          </div>
-        </div>
-      </div>
-      
-      <div style="border-top:1px solid var(--border-color); padding-top:0.75rem;">
-        <h4 style="font-size:0.85rem; text-transform:uppercase; color:var(--text-secondary); margin-bottom:0.5rem;">Alternative Auction Shortlist:</h4>
-        <div style="display:flex; flex-wrap:wrap; gap:0.5rem; margin-bottom:1rem;">
-          ${rec.alternatives.slice(0,4).map(p => {
-            const altBid = calculateAuctionBid(p, budget, Math.max(1, remainingSpots), maxOpponentBid).recommendedBid;
-            return `
-              <button class="btn-secondary" style="padding:0.35rem 0.65rem; font-size:0.8rem;" onclick="document.getElementById('auction-winner-price').value = ${altBid}; document.getElementById('auction-winner-team').value = ${league.myTeamId}; alert('Selected ${p.name} - bid adjusted to recommended $${altBid}');">
-                + ${p.name} (Val: $${altBid})
-              </button>
-            `;
-          }).join('')}
-        </div>
-      </div>
-      
-      <div style="margin-top: 1rem;">
-        <button class="btn-success" style="width:100%;" id="btn-auction-record-win">
-          Record Auction Draft Award
-        </button>
-      </div>
-    `;
-
-    document.getElementById('btn-auction-record-win').onclick = () => {
-      const teamId = parseInt(document.getElementById('auction-winner-team').value);
-      const price = parseInt(document.getElementById('auction-winner-price').value);
-      store.recordDraftPickAuction(rec.primaryPick.id, teamId, price);
-    };
-
-    if (nominatedPlayer) {
-      document.getElementById('btn-nom-record-win').onclick = () => {
-        const teamId = parseInt(document.getElementById('nom-winner-team').value);
-        const price = parseInt(document.getElementById('nom-winner-price').value);
-        store.recordDraftPickAuction(nominatedPlayer.id, teamId, price);
-        
-        // Clear nomination after winning
-        league.draftState.currentNomination = null;
-        store.saveLeague(league.leagueId, league);
-        renderDraftPage(league);
-      };
-    }
-
-  } else {
+  {
     recPanel.innerHTML = `
       <h3 style="color:var(--accent-cyan); font-size: 1.3rem; margin-bottom: 0.5rem; font-family:var(--font-family-title);">Draft ${rec.primaryPick.name} now.</h3>
       <div style="font-size: 0.95rem; color: var(--text-primary); display:flex; flex-direction:column; gap:0.4rem; margin-bottom: 1rem;">
@@ -861,6 +736,254 @@ function renderDraftPage(league = store.getActiveLeague()) {
   if (list.length === 0) {
     tableBody.innerHTML = `<tr><td colspan="8" class="empty-state">No matching available players.</td></tr>`;
   }
+}
+
+/* =========================================================================
+ * Auction draft board — market-adaptive
+ *
+ * An auction is a live market, so the advice has to move with it. Everything
+ * below re-derives from current league state on every render: teams' budgets,
+ * open slots, positional needs, market inflation, and what each remaining
+ * player will actually cost given who can still afford him.
+ * ========================================================================= */
+
+const ACTION_STYLE = {
+  BID:  { color: '#16c784', label: 'BID' },
+  HOLD: { color: '#ffb020', label: 'HOLD' },
+  EXIT: { color: '#ff5252', label: 'EXIT' },
+};
+
+function findNominatedPlayer(db, name) {
+  if (!name) return null;
+  const target = String(name).toLowerCase().trim();
+  const all = Object.values(db);
+  return all.find(p => p.name.toLowerCase() === target)
+      || all.find(p => {
+           const n = p.name.toLowerCase();
+           return n.includes(target) || target.includes(n);
+         })
+      || null;
+}
+
+/** The live advisory card. Re-rendered on every bid change. */
+function auctionAdvisoryHtml(rec) {
+  const style = ACTION_STYLE[rec.action] || ACTION_STYLE.HOLD;
+  const overspend = !rec.affordable;
+
+  const mustBuyBanner = rec.mustBuy ? `
+    <div style="background:linear-gradient(90deg,#7c2d12,#b45309); border:1px solid #f59e0b;
+                border-radius:6px; padding:0.6rem 0.85rem; margin-bottom:0.9rem;
+                display:flex; align-items:center; gap:0.6rem;">
+      <span style="font-size:1.1rem;">🔥</span>
+      <div>
+        <div style="font-weight:800; letter-spacing:1px; font-size:0.78rem; color:#fff;">MUST BUY</div>
+        <div style="font-size:0.8rem; color:#fde68a;">
+          Missing him costs about ${rec.lossIfMissed} lineup points — this is where your budget should go.
+        </div>
+      </div>
+    </div>` : '';
+
+  const stat = (label, value, color) => `
+    <div style="flex:1; min-width:110px;">
+      <div style="font-size:0.66rem; color:var(--text-secondary); text-transform:uppercase;
+                  letter-spacing:0.5px; font-weight:600;">${label}</div>
+      <div style="font-size:1.25rem; font-weight:800; color:${color || 'var(--text-primary)'};">${value}</div>
+    </div>`;
+
+  return `
+    ${mustBuyBanner}
+    <div style="display:flex; flex-wrap:wrap; gap:1rem; margin-bottom:0.9rem;">
+      ${stat('Current bid', '$' + rec.currentBid)}
+      ${stat('Bid now', '$' + (rec.recommendedBid ?? rec.maxBid), style.color)}
+      ${stat('Walk-away ceiling', '$' + rec.maxBid, rec.mustBuy ? '#f59e0b' : 'var(--accent-green)')}
+      ${stat('Market forecast', '$' + rec.expectedPrice)}
+      ${stat('Action', style.label, style.color)}
+      ${stat('Confidence', rec.confidence.toUpperCase())}
+    </div>
+
+    <p style="margin:0 0 0.9rem 0; font-size:0.88rem; color:var(--text-secondary); line-height:1.45;">
+      ${rec.reason}
+    </p>
+
+    <div style="display:flex; flex-wrap:wrap; gap:1rem; padding:0.7rem 0.85rem;
+                background:rgba(0,0,0,0.25); border-radius:6px;
+                border:1px solid ${overspend ? 'rgba(255,82,82,0.45)' : 'rgba(255,255,255,0.06)'};">
+      ${stat('Budget if you win', '$' + rec.budgetAfterWin,
+             rec.budgetAfterWin < 0 ? '#ff5252' : undefined)}
+      ${stat('Needed to fill roster', '$' + rec.budgetToCompleteRoster,
+             overspend ? '#ff5252' : undefined)}
+      ${stat('Slots left after', rec.spotsAfterWin)}
+      ${stat('Market inflation', rec.inflation + 'x',
+             rec.inflation > 1.15 ? '#ffb020' : rec.inflation < 0.9 ? '#16c784' : undefined)}
+    </div>
+
+    ${rec.tradeoff ? `
+      <p style="margin:0.75rem 0 0 0; font-size:0.82rem; color:#ffb020; line-height:1.4;">
+        ⚠️ ${rec.tradeoff}
+      </p>` : ''}
+    ${overspend ? `
+      <p style="margin:0.5rem 0 0 0; font-size:0.82rem; color:#ff5252; line-height:1.4;">
+        Winning at this price leaves you short of what the rest of your roster is forecast to cost.
+      </p>` : ''}
+  `;
+}
+
+/** Every team's money and needs — the state the recommendations are reading. */
+function auctionMarketTableHtml(league) {
+  const state = buildLeagueState(league);
+  const rows = state.teams.map(t => {
+    const needs = Object.keys(t.needs).map(p => `${p}${t.needs[p] > 1 ? '×' + t.needs[p] : ''}`).join(' ');
+    const isMe = t.teamId === state.myTeamId;
+    return `
+      <tr style="${isMe ? 'background:rgba(0,229,255,0.07);' : ''}">
+        <td style="padding:0.3rem 0.5rem; font-weight:${isMe ? 700 : 400};">${t.teamName}${isMe ? ' (you)' : ''}</td>
+        <td style="padding:0.3rem 0.5rem; text-align:right;">$${t.budget}</td>
+        <td style="padding:0.3rem 0.5rem; text-align:right;">$${t.maxBid}</td>
+        <td style="padding:0.3rem 0.5rem; text-align:right;">${t.spotsLeft}</td>
+        <td style="padding:0.3rem 0.5rem; color:var(--text-secondary); font-size:0.78rem;">${needs || '—'}</td>
+      </tr>`;
+  }).join('');
+
+  return `
+    <details style="margin-top:1rem;">
+      <summary style="cursor:pointer; font-size:0.8rem; text-transform:uppercase; letter-spacing:0.5px;
+                      color:var(--text-secondary); font-weight:700;">
+        League market state — who can still outbid you
+      </summary>
+      <table style="width:100%; margin-top:0.6rem; font-size:0.82rem; border-collapse:collapse;">
+        <thead>
+          <tr style="color:var(--text-secondary); font-size:0.7rem; text-transform:uppercase;">
+            <th style="text-align:left; padding:0.3rem 0.5rem;">Team</th>
+            <th style="text-align:right; padding:0.3rem 0.5rem;">Budget</th>
+            <th style="text-align:right; padding:0.3rem 0.5rem;">Max bid</th>
+            <th style="text-align:right; padding:0.3rem 0.5rem;">Slots</th>
+            <th style="text-align:left; padding:0.3rem 0.5rem;">Starter needs</th>
+          </tr>
+        </thead>
+        <tbody>${rows}</tbody>
+      </table>
+    </details>`;
+}
+
+function renderAuctionBoard(league, db, rec) {
+  const recPanel = document.getElementById('draft-rec-panel');
+  const state = buildLeagueState(league);
+  const nominated = findNominatedPlayer(db, league.draftState.currentNomination);
+
+  // Targets worth planning around, whether or not one is on the block.
+  let watchlist = [];
+  try {
+    watchlist = targetBoard(league, 6);
+  } catch (e) {
+    console.error('Auction target board failed:', e);
+  }
+
+  const watchHtml = watchlist.length ? `
+    <div style="border-top:1px solid var(--border-color); padding-top:0.85rem; margin-top:1rem;">
+      <h4 style="font-size:0.8rem; text-transform:uppercase; color:var(--text-secondary);
+                 margin:0 0 0.6rem 0; letter-spacing:0.5px;">Priority targets</h4>
+      <div style="display:flex; flex-direction:column; gap:0.35rem;">
+        ${watchlist.map(w => `
+          <div style="display:flex; align-items:center; gap:0.6rem; font-size:0.85rem;
+                      padding:0.35rem 0.5rem; border-radius:4px;
+                      background:${w.mustBuy ? 'rgba(245,158,11,0.14)' : 'rgba(255,255,255,0.03)'};
+                      border-left:3px solid ${w.mustBuy ? '#f59e0b' : 'transparent'};">
+            ${w.mustBuy ? '<span title="Must Buy">🔥</span>' : '<span style="width:1em;"></span>'}
+            <span style="flex:1; font-weight:${w.mustBuy ? 700 : 500};">${w.player.name}</span>
+            <span style="color:var(--text-secondary); font-size:0.78rem;">${w.player.position}</span>
+            <span style="color:var(--accent-green); font-weight:700;">up to $${w.maxBid}</span>
+            <span style="color:var(--text-secondary); font-size:0.78rem;">mkt $${w.expectedPrice}</span>
+          </div>`).join('')}
+      </div>
+    </div>` : '';
+
+  if (!nominated) {
+    recPanel.innerHTML = `
+      <h3 style="color:var(--accent-cyan); font-size:1.15rem; margin:0 0 0.35rem 0;
+                 font-family:var(--font-family-title);">Auction board — waiting on a nomination</h3>
+      <p style="font-size:0.86rem; color:var(--text-secondary); margin:0 0 0.5rem 0;">
+        You have <strong style="color:var(--accent-green);">$${state.me.budget}</strong> for
+        <strong>${state.me.spotsLeft}</strong> open spots. Nominate a player, or record a rival's
+        winning bid, and the board updates immediately.
+      </p>
+      ${watchHtml}
+      ${auctionMarketTableHtml(league)}
+    `;
+    return;
+  }
+
+  const draw = (bid) => {
+    const r = recommendBid(league, nominated, bid);
+    document.getElementById('auction-advisory').innerHTML = auctionAdvisoryHtml(r);
+    const priceInput = document.getElementById('nom-winner-price');
+    if (priceInput && document.activeElement !== priceInput) {
+      priceInput.value = Math.max(1, r.recommendedBid || Math.min(r.maxBid || 1, bid + 1));
+    }
+  };
+
+  const initial = recommendBid(league, nominated, 0);
+
+  recPanel.innerHTML = `
+    <div style="background:linear-gradient(135deg,#0f172a,#1e293b); padding:1.25rem;
+                border-radius:8px; border:2px solid ${initial.mustBuy ? '#f59e0b' : 'var(--accent-cyan)'};
+                margin-bottom:1.25rem;
+                box-shadow:0 0 15px ${initial.mustBuy ? 'rgba(245,158,11,0.25)' : 'rgba(0,229,255,0.18)'};">
+      <h4 style="color:var(--accent-cyan); text-transform:uppercase; letter-spacing:1px;
+                 font-size:0.7rem; margin:0 0 0.4rem 0; font-weight:700;">On the block</h4>
+      <h2 style="margin:0 0 0.9rem 0; font-size:1.4rem; font-family:var(--font-family-title);">
+        ${nominated.name}
+        <span style="font-size:0.9rem; color:var(--text-secondary);">
+          (${nominated.position} — ${nominated.team})
+        </span>
+      </h2>
+
+      <div style="display:flex; align-items:center; gap:0.6rem; margin-bottom:1rem;">
+        <label style="font-size:0.75rem; color:var(--text-secondary); text-transform:uppercase;
+                      font-weight:600;">Current bid $</label>
+        <input type="number" id="auction-current-bid" value="0" min="0" step="1"
+               class="input-control"
+               style="width:110px; padding:0.35rem 0.5rem; font-size:0.95rem; font-weight:700;">
+        <span style="font-size:0.75rem; color:var(--text-secondary);">
+          updates live as the bidding moves
+        </span>
+      </div>
+
+      <div id="auction-advisory">${auctionAdvisoryHtml(initial)}</div>
+
+      <div style="background:rgba(0,0,0,0.25); padding:0.75rem; border-radius:6px;
+                  border:1px solid rgba(255,255,255,0.05); margin-top:1rem;">
+        <h5 style="margin:0 0 0.5rem 0; text-transform:uppercase; font-size:0.68rem;
+                   color:var(--text-secondary); font-weight:700;">Record the winner</h5>
+        <div style="display:flex; align-items:center; gap:0.5rem;">
+          <select class="input-control" id="nom-winner-team"
+                  style="flex:2; padding:0.4rem; font-size:0.85rem; height:32px;">
+            ${league.teams.map(t => `<option value="${t.teamId}" ${t.teamId === league.myTeamId ? 'selected' : ''}>${t.teamName}</option>`).join('')}
+          </select>
+          <input type="number" class="input-control" id="nom-winner-price"
+                 value="${initial.recommendedBid || 1}" min="1"
+                 style="flex:1; padding:0.4rem; font-size:0.85rem; height:32px;">
+          <button class="btn btn-success" id="btn-nom-record-win"
+                  style="flex:1.5; padding:0.45rem 1rem; font-size:0.85rem; font-weight:700;
+                         height:32px; border:none; border-radius:4px; cursor:pointer;
+                         background:var(--accent-green); color:#fff;">Record Pick</button>
+        </div>
+      </div>
+    </div>
+    ${watchHtml}
+    ${auctionMarketTableHtml(league)}
+  `;
+
+  const bidInput = document.getElementById('auction-current-bid');
+  bidInput.oninput = () => draw(Math.max(0, parseInt(bidInput.value, 10) || 0));
+
+  document.getElementById('btn-nom-record-win').onclick = () => {
+    const teamId = parseInt(document.getElementById('nom-winner-team').value, 10);
+    const price = parseInt(document.getElementById('nom-winner-price').value, 10) || 1;
+    store.recordDraftPickAuction(nominated.id, teamId, price);
+    league.draftState.currentNomination = null;
+    store.saveLeague(league.leagueId, league);
+    renderDraftPage(league);
+  };
 }
 
 // Render Team Roster View
@@ -1064,59 +1187,219 @@ function renderMatchupPage(league = store.getActiveLeague()) {
   rationaleBox.innerHTML = ratHtml;
 }
 
-// Render Waiver Wire Recommendations
+/* =========================================================================
+ * Waiver wire & bench — managed as one portfolio of roster spots.
+ *
+ * Every bench player is re-decided against the best thing available, every
+ * week. Nothing is held because it was drafted highly; it is held because the
+ * spot returns more with him in it than without.
+ * ========================================================================= */
+
+const ACTION_BADGE = {
+  [ACTION.PRIORITY]:    { cls: 'badge-green',  tone: '#16c784', urgent: 'MUST ADD' },
+  [ACTION.ADD]:         { cls: 'badge-green',  tone: '#16c784' },
+  [ACTION.SPECULATIVE]: { cls: 'badge-purple', tone: '#a78bfa', urgent: 'HIGH-UPSIDE STASH' },
+  [ACTION.DEFENSIVE]:   { cls: 'badge-gold',   tone: '#ffb020', urgent: 'DEFENSIVE ADD' },
+  [ACTION.MONITOR]:     { cls: 'badge-gold',   tone: '#8a94a6' },
+  [ACTION.HOLD]:        { cls: 'badge-gold',   tone: '#8a94a6' },
+};
+
+const CATEGORY_TONE = {
+  [CATEGORY.CORE]:        '#16c784',
+  [CATEGORY.STASH]:       '#a78bfa',
+  [CATEGORY.HANDCUFF]:    '#38bdf8',
+  [CATEGORY.MATCHUP]:     '#8a94a6',
+  [CATEGORY.DEFENSIVE]:   '#ffb020',
+  [CATEGORY.REPLACEABLE]: '#f59e0b',
+  [CATEGORY.DROP]:        '#ff5252',
+};
+
+const pct = (v) => `${Math.round((v || 0) * 100)}%`;
+
+function benchRowHtml(b, isWeakest) {
+  const tone = CATEGORY_TONE[b.category] || '#8a94a6';
+  const o = b.outcomes || {};
+  return `
+    <div style="padding:0.6rem 0.75rem; border-radius:6px; margin-bottom:0.4rem;
+                background:${isWeakest ? 'rgba(255,82,82,0.10)' : 'rgba(255,255,255,0.03)'};
+                border-left:3px solid ${isWeakest ? '#ff5252' : tone};">
+      <div style="display:flex; align-items:center; gap:0.6rem; flex-wrap:wrap;">
+        <strong style="flex:1; min-width:140px;">${b.player.name}</strong>
+        <span style="font-size:0.75rem; color:var(--text-secondary);">${b.player.position}</span>
+        <span style="font-size:0.72rem; font-weight:700; color:${tone};
+                     text-transform:uppercase; letter-spacing:0.4px;">${b.category}</span>
+        ${isWeakest ? '<span style="font-size:0.7rem; font-weight:800; color:#ff5252;">WEAKEST — SAFE TO DROP</span>' : ''}
+        <span style="font-size:0.8rem; color:var(--text-secondary);">Hold ${b.holdValue}</span>
+      </div>
+      <div style="font-size:0.82rem; color:var(--text-secondary); margin-top:0.3rem; line-height:1.4;">
+        ${b.reason}
+      </div>
+      <div style="display:flex; gap:0.9rem; flex-wrap:wrap; margin-top:0.35rem;
+                  font-size:0.72rem; color:var(--text-secondary);">
+        <span>starts ${pct(b.startProbability)}</span>
+        <span>breakout ${pct(b.breakoutProbability)}</span>
+        <span>bust ${pct(b.bustProbability)}</span>
+        <span>RoS ${b.restOfSeasonPoints} pts</span>
+        <span>playoffs ${b.playoffPoints} pts</span>
+        ${b.blockingValue > 0 ? `<span style="color:#ffb020;">blocks ${b.blockingValue}</span>` : ''}
+        ${b.claimProbability > 0.4 ? `<span style="color:#ffb020;">${pct(b.claimProbability)} claimed if dropped</span>` : ''}
+      </div>
+      <div style="font-size:0.7rem; color:var(--text-secondary); margin-top:0.25rem; opacity:0.8;">
+        weekly starter ${pct(o.weeklyStarter)} · matchup ${pct(o.matchupStarter)} ·
+        injury-only ${pct(o.injuryOnly)} · replaceable ${pct(o.replaceable)}
+      </div>
+    </div>`;
+}
+
+function waiverCardHtml(t, idx) {
+  const badge = ACTION_BADGE[t.action] || { cls: 'badge-gold', tone: '#8a94a6' };
+  const f = t.faab;
+  return `
+    <div class="recommendation-item" style="border-left:3px solid ${badge.tone};">
+      <div class="item-action-title">
+        <span>${t.action}: <strong>${t.addPlayer.name}</strong>
+          (${t.addPlayer.position}-${t.addPlayer.team})</span>
+        <span class="badge-solid ${badge.cls}">${t.confidence} confidence</span>
+      </div>
+      ${badge.urgent ? `<div style="font-size:0.72rem; font-weight:800; color:${badge.tone};
+        letter-spacing:0.6px; margin-bottom:0.35rem;">${badge.urgent}</div>` : ''}
+
+      <div class="item-meta">
+        <span>Drop: <strong>${t.dropPlayer ? t.dropPlayer.name : 'open spot'}</strong></span>
+        <span>Net rest-of-season: <strong>${t.netRestOfSeason >= 0 ? '+' : ''}${t.netRestOfSeason}</strong> pts</span>
+        <span>Immediate lineup: <strong>${t.immediateLineupGain > 0 ? '+' + t.immediateLineupGain : '—'}</strong>/wk</span>
+      </div>
+
+      <div class="item-details">${t.reason}</div>
+
+      <div style="display:flex; gap:0.9rem; flex-wrap:wrap; margin:0.5rem 0;
+                  font-size:0.74rem; color:var(--text-secondary);">
+        <span>acquisition value ${t.acquisitionValue}</span>
+        <span>breakout ${pct(t.breakoutProbability)}</span>
+        <span>bust ${pct(t.bustProbability)}</span>
+        <span>scarcity ${pct(t.positionalScarcity)}</span>
+        <span>playoff ${t.playoffPoints} pts</span>
+        ${t.blockingValue > 0 ? `<span style="color:#ffb020;">blocking ${t.blockingValue}</span>` : ''}
+        <span style="color:${t.claimProbability > 0.55 ? '#ff5252' : 'inherit'};">
+          ${pct(t.claimProbability)} chance a rival claims him${t.likelySuitors.length ? ' (' + t.likelySuitors[0] + ')' : ''}
+        </span>
+      </div>
+
+      <div style="background:rgba(0,0,0,0.22); border:1px solid rgba(255,255,255,0.05);
+                  border-radius:6px; padding:0.6rem 0.75rem; margin-bottom:0.5rem;">
+        <div style="font-size:0.7rem; text-transform:uppercase; letter-spacing:0.5px;
+                    color:var(--text-secondary); font-weight:700; margin-bottom:0.4rem;">
+          FAAB ladder — probability of winning the claim
+        </div>
+        <div style="display:flex; gap:1.2rem; flex-wrap:wrap; font-size:0.82rem;">
+          <span>min <strong>$${f.minimum}</strong> (${pct(f.winProbability.minimum)})</span>
+          <span style="color:var(--accent-green);">recommended <strong>$${f.recommended}</strong>
+            (${pct(f.winProbability.recommended)})</span>
+          <span>aggressive <strong>$${f.aggressive}</strong> (${pct(f.winProbability.aggressive)})</span>
+          <span>max justified <strong>$${f.maximum}</strong> (${pct(f.winProbability.maximum)})</span>
+        </div>
+        <div style="font-size:0.75rem; color:var(--text-secondary); margin-top:0.35rem;">
+          Leaves $${f.budgetAfter} of $${f.budget}. ${f.opportunityCost}
+        </div>
+      </div>
+
+      ${t.triggers.length ? `<div class="item-alternatives">
+        <strong>Watch for:</strong> ${t.triggers.join(' · ')}</div>` : ''}
+
+      <div style="margin-top:0.75rem; text-align:right;">
+        <button class="btn-success" style="padding:0.35rem 0.75rem; font-size:0.8rem;"
+                id="claim-btn-${idx}">Submit claim at $${f.recommended}</button>
+      </div>
+    </div>`;
+}
+
 function renderWaiversPage(league = store.getActiveLeague()) {
   if (!league) return;
 
   const listContainer = document.getElementById('waiver-recommendations-list');
   listContainer.innerHTML = '';
 
-  const recs = getWaiverRecommendations(league);
-
-  if (recs.length === 0) {
-    listContainer.innerHTML = '<div class="empty-state">No waiver recommendations available. Roster limit reached or no free agents.</div>';
+  let report;
+  try {
+    report = evaluateWaivers(league);
+  } catch (e) {
+    console.error('Roster portfolio evaluation failed:', e);
+    listContainer.innerHTML = '<div class="empty-state">Could not evaluate the waiver wire.</div>';
     return;
   }
 
-  recs.forEach((r, idx) => {
-    const item = document.createElement('div');
-    item.className = 'recommendation-item';
-    
-    let confidenceClass = 'medium-confidence';
-    let badgeColor = 'badge-gold';
-    if (r.confidence === 'High') { confidenceClass = 'high-confidence'; badgeColor = 'badge-green'; }
-    if (r.confidence === 'Low') { confidenceClass = 'low-confidence'; badgeColor = 'badge-purple'; }
+  const { phase, targets, bench, weakest, topMove } = report;
 
-    item.className = `recommendation-item ${confidenceClass}`;
+  const headerHtml = `
+    <div style="padding:0.75rem 1rem; margin-bottom:1rem; border-radius:6px;
+                background:var(--bg-surface-elevated); border:1px solid var(--border-color);">
+      <div style="display:flex; gap:1.25rem; flex-wrap:wrap; align-items:center;">
+        <span style="font-size:0.72rem; text-transform:uppercase; letter-spacing:0.6px;
+                     color:var(--text-secondary); font-weight:700;">
+          Week ${phase.week} · ${phase.label} · ${phase.weeksRemaining} weeks left
+        </span>
+        <span style="font-size:0.78rem; color:var(--text-secondary);">
+          Upside weighting <strong>${phase.upsideWeight.toFixed(2)}</strong> ·
+          startability <strong>${phase.startabilityWeight.toFixed(2)}</strong>
+        </span>
+      </div>
+      <div style="font-size:0.78rem; color:var(--text-secondary); margin-top:0.35rem;">
+        ${phase.weeksRemaining > 8
+          ? 'Early enough that a breakout still has time to pay off — upside is weighted heavily.'
+          : 'Late in the season — startability and playoff weeks now outweigh speculative upside.'}
+      </div>
+    </div>`;
 
-    item.innerHTML = `
-      <div class="item-action-title">
-        <span>Claim <strong>${r.addPlayer.name}</strong> (${r.addPlayer.position}-${r.addPlayer.team})</span>
-        <span class="badge-solid ${badgeColor}">${r.confidence} Confidence</span>
+  const moveHtml = topMove ? `
+    <div style="padding:0.85rem 1rem; margin-bottom:1rem; border-radius:6px;
+                background:linear-gradient(135deg,#0f172a,#1e293b);
+                border:2px solid ${(ACTION_BADGE[topMove.action] || {}).tone || 'var(--accent-cyan)'};">
+      <div style="font-size:0.7rem; text-transform:uppercase; letter-spacing:0.8px;
+                  color:var(--accent-cyan); font-weight:700; margin-bottom:0.3rem;">
+        Recommended transaction
       </div>
-      <div class="item-meta">
-        <span>Drop: ${r.dropPlayer ? r.dropPlayer.name : 'None'}</span>
-        <span>Suggested FAAB Bid: <strong>$${r.bid}</strong> (${r.pct}% of budget)</span>
+      <div style="font-size:1.05rem; font-weight:700;">
+        Add ${topMove.addPlayer.name} · Drop ${topMove.dropPlayer ? topMove.dropPlayer.name : 'open spot'}
+        · $${topMove.faab.recommended} FAAB
       </div>
-      <div class="item-details">
-        <strong>Advantage:</strong> ${r.reason}<br>
-        <strong>Waiver Urgency:</strong> ${r.urgency}
+      <div style="font-size:0.83rem; color:var(--text-secondary); margin-top:0.3rem;">
+        ${topMove.reason}
       </div>
-      ${r.backup ? `<div class="item-alternatives"><strong>Backup Claim:</strong> ${r.backup.name} (${r.backup.position}) if primary is claimed.</div>` : ''}
-      
-      <div style="margin-top:0.75rem; text-align:right;">
-        <button class="btn-success" style="padding:0.35rem 0.75rem; font-size:0.8rem;" id="claim-btn-${idx}">
-          Confirm Waiver Claim on ESPN
-        </button>
-      </div>
-    `;
-    listContainer.appendChild(item);
+    </div>` : '';
 
-    // Wire up mock transaction execution
-    document.getElementById(`claim-btn-${idx}`).onclick = () => {
-      if (confirm(`Confirm: Submit waiver claim on ESPN adding ${r.addPlayer.name} and dropping ${r.dropPlayer?.name || 'none'} for a $${r.bid} FAAB bid?`)) {
-        store.processTransaction(r.addPlayer.id, r.dropPlayer?.id, league.myTeamId);
-        alert('Transaction processed successfully!');
+  const benchHtml = bench && bench.length ? `
+    <details open style="margin-bottom:1.25rem;">
+      <summary style="cursor:pointer; font-size:0.78rem; text-transform:uppercase;
+                      letter-spacing:0.6px; color:var(--text-secondary); font-weight:700;
+                      margin-bottom:0.6rem;">
+        Bench portfolio — ${bench.length} spots, ranked by hold value
+      </summary>
+      <div style="margin-top:0.6rem;">
+        ${bench.map((b) => benchRowHtml(b, weakest && b.player.id === weakest.player.id)).join('')}
+      </div>
+    </details>` : '';
+
+  const targetsHtml = targets.length
+    ? targets.slice(0, 6).map((t, i) => waiverCardHtml(t, i)).join('')
+    : '<div class="empty-state">Nothing on the wire beats what you already hold.</div>';
+
+  const caveat = `
+    <p style="font-size:0.72rem; color:var(--text-secondary); margin-top:1rem; line-height:1.5;">
+      Derived from projections, usage metrics, injury status, bye weeks, ADP, rosters and FAAB
+      balances. Not yet wired to a data source, so not used: ${report.missingInputs.join(', ')}.
+      Calls that would depend on those are reported at lower confidence rather than guessed.
+    </p>`;
+
+  listContainer.innerHTML = headerHtml + moveHtml + benchHtml + targetsHtml + caveat;
+
+  targets.slice(0, 6).forEach((t, idx) => {
+    const btn = document.getElementById(`claim-btn-${idx}`);
+    if (!btn) return;
+    btn.onclick = () => {
+      const dropName = t.dropPlayer ? t.dropPlayer.name : 'nobody';
+      if (confirm(`Add ${t.addPlayer.name}, drop ${dropName}, bid $${t.faab.recommended} FAAB?`)) {
+        store.processTransaction(t.addPlayer.id, t.dropPlayer?.id, league.myTeamId);
+        alert('Transaction processed.');
       }
     };
   });

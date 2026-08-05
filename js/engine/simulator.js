@@ -1,5 +1,5 @@
 import { optimizeLineup } from './lineup-optimizer.js';
-import { getWaiverRecommendations } from './waiver-evaluator.js';
+import { getWaiverRecommendations } from './roster-manager.js';
 import { generateTradeProposals } from './trade-generator.js';
 
 // Box-Muller Transform for Gaussian random values
