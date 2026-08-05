@@ -65,7 +65,12 @@ console.log('\nplayer value');
 
 console.log('\nopportunity trend');
 {
-  const hist = (vals) => vals.map((t) => ({ targets: t, carries: 0, attempts: 0 }));
+  // Snapshots are cumulative season totals; the engine differences them.
+  const hist = (vals) => {
+    let run = 0;
+    return [{ seasonTargets: 0, seasonCarries: 0, seasonAttempts: 0 }].concat(
+      vals.map((t) => ({ seasonTargets: (run += t), seasonCarries: 0, seasonAttempts: 0 })));
+  };
   const rising = { ...P('WR_08'), metricsHistory: hist([3, 4, 3, 4, 5, 4, 9, 10, 11]) };
   const falling = { ...P('WR_08'), metricsHistory: hist([10, 11, 9, 10, 9, 10, 4, 3, 4]) };
   const flat = { ...P('WR_08'), metricsHistory: hist([6, 6, 6, 6, 6, 6, 6, 6, 6]) };

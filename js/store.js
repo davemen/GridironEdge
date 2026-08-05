@@ -99,10 +99,81 @@ class Store {
 
   // Set standard list of players in the player database
   updatePlayerDatabase(playersMap) {
-    this.state.playerDatabase = {
-      ...this.state.playerDatabase,
-      ...playersMap
-    };
+    const existing = this.state.playerDatabase;
+    const merged = {};
+    Object.keys(playersMap).forEach((id) => {
+      const incoming = playersMap[id];
+      const prior = existing[id];
+      merged[id] = prior
+        ? { ...prior, ...incoming, metricsHistory: prior.metricsHistory }
+        : incoming;
+    });
+    this.state.playerDatabase = { ...existing, ...merged };
+    this.recordWeeklyMetrics();
+    this.save();
+  }
+
+  /**
+   * Keep a weekly snapshot of every player's usage.
+   *
+   * Recent opportunity -- targets, carries, attempts -- is the only public
+   * signal found that projections have not already absorbed (r = 0.086 against
+   * the residual, same sign in all five seasons 2021-2025). But a trend needs
+   * history, and an import only ever shows the present. So each refresh appends
+   * one snapshot per player, and from roughly week 10 the engines can see which
+   * roles are growing rather than only which players scored.
+   *
+   * Deduplicated by scoring period so repeated refreshes in the same week do not
+   * stack, which would otherwise fake a trend out of a single data point.
+   */
+  recordWeeklyMetrics(period = null) {
+    const week = period ?? this.state.currentScoringPeriod ?? null;
+    const db = this.state.playerDatabase;
+    Object.keys(db).forEach((id) => {
+      const p = db[id];
+      if (!p || !p.metrics) return;
+      const hist = Array.isArray(p.metricsHistory) ? p.metricsHistory : [];
+      const last = hist[hist.length - 1];
+      if (last && week !== null && last.week === week) return;   // already logged
+      // Cumulative season totals are recorded, not per-game rates, because
+      // differencing consecutive snapshots is what recovers a single week's
+      // usage. Averaging rates would smear a role change across the season.
+      hist.push({
+        week,
+        seasonTargets: p.metrics.seasonTargets ?? 0,
+        seasonCarries: p.metrics.seasonCarries ?? 0,
+        seasonAttempts: p.metrics.seasonAttempts ?? 0,
+      });
+      // Two full seasons is far more than any trend window needs.
+      p.metricsHistory = hist.slice(-40);
+    });
+  }
+
+  /**
+   * Share of a player's fantasy points that came from touchdowns last season.
+   *
+   * Feeds the median-ranking adjustment in the draft engine, which is worth
+   * +2 to +6 points of championship probability but is a no-op without this
+   * number. Accepts whatever a stats feed can supply -- either the share
+   * directly, or last season's touchdown counts and total points to derive it.
+   */
+  setPriorSeasonScoring(statsById) {
+    const db = this.state.playerDatabase;
+    Object.keys(statsById || {}).forEach((id) => {
+      const p = db[id];
+      const st = statsById[id];
+      if (!p || !st) return;
+      if (typeof st.tdShare === 'number') {
+        p.tdShare = st.tdShare;
+        return;
+      }
+      const total = Number(st.fantasyPoints);
+      if (!total || total <= 0) return;
+      const tdPoints = 6 * (Number(st.rushingTds) || 0)
+        + 6 * (Number(st.receivingTds) || 0)
+        + 4 * (Number(st.passingTds) || 0);
+      p.tdShare = Math.max(0, Math.min(1, tdPoints / total));
+    });
     this.save();
   }
 

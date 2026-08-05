@@ -59,6 +59,97 @@ class ESPNClient {
     }
   }
 
+
+  /**
+   * ESPN fantasy stat identifiers, for the counting stats the roster engine
+   * reasons about. Only the ones needed are listed; anything absent is treated
+   * as unknown rather than zero.
+   */
+  static get STAT_IDS() {
+    return {
+      passAttempts: 0, passYards: 3, passTds: 4,
+      rushAttempts: 23, rushYards: 24, rushTds: 25,
+      receptions: 41, recYards: 42, recTds: 43, targets: 58,
+    };
+  }
+
+  /**
+   * Real per-game usage from ESPN's stat splits.
+   *
+   * This previously returned the same hardcoded numbers for every player --
+   * 0.60 snap share, 5 carries, 0.15 target share, for a quarterback and a
+   * third receiver alike. That silently disabled every usage-based judgement in
+   * the roster engine while still looking like it worked, which is worse than
+   * having no data at all. So when ESPN gives us nothing, this now returns
+   * undefined and the engine falls back to explicitly not knowing.
+   */
+  extractUsage(player) {
+    const ids = ESPNClient.STAT_IDS;
+    const splits = (player && player.stats) || [];
+    // Prefer season totals for the current season; fall back to any total.
+    const season = splits.find(s => s.statSourceId === 0 && s.statSplitTypeId === 0)
+      || splits.find(s => s.statSourceId === 0)
+      || null;
+    const raw = season && season.stats;
+    if (!raw) return undefined;
+
+    const g = Math.max(1, Number(season.appliedTotal ? season.games : 0) || this.gamesPlayed(raw));
+    const val = (id) => {
+      const v = raw[String(id)] ?? raw[id];
+      return typeof v === 'number' && isFinite(v) ? v : 0;
+    };
+
+    const targets = val(ids.targets);
+    const carries = val(ids.rushAttempts);
+    const attempts = val(ids.passAttempts);
+    if (targets + carries + attempts === 0) return undefined;
+
+    return {
+      // The engine's thresholds are PER GAME ("14 carries" means a workhorse),
+      // so that is what these must be. Season totals are kept separately under
+      // `season*` because the weekly trend is computed by differencing them.
+      carries: carries / g,
+      targets: targets / g,
+      attempts: attempts / g,
+      seasonTargets: targets,
+      seasonCarries: carries,
+      seasonAttempts: attempts,
+      // Not exposed by this feed. Left undefined so the engine treats them as
+      // unknown rather than inventing a number.
+      snapShare: undefined,
+      targetShare: undefined,
+      redZoneTargets: undefined,
+      redZoneCarries: undefined,
+    };
+  }
+
+  gamesPlayed(raw) {
+    // ESPN does not always send a games field; approximate from a volume stat.
+    const ids = ESPNClient.STAT_IDS;
+    const yards = (raw[String(ids.recYards)] || 0) + (raw[String(ids.rushYards)] || 0)
+      + (raw[String(ids.passYards)] || 0);
+    return yards > 0 ? Math.max(1, Math.round(yards / 60)) : 1;
+  }
+
+  /**
+   * Share of a player's fantasy points that came from touchdowns.
+   *
+   * Feeds the median-ranking adjustment in the draft engine, which is worth
+   * +2 to +6 points of championship probability and is a no-op without it.
+   */
+  extractTdShare(player) {
+    const ids = ESPNClient.STAT_IDS;
+    const splits = (player && player.stats) || [];
+    const season = splits.find(s => s.statSourceId === 0 && s.statSplitTypeId === 0)
+      || splits.find(s => s.statSourceId === 0);
+    const raw = season && season.stats;
+    const total = season && Number(season.appliedTotal);
+    if (!raw || !total || total <= 0) return undefined;
+    const val = (id) => Number(raw[String(id)] ?? raw[id]) || 0;
+    const tdPoints = 6 * val(ids.rushTds) + 6 * val(ids.recTds) + 4 * val(ids.passTds);
+    return Math.max(0, Math.min(1, tdPoints / total));
+  }
+
   mapDOMScrapedLeague(espnData) {
     const leagueId = String(espnData.leagueId);
     
@@ -376,13 +467,8 @@ class ESPNClient {
           adp: player.averageDraftPosition || 150.0,
           matchProjs: { w1: 10, w2: 10, w3: 10 },
           opponent: 'OPP',
-          metrics: {
-            snapShare: 0.60,
-            targetShare: 0.15,
-            redZoneTargets: 1,
-            carries: 5,
-            redZoneCarries: 1
-          }
+          metrics: this.extractUsage(player),
+          tdShare: this.extractTdShare(player)
         };
       });
     } else {

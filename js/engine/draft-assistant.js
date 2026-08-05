@@ -238,12 +238,39 @@ export function getDraftRecommendations(league) {
     fallbackAt[pos] = expected;
   });
 
+  /* -----------------------------------------------------------------------
+   * Risk appetite by round.
+   *
+   * Tested the intuitive hypothesis first — that because champions' best
+   * players come from the early rounds, you should chase upside there — and it
+   * was backwards. Paying for uncertainty in rounds 1-4 was the worst setting
+   * tried; being MORE risk-averse there was the best.
+   *
+   * The reason is asymmetry. Your first picks are the foundation the rest of
+   * the roster is built on, and a round-1 bust cannot be recovered from in a
+   * 15-round draft. Later picks are lottery tickets you can afford to lose.
+   *
+   *   2018-2020 tuning   +2.9 points of title probability, 95% CI [+0.8, +5.0]
+   *   2021-2025 held out +1.5 points, 95% CI [-1.1, +4.2]
+   *
+   * Same sign both times but modest, so it is applied at a deliberately light
+   * weight. `ecrStd` is how much the published experts disagreed about a
+   * player; without it this is a no-op.
+   * --------------------------------------------------------------------- */
+  const EARLY_ROUNDS = 4;
+  const EARLY_RISK = -2.0;    // fade uncertainty while building the foundation
+  const LATE_RISK = -0.5;
+  const currentRound = myPicks.length + 1;
+  const riskWeight = currentRound <= EARLY_ROUNDS ? EARLY_RISK : LATE_RISK;
+  const riskAdjust = (p) =>
+    (typeof p.ecrStd === 'number' ? riskWeight * p.ecrStd : 0);
+
   const ranked = [];
   Object.keys(byPosition).forEach(pos => {
     if (!needs[pos] && (posCounts[pos] || 0) >= 3) return;   // never hoard a filled position
     byPosition[pos].slice(0, CANDIDATES_PER_POS).forEach(p => {
       const replacementVal = marginalValue(p) - fallbackAt[pos];
-      ranked.push({ player: p, score: replacementVal, replacementVal });
+      ranked.push({ player: p, score: replacementVal + riskAdjust(p), replacementVal });
     });
   });
   ranked.sort((a, b) => b.score - a.score);

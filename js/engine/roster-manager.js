@@ -42,6 +42,15 @@ export const MISSING_INPUTS = [
   'in-season trades', 'league bidding history',
 ];
 
+/**
+ * Inputs that WERE missing and are now supplied by the news monitor. Kept
+ * explicit so the two lists cannot drift apart silently.
+ */
+export const NEWS_DERIVED_INPUTS = [
+  'injury and inactive reports', 'suspensions', 'in-season trades',
+  'depth-chart promotions and demotions', 'league-wide add/drop volume',
+];
+
 const INJURY = {
   Healthy:      { play: 1.00, weeksOut: 0 },
   Questionable: { play: 0.75, weeksOut: 0 },
@@ -89,7 +98,13 @@ export function seasonPhase(week) {
 /** Weekly points, discounted for the chance he does not play. */
 export function effectivePpg(player) {
   const inj = INJURY[player.injuryStatus] || INJURY.Healthy;
-  return num(player.projectedPoints) * inj.play;
+  // A headline this morning is fresher than an injury field that was accurate
+  // last Thursday, so bad news discounts the player even before the feed
+  // catches up. Only downgrades apply here; good news still has to show up as a
+  // status change before we start him.
+  const ni = player.newsImpact;
+  const newsCut = ni && ni.selfImpact < 0 ? clamp(1 + ni.selfImpact * 0.5, 0.15, 1) : 1;
+  return num(player.projectedPoints) * inj.play * newsCut;
 }
 
 /**
@@ -136,11 +151,23 @@ export function playoffPoints(player, phase) {
  */
 export function opportunityTrend(player, recentWeeks = 3, baseWeeks = 6) {
   const h = player.metricsHistory;
-  if (!Array.isArray(h) || h.length < recentWeeks + baseWeeks) return 0;
-  const opp = (m) => num(m?.targets) + num(m?.carries) + 0.5 * num(m?.attempts);
-  const recent = h.slice(-recentWeeks);
-  const base = h.slice(-(recentWeeks + baseWeeks), -recentWeeks);
-  const mean = (a) => a.reduce((x, m) => x + opp(m), 0) / Math.max(1, a.length);
+  if (!Array.isArray(h) || h.length < recentWeeks + baseWeeks + 1) return 0;
+
+  // Snapshots hold cumulative season totals, so a single week's usage is the
+  // difference between consecutive ones. Comparing the totals directly would
+  // show every player "trending up" forever.
+  const opp = (m) => num(m?.seasonTargets ?? m?.targets)
+    + num(m?.seasonCarries ?? m?.carries)
+    + 0.5 * num(m?.seasonAttempts ?? m?.attempts);
+  const weekly = [];
+  for (let i = 1; i < h.length; i++) {
+    weekly.push(Math.max(0, opp(h[i]) - opp(h[i - 1])));
+  }
+  if (weekly.length < recentWeeks + baseWeeks) return 0;
+
+  const recent = weekly.slice(-recentWeeks);
+  const base = weekly.slice(-(recentWeeks + baseWeeks), -recentWeeks);
+  const mean = (a) => a.reduce((x, v) => x + v, 0) / Math.max(1, a.length);
   return mean(recent) - mean(base);
 }
 
@@ -179,6 +206,11 @@ export function breakoutProbability(player, phase) {
   // weight -- but it is bounded, because r = 0.086 is a nudge, not a verdict.
   const trend = opportunityTrend(player);
   if (trend) p += clamp(trend * 0.020, -0.10, 0.18);
+  // Breaking news outranks every trailing statistic. A back whose starter went
+  // on IR this morning has a path to a full workload that no box score can show
+  // yet, and that is precisely the add worth being first to.
+  const ni = player.newsImpact;
+  if (ni && ni.selfImpact) p += clamp(ni.selfImpact * 0.35, -0.35, 0.40);
   // A breakout still needs weeks to happen.
   p *= clamp(phase.weeksRemaining / 12, 0.35, 1.0);
   return clamp(p, 0.01, 0.85);
@@ -294,10 +326,21 @@ export function blockingValue(player, league, db, phase) {
   if (!suitors.length) return { value: 0, claimProbability: 0.05, suitors: [] };
 
   // Chance at least one rival actually claims him.
-  const claimProbability = clamp(
+  let claimProbability = clamp(
     1 - suitors.reduce((acc, s) => acc * (1 - clamp(s.gain / 8, 0.05, 0.7) * s.canPay), 1),
     0.05, 0.95
   );
+  // If the wider fantasy world is already adding him in volume, that is a
+  // measurement rather than an inference, and it should dominate the estimate.
+  const heat = player.newsImpact ? num(player.newsImpact.claimHeat) : 0;
+  if (heat > 0) {
+    // Measured demand beats inferred demand, and must be able to exceed a
+    // baseline that has already saturated -- otherwise the signal is invisible
+    // exactly when it is strongest.
+    const measured = 0.40 + heat * 0.57;
+    claimProbability = clamp(Math.max(claimProbability, measured)
+      + (heat > 0.5 ? 0.02 : 0), 0.05, 0.99);
+  }
 
   const top = suitors[0];
   // Denting one rival is worth a fraction of denting the whole field.
@@ -652,6 +695,13 @@ function waiverReason({ player, action, immediate, breakout, block, phase, scarc
 function triggersFor(player, block) {
   const m = player.metrics || {};
   const out = [];
+  const ni = player.newsImpact;
+  if (ni && ni.events && ni.events.length) {
+    out.push(ni.events[0].headline);
+  }
+  if (ni && ni.addsLast24h) {
+    out.push(`${ni.addsLast24h.toLocaleString()} managers added him in 24h`);
+  }
   if (num(m.snapShare, 0) < 0.6) out.push('snap share climbing above 60%');
   if (['WR', 'TE'].includes(player.position) && num(m.targetShare, 0) < 0.2) {
     out.push('target share climbing above 20%');

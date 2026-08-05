@@ -805,6 +805,102 @@ adjustment is a no-op rather than a guess.
 
 ---
 
+## Part 12 — Auction laboratory
+
+Everything measured about auctions until now was in points and finishing rank.
+This measures championships, and tests two levers that have no snake-draft
+equivalent at all. Realistic front-loaded room, 240 auctions per configuration,
+each followed by a full season and bracket.
+
+| Configuration | Points | Playoff % | Title % | vs shipped |
+|---|---|---|---|---|
+| Balanced (45% of budget on 3 players) | 1544 | 83.6% | 30.6% | +1.7 [−2.8, +6.3] |
+| **Adaptive engine (shipped)** | 1550 | 80.4% | **28.9%** | — |
+| Adaptive + drain nomination | 1546 | 79.2% | 28.4% | −0.4 [−3.2, +2.3] |
+| Adaptive + TD regression | 1472 | 66.2% | 28.0% | −0.9 [−5.9, +4.1] |
+| Stars & scrubs (75% on 3) | 1482 | 70.6% | 26.0% | −2.9 [−7.4, +1.7] |
+| Old `calculateAuctionBid()` | 1472 | 61.1% | 23.4% | **−5.5 [−9.8, −1.2]** |
+
+Only one difference in that table is statistically significant, and it is the one
+already known: the original formula is bad. Everything else is a null result, and
+three of them are worth stating explicitly.
+
+**Nomination strategy does nothing.** The classic advice is to nominate players
+you do not want while rivals still have money, draining their budgets before your
+targets come up. Measured effect: −0.4 points, confidence interval straddling
+zero. It is one of the most repeated pieces of auction lore and there is no sign
+of it here.
+
+**Stars-and-scrubs loses.** Concentrating 75% of the budget on three players is
+directionally worse than spreading it (−2.9). This is the third independent
+confirmation of the same thing: concentration in the top 3 barely correlated with
+titles in the elite league (+0.102 against +0.557 for total points), and trade
+consolidation cost a point in Part 7. In an auction you *can* choose to be
+top-heavy, unlike a snake draft — and you should not.
+
+**Touchdown regression backfires in auctions, and the reason matters.** The same
+adjustment is worth +2 to +6 points of title probability in a snake draft and
+costs about a point here, while cutting 78 points of scoring and 14 points of
+playoff odds. The formats punish a private valuation differently:
+
+- In a **snake**, down-ranking a player is free. You take someone else with the
+  same pick, at the same cost.
+- In an **auction**, you have to outbid a market that does not share your
+  discount. A lower valuation does not get you a better player at a better
+  price; it gets you *no player*, repeatedly, and a worse roster.
+
+A valuation edge that works in one format can be actively harmful in the other.
+The adjustment is applied in `draft-assistant.js` and deliberately absent from
+`auction-advisor.js`, with the reason recorded in the file.
+
+> Absolute title rates in this table (23–31%) are inflated relative to the snake
+> numbers because only the seat under test uses a strong bidder while the other
+> eleven bid noisily around par. The comparisons between rows are sound; the
+> level is not comparable to Part 7.
+
+---
+
+## Part 13 — Ingesting what is actually happening
+
+Two data problems were found by asking what the app *populates* rather than what
+the engines *can consume*. Both had the same shape: code that looked like it was
+working while running on placeholder values.
+
+**The ESPN importer gave every player identical usage.** Literally every imported
+player received `snapShare: 0.60, targetShare: 0.15, carries: 5` — a quarterback
+and a third receiver alike. Every usage-based judgement in the roster engine was
+therefore reasoning from a constant. Replaced with real per-game usage parsed
+from ESPN's stat splits, returning `undefined` when the feed has nothing so the
+engine knows it does not know, rather than being handed a fabricated number.
+
+Two shape errors surfaced while fixing it, each of which would have produced
+confident nonsense: the engine's thresholds are per-game ("14 carries" means a
+workhorse) but season totals were being passed, which would read every rostered
+back as a workhorse; and the opportunity trend needs weekly deltas, while
+snapshots hold cumulative totals — comparing those directly shows every player
+trending up forever.
+
+**Nothing read the news.** The waiver engine reasoned from a static injury field
+and season projections, which is the wrong information for a Tuesday-morning
+decision. `news-monitor.js` now reads two live feeds:
+
+- **ESPN headlines**, classified into the seven events that move fantasy value:
+  injury-out, injury-risk, returning, suspension, trade, promotion, demotion.
+- **Sleeper trending adds/drops**, which replaces an *inference* about whether a
+  rival will claim a player with a *measurement* of how many managers already
+  have. Given that the first two active rivals take 60% of the waiver edge, being
+  late is the expensive failure mode.
+
+When a starter is ruled out, the engine promotes his backup — the player no
+article names, and exactly the add worth being first to.
+
+> A classification bug caught in testing, recorded because it would have been
+> actively harmful: *"loses the starting job"* contains *"starting job"*, so it
+> matched the **promotion** pattern and would have recommended precisely the
+> wrong player. Negative readings are now tested before positive ones.
+
+---
+
 ## Honest summary
 
 | Claim | Verdict |
