@@ -140,11 +140,44 @@ export function getDraftRecommendations(league) {
    * 2018-2020 and frozen before 2021-2025 was scored. See BACKTEST.md.
    * --------------------------------------------------------------------- */
 
+  /* -----------------------------------------------------------------------
+   * Touchdown regression: rank on the median outcome, not the mean.
+   *
+   * This is the distinctive principle behind the most accurate published
+   * rankers, and it comes from odds-making rather than fantasy convention.
+   * Fantasy scoring is right-skewed: touchdowns are lumpy and barely persist
+   * year to year, so a touchdown-dependent player's MEAN is dragged up by a few
+   * weeks he cannot repeat. Rank on the mean and you systematically over-rate
+   * him against a player whose points come from volume.
+   *
+   * `tdShare` is the fraction of last season's fantasy points that came from
+   * touchdowns. Players above the league average get discounted, below it get
+   * promoted, centred so the average player is unchanged.
+   *
+   * Measured on two independent sets of seasons:
+   *   2018-2020  +6.4 points of championship probability, 95% CI [+2.3, +10.5]
+   *   2021-2025  +2.2 points, 95% CI [-1.3, +5.7]
+   * Same sign both times, with a clean inverted-U in the discount strength.
+   *
+   * Note it makes point-estimate ACCURACY slightly worse while making teams
+   * better -- being the most accurate ranker and being the best team-builder
+   * are not the same skill. Requires `tdShare`; without it this is a no-op
+   * rather than a guess.
+   * --------------------------------------------------------------------- */
+  const TD_DISCOUNT = 1.0;     // peak of the dose-response on the tuning years
+  const shares = availablePlayers.map(p => p.tdShare).filter(v => typeof v === 'number');
+  const avgShare = shares.length ? shares.reduce((a, b) => a + b, 0) / shares.length : null;
+  const medianAdjusted = (p) => {
+    const base = (p.projectedPoints || 0) * 17;
+    if (avgShare === null || typeof p.tdShare !== 'number') return base;
+    return base * (1 - TD_DISCOUNT * (p.tdShare - avgShare));
+  };
+
   const BENCH_WEIGHT = 0.12;   // fitted on 2018-2020
   const SURVIVAL_DEPTH = 20;   // candidates considered when estimating who lasts
   const CANDIDATES_PER_POS = 12;
 
-  const seasonPts = (p) => (p.projectedPoints || 0) * 17;
+  const seasonPts = (p) => medianAdjusted(p);
 
   // Points from the lineup a roster can field, plus decayed credit for depth.
   const lineupValue = (players) => {

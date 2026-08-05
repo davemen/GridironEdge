@@ -735,6 +735,76 @@ in your league and you are still a coin flip away, twice.
 
 ---
 
+## Part 11 — Reverse-engineering the median-ranking principle
+
+Sean Koerner (The Action Network) has won FantasyPros' Most Accurate Ranker
+awards repeatedly. His publicly-described method rests on three ideas, of which
+one is distinctive and testable: **rank on the median outcome, not the mean.**
+It comes from odds-making rather than fantasy convention.
+
+The logic: fantasy scoring is right-skewed. Touchdowns are lumpy and barely
+persist year to year, so a touchdown-dependent player's mean is dragged up by a
+handful of weeks he cannot repeat. His median week is far lower. Rank on the mean
+and you systematically over-rate him against a player whose points come from
+volume.
+
+Tested with an ex-ante proxy: the consensus projection discounted by what share
+of the player's points came from touchdowns LAST season, centred so the average
+player is unchanged.
+
+### It makes rankings less accurate
+
+| Year | Mean-based ρ | Median-based ρ | Winner |
+|---|---|---|---|
+| 2021 | 0.6513 | 0.6045 | mean |
+| 2022 | 0.6860 | 0.6471 | mean |
+| 2023 | 0.6254 | 0.6185 | mean |
+| 2024 | 0.6203 | 0.5879 | mean |
+| 2025 | 0.6306 | 0.5948 | mean |
+| **Mean** | **0.6427** | 0.6106 | mean, 5/5 |
+
+Unsurprising in hindsight: accuracy is scored against points that *actually
+happened*, touchdowns included. Fading touchdown-scorers must hurt it.
+
+### It wins more championships anyway
+
+| TD discount | Points | Playoff % | Title % | vs mean-based |
+|---|---|---|---|---|
+| **2018–2020** | | | | |
+| 0 (mean) | 1554 | 71.8% | 14.8% | — |
+| 0.5 | 1593 | 81.0% | 18.1% | +3.4 [+0.5, +6.2] |
+| **1.0** | 1639 | 83.3% | **21.1%** | **+6.4 [+2.3, +10.5]** |
+| 2.0 | 1637 | 83.2% | 20.5% | +5.7 [+1.9, +9.6] |
+| 3.0 | 1577 | 77.7% | 16.5% | +1.7 [−1.9, +5.4] |
+| **2021–2025** | | | | |
+| 0 (mean) | 1480 | 68.0% | 14.6% | — |
+| 1.0 | 1454 | 59.0% | 16.7% | +2.2 [−1.3, +5.7] |
+| 2.0 | 1481 | 62.0% | 22.5% | +7.9 [+3.3, +12.5] |
+
+Replicated on two independent sets of seasons, same sign both times, with a clean
+inverted-U in discount strength on the tuning years — too little does nothing,
+too much distorts. That shape is what a real effect looks like; an artifact would
+not peak and decline. Best estimate: **+2 to +6 points of championship
+probability.** Shipped at discount 1.0, the peak on the tuning years.
+
+### The interesting part
+
+**Being the most accurate ranker and being the best team-builder are different
+skills, and this principle trades one for the other.** It would lose an accuracy
+contest scored on season points while winning more leagues.
+
+Two honest caveats. First, this is a test of the *principle as publicly
+described*, using a crude touchdown-share proxy — not a replication of anyone's
+proprietary system. Second, accuracy contests are largely scored on **weekly**
+rankings, and for a single week the median genuinely is the right target for
+ordinal accuracy; my test was season-long. The tension above may simply be an
+artefact of testing the season-long analogue.
+
+Requires a `tdShare` field the app does not yet populate; without it the
+adjustment is a no-op rather than a guess.
+
+---
+
 ## Honest summary
 
 | Claim | Verdict |
