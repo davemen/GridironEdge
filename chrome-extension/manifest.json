@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Gridiron Edge ESPN Sync",
-  "version": "1.0",
+  "version": "1.1",
   "description": "Scrapes and synchronizes your active ESPN fantasy league roster and standings with Gridiron Edge.",
   "permissions": [
     "activeTab",
@@ -22,7 +22,9 @@
         "https://fantasy.espn.com/*/draft*",
         "https://fantasy.espn.com/*/draft/draftroom*"
       ],
-      "js": ["content-isolated.js"],
+      "js": [
+        "content-isolated.js"
+      ],
       "run_at": "document_idle",
       "all_frames": true
     },
@@ -31,7 +33,9 @@
         "https://fantasy.espn.com/*/draft*",
         "https://fantasy.espn.com/*/draft/draftroom*"
       ],
-      "js": ["content-main.js"],
+      "js": [
+        "content-main.js"
+      ],
       "run_at": "document_idle",
       "all_frames": true,
       "world": "MAIN"
