@@ -918,6 +918,11 @@ function renderAuctionBoard(league, db, rec) {
     return;
   }
 
+  // The live bid from the draft room, when the extension can see it. The input
+  // stays editable so a stale or mis-read scrape can always be corrected.
+  const scrapedBid = typeof league.draftState.currentNominationBid === 'number'
+    ? league.draftState.currentNominationBid : null;
+
   const draw = (bid) => {
     const r = recommendBid(league, nominated, bid);
     document.getElementById('auction-advisory').innerHTML = auctionAdvisoryHtml(r);
@@ -927,7 +932,7 @@ function renderAuctionBoard(league, db, rec) {
     }
   };
 
-  const initial = recommendBid(league, nominated, 0);
+  const initial = recommendBid(league, nominated, scrapedBid ?? 0);
 
   recPanel.innerHTML = `
     <div style="background:linear-gradient(135deg,#0f172a,#1e293b); padding:1.25rem;
@@ -946,11 +951,13 @@ function renderAuctionBoard(league, db, rec) {
       <div style="display:flex; align-items:center; gap:0.6rem; margin-bottom:1rem;">
         <label style="font-size:0.75rem; color:var(--text-secondary); text-transform:uppercase;
                       font-weight:600;">Current bid $</label>
-        <input type="number" id="auction-current-bid" value="0" min="0" step="1"
-               class="input-control"
+        <input type="number" id="auction-current-bid" value="${scrapedBid ?? 0}"
+               min="0" step="1" class="input-control"
                style="width:110px; padding:0.35rem 0.5rem; font-size:0.95rem; font-weight:700;">
-        <span style="font-size:0.75rem; color:var(--text-secondary);">
-          updates live as the bidding moves
+        <span style="font-size:0.75rem; color:${scrapedBid !== null ? 'var(--accent-green)' : 'var(--text-secondary)'};">
+          ${scrapedBid !== null
+            ? 'live from the draft room — edit to override'
+            : 'not detected from the draft room — type the current bid'}
         </span>
       </div>
 

@@ -223,6 +223,7 @@ class ESPNClient {
     }
 
     let currentNomination = null;
+    let currentNominationBid = null;
     if (espnData.currentNomination) {
       const nomName = typeof espnData.currentNomination === 'object' ? espnData.currentNomination.name : espnData.currentNomination;
       const nomTeam = typeof espnData.currentNomination === 'object' ? espnData.currentNomination.team : 'FA';
@@ -254,6 +255,11 @@ class ESPNClient {
         db[mockId] = match;
       }
       currentNomination = match.name;
+      // Carry the live bid alongside the name so the advisor can price against
+      // what the player is actually going for right now.
+      currentNominationBid = typeof espnData.currentNomination === 'object'
+        && typeof espnData.currentNomination.bid === 'number'
+        ? espnData.currentNomination.bid : null;
     }
 
     const draftState = {
@@ -261,7 +267,8 @@ class ESPNClient {
       draftOrder: teams.map(t => t.teamId),
       currentPick: selections.length + 1,
       selections: selections,
-      currentNomination: currentNomination
+      currentNomination: currentNomination,
+      currentNominationBid: currentNominationBid
     };
 
     const positionLimits = {
@@ -388,6 +395,7 @@ class ESPNClient {
     }
 
     let currentNomination = null;
+    let currentNominationBid = null;
     if (espnData.currentNomination) {
       const nomName = typeof espnData.currentNomination === 'object' ? espnData.currentNomination.name : espnData.currentNomination;
       const nomTeam = typeof espnData.currentNomination === 'object' ? espnData.currentNomination.team : 'FA';
@@ -410,6 +418,11 @@ class ESPNClient {
         playerDatabase[mockId] = match;
       }
       currentNomination = match.name;
+      // Carry the live bid alongside the name so the advisor can price against
+      // what the player is actually going for right now.
+      currentNominationBid = typeof espnData.currentNomination === 'object'
+        && typeof espnData.currentNomination.bid === 'number'
+        ? espnData.currentNomination.bid : null;
     }
 
     const draftState = {
@@ -417,7 +430,8 @@ class ESPNClient {
       draftOrder: settings.draftSettings?.pickOrder || teams.map(t => t.teamId),
       currentPick: selections.length + 1,
       selections: selections,
-      currentNomination: currentNomination
+      currentNomination: currentNomination,
+      currentNominationBid: currentNominationBid
     };
 
     // 5. Map Schedule Matchups

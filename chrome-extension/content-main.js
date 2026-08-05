@@ -56,7 +56,32 @@
             else if (lowerName.includes('browns')) team = 'CLE';
             else if (lowerName.includes('bengals')) team = 'CIN';
           }
-          return { name, team, position };
+          // The live bid. ESPN does not label it consistently, so try an
+          // explicitly-named element first and fall back to reading a dollar
+          // amount out of the card. Without this the advisor has no idea what
+          // the player is currently going for and can only price him from
+          // scratch, which is the one number that changes second to second.
+          let bid = null;
+          try {
+            const bidEl = card.querySelector(
+              '[data-testid*="bid" i], [class*="bidAmount" i], [class*="currentBid" i], [class*="bid-amount" i]');
+            if (bidEl && bidEl.innerText) {
+              const m = bidEl.innerText.match(/\$?(\d+)/);
+              if (m) bid = parseInt(m[1], 10);
+            }
+            if (bid === null) {
+              const cardText = card.innerText || '';
+              const all = cardText.match(/\$\s?\d+/g) || [];
+              if (all.length) {
+                // The largest dollar figure on the card is the live bid; smaller
+                // ones tend to be projected value or average cost.
+                bid = Math.max(...all.map(t => parseInt(t.replace(/[^0-9]/g, ''), 10)));
+              }
+            }
+            if (bid !== null && (isNaN(bid) || bid < 0 || bid > 400)) bid = null;
+          } catch (e) { bid = null; }
+
+          return { name, team, position, bid };
         }
       }
     } catch (e) {}
@@ -485,7 +510,12 @@
 
       const picksCount = data.draftDetail.picks.length;
       const nomName = currentNom ? currentNom.name : '';
-      const syncKey = `${picksCount}_${nomName}`;
+      // The bid belongs in the key. Without it the loop treats "same player,
+      // higher bid" as no change and stops syncing mid-auction -- which is
+      // exactly when the advice needs to move.
+      const nomBid = currentNom && currentNom.bid != null ? currentNom.bid : '';
+      const budgets = (data.teams || []).map(t => t.faabRemaining).join(',');
+      const syncKey = `${picksCount}_${nomName}_${nomBid}_${budgets}`;
 
       if (lastSyncKey === syncKey) {
         return;
