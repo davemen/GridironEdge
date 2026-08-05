@@ -946,6 +946,69 @@ of the remaining gap is forecast error rather than decision quality.
 
 ---
 
+## Part 15 — Tuning the auction, in two rooms
+
+Four parameters swept by coordinate ascent, twice over, in two very different
+rooms: one where every rival prices players correctly off a value chart and
+spends its whole budget, and one where rivals bid noisily and front-load badly.
+Each winner then validated on 120 fresh seasons with all twelve seats.
+
+| Room | Sweep said | Validation |
+|---|---|---|
+| Average (front-loaded) | 27.8% → 37.3% | **−0.8 pp**, 95% CI [−7.8, +6.2] |
+| Expert (correct pricing) | 25.4% → 28.6% | **+2.0 pp**, 95% CI [−0.8, +4.7] |
+
+**Both are nulls, and the average-room result is the more instructive.** The
+sweep showed a 9.5-point gain that vanished entirely under validation. Four
+values were tried for one parameter and three for another on only 40 auctions —
+four chances to get lucky, and it got lucky. Reporting the sweep number would
+have claimed a 35% improvement where there was a 1% decline. The tuned config
+was not shipped.
+
+The engine's existing settings are already at a local optimum on bid multiplier,
+Must Buy threshold, Must Buy premium and bench weight. Further parameter fiddling
+is not where auction value lives; the +306 points over the old formula is.
+
+### One real finding: posture should not be a constant
+
+The two rooms pulled the parameters in **opposite directions**:
+
+| Parameter | Average room | Expert room |
+|---|---|---|
+| Bid vs forecast | 0.95 (bid under) | 1.20 (bid over) |
+| Must Buy threshold | 18 (rare) | 10 (default) |
+
+That is mechanically sensible. Against people who overpay early, patience wins —
+you let them exhaust themselves and buy the fallout. Against people who price
+correctly and spend fully, hanging back means you never win anything and the good
+players are simply gone.
+
+Neither direction is individually significant, so this is a hypothesis rather
+than a result. But it argues against hard-coding any posture, and in favour of
+the engine reading the room — which it already does through market inflation and
+rival budgets, and now also through what rivals have actually been paying.
+
+### Bench weight does nothing
+
+Every setting from 0.06 to 0.22 returned identical results in both rooms. In a
+snake draft, depth is whatever is left after the stars are gone. In an auction
+you can always buy a $1 replacement, so how you value depth is not a decision
+the format actually forces.
+
+### Room quality dominates everything
+
+| | Points | Playoff % | Title % |
+|---|---|---|---|
+| Average room | 1526 | 94.9% | **32.6%** |
+| Expert room | 1425 | 60.0% | **24.9%** |
+
+The same engine, the same seasons, the same code — an eight-point swing in title
+probability from nothing but who else is in the room. That is larger than any
+parameter change tested here, and consistent with Part 8: the quality of your
+opposition matters more than the quality of your tuning.
+
+---
+
 ## Honest summary
 
 | Claim | Verdict |
