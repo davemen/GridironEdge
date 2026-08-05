@@ -901,6 +901,51 @@ article names, and exactly the add worth being first to.
 
 ---
 
+## Part 14 — Everything on
+
+Each improvement was measured against whatever configuration existed when it was
+tested, so no single number covered the whole shipped stack. Effects do not add
+cleanly — two levers that both raise your floor overlap, and the convex title
+curve means gains compound at the top and vanish at the bottom. So this runs the
+real thing end to end.
+
+**BASELINE** — expert consensus board, no in-season management. A competent but
+passive manager with a cheat sheet.
+**SHIPPED** — v5 draft + touchdown regression + round-dependent risk aversion,
+then start/sit, waivers, playoff-week targeting and bracket variance switching
+across all 17 weeks.
+
+| Configuration | Points | Playoff % | Title % | 95% CI |
+|---|---|---|---|---|
+| Expert board, passive | 1414 | 52.0% | **9.1%** | [7.6, 10.5] |
+| **Gridiron Edge, everything on** | 1455 | 58.7% | **18.1%** | [16.0, 20.2] |
+
+**Championship probability doubles: 9.1% → 18.1%, +9.0 points, 95% CI
+[+6.7, +11.4], t = 7.6.** Against a random team's 8.3%, that is 2.2x.
+
+600 seasons per configuration. Note what does the work: points rise only 41
+(1414 → 1455) while title odds double. Small edges in the right places convert
+far better than raw scoring does — the same lesson the waiver experiment taught
+in Part 6.
+
+### What this number excludes
+
+- **The news monitor.** There is no historical feed of injury and depth-chart
+  headlines in this dataset, so its value is unmeasured and deliberately left
+  out rather than assumed. Given that being late to the wire is the expensive
+  failure mode, it is more likely to help than hurt — but that is a hypothesis,
+  not a measurement.
+- **Auctions**, which are measured separately in Parts 4 and 12.
+- **Any assumption that your league is passive.** This baseline is a competent
+  manager who does not work the wire. Against a league where several rivals are
+  active, the waiver component erodes sharply — 18.8% down to 10.3% as rivals
+  wake up (Part 8).
+
+The ceiling has not moved: perfect foresight is still 85.8%, and essentially all
+of the remaining gap is forecast error rather than decision quality.
+
+---
+
 ## Honest summary
 
 | Claim | Verdict |
@@ -909,7 +954,7 @@ article names, and exactly the add worth being first to.
 | The app can out-predict fantasy experts | **No.** Real signals exist (t = 5–7) but are too small to reorder the board. |
 | The app's snake logic beat expert consensus | Marginally — +10 pts, negative in 2 of 5 seasons. Now +47 and positive in all five. |
 | The app's auction logic was sound | **No.** Quarterbacks priced ~5× market, 75% of the budget never deployed. |
-| Following these picks assures a championship | **No.** With all five levers, 15.0% against an 8.6% baseline. |
+| Following these picks assures a championship | **No.** 18.1% with everything on, against a 9.1% baseline. Doubled, not assured. |
 | An 80% per-season title rate is reachable by tuning | **No.** Perfect foresight reaches 85.8%, and essentially the entire gap to it is forecast error. |
 | This is "the world's best fantasy football selector" | Unsupported. It is measurably better than a consensus cheat sheet at building a roster, by a margin that is real, repeatable and modest. |
 
