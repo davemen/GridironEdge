@@ -758,28 +758,62 @@ export function recommendBid(league, player, currentBid = 0, options = {}) {
  * 161s against 49s, on a page whose whole purpose is to answer before the
  * clock runs out.
  *
- * It changes when a lot is sold or a budget moves, and nothing else -- so the
- * key is the pick count, every team's remaining money, and whose roster we are
- * answering for.
+ * The first version of this key said the answer changes when a lot is sold or
+ * a budget moves "and nothing else". That was wrong in five measured ways, and
+ * every one of them serves a confident ceiling computed for a room that no
+ * longer exists:
+ *
+ *   - coverageKind, read by marketInflation, decides whether the market model
+ *     answers at all -- own-roster-only moved a maxBid 35 -> 37 and an
+ *     expectedPrice 35 -> 60
+ *   - currentNominationMax caps every ceiling on the board, and it is scraped
+ *     from a "max $..." element that flickers number/null as ESPN re-renders
+ *   - leagueSize and benchCount change how many slots the money must cover;
+ *     benchCount 7 -> 3 flipped mustBuy
+ *   - a re-identified pick keeps the count identical while changing whose
+ *     roster holds whom, which reorders the whole board
+ *   - and the player pool itself was not in the key at all, so a second league
+ *     was handed the first league's board -- proven, a === b
+ *
+ * So the key is every input the board reads. Building it costs ~0.025ms
+ * against the ~64ms recomputation it decides.
  */
 function watchlistKey(league, limit, options) {
+  const draft = league.draftState || {};
   return JSON.stringify([
-    (league.draftState?.selections || []).length,
-    (league.teams || []).map((t) => t.faabRemaining),
+    // Identity, not count: an unattributed pick later resolved to a team keeps
+    // the count the same and changes the answer.
+    (draft.selections || []).map((s) => [s.playerId, s.teamId, s.bidAmount]),
+    draft.currentNominationMax ?? null,
+    (league.teams || []).map((t) => [t.teamId, t.faabRemaining]),
     league.myTeamId,
+    league.leagueSize ?? null,
+    league.rosterSettings?.startersCount ?? null,
+    league.rosterSettings?.benchCount ?? null,
+    (league.coverage && league.coverage.kind) || 'full-board',
+    // The pool the board is drawn from. leagueId alone is not enough -- the
+    // database grows as unresolved picks are inserted during a live draft.
+    league.leagueId ?? null,
+    Object.keys(league.playerDatabase || {}).length,
     limit,
     options.startingBudget || 200,
+    options.mustBuyPoints ?? null,
   ]);
 }
 
-// One entry. A second draft room replaces it rather than growing without
-// bound; the cost of a miss is one recomputation, which is what happened
-// every time before.
-let watchlistCache = { key: null, value: null };
+// Four entries, oldest evicted. One was enough until you remember the app
+// renders a competing-league banner precisely because two rooms sync at once:
+// alternating between two rooms took a one-entry cache to a 0% hit rate and
+// 127.9ms per tick, which is worse than not caching, because it pays the key.
+const WATCHLIST_CACHE_MAX = 4;
+const watchlistCache = new Map();
 
 export function targetBoard(league, limit = 8, options = {}) {
   const key = watchlistKey(league, limit, options);
-  if (watchlistCache.key === key) return watchlistCache.value;
+  // A copy, because the board is handed out and callers sort it. Returning the
+  // cached array by reference meant one caller's .sort() silently rewrote what
+  // every later hit returned.
+  if (watchlistCache.has(key)) return watchlistCache.get(key).slice();
 
   const db = league.playerDatabase || {};
   const draftedIds = new Set((league.draftState?.selections || []).map((s) => s.playerId));
@@ -788,8 +822,7 @@ export function targetBoard(league, limit = 8, options = {}) {
   // "How badly does THIS roster need him" has no answer without a roster, and
   // an empty watchlist is the honest one. state.me was previously teams[0].
   if (!state.me || state.me.spotsLeft <= 0) {
-    watchlistCache = { key, value: [] };
-    return [];
+    return cacheWatchlist(key, []);
   }
 
   const par = parValues(available, state, options.startingBudget || 200);
@@ -809,6 +842,14 @@ export function targetBoard(league, limit = 8, options = {}) {
     .sort((a, b) => (b.mustBuy - a.mustBuy) || (b.lossIfMissed - a.lossIfMissed))
     .slice(0, limit);
 
-  watchlistCache = { key, value: board };
-  return board;
+  return cacheWatchlist(key, board);
+}
+
+/** Store, evict the oldest over the cap, and hand back a copy. */
+function cacheWatchlist(key, board) {
+  watchlistCache.set(key, board);
+  if (watchlistCache.size > WATCHLIST_CACHE_MAX) {
+    watchlistCache.delete(watchlistCache.keys().next().value);
+  }
+  return board.slice();
 }

@@ -197,5 +197,63 @@ console.log('\nthe watchlist is not recomputed for a bid that cannot change it')
     saleMs > 2, `${saleMs.toFixed(3)}ms -- suspiciously fast, the cache did not invalidate`);
 }
 
+console.log('\nevery input the board reads is in the cache key');
+{
+  // The block above proves the cache invalidates on a sale. It proved nothing
+  // about the other inputs, and an audit found five of them missing from the
+  // key: the board was recomputed for a pick and served stale for everything
+  // else. These are behavioural, not timed -- a stale serve returns the
+  // *identical* board, so "did the answer move" is the assertion that catches
+  // it, and a timing threshold is not.
+  const mutations = [
+    // Read by marketInflation, which declines to answer at all on a partial
+    // board. Scraped fresh on every tick.
+    ['coverage', (L) => { L.coverage = { kind: 'own-roster-only' }; }],
+    // Caps every ceiling on the board, and is scraped from a "max $..."
+    // element that flickers number/null as ESPN re-renders around it.
+    ['the room maximum', (L) => { L.draftState.currentNominationMax = 5; }],
+    ['league size', (L) => { L.leagueSize = 10; }],
+    // Changes how many slots the remaining money has to cover.
+    ['bench size', (L) => { L.rosterSettings.benchCount = 3; }],
+    // The count is unchanged; only the owner moved. This is what a scrape does
+    // when it finally learns who bought a lot it could not attribute.
+    ['a pick re-attributed', (L) => {
+      const s = L.draftState.selections[0];
+      s.teamId = s.teamId === 1 ? 2 : 1;
+    }],
+  ];
+  for (const [name, mutate] of mutations) {
+    const L = league(12, 12, 84);
+    const before = JSON.stringify(targetBoard(L, 6));
+    mutate(L);
+    check(`${name} moves the board`, JSON.stringify(targetBoard(L, 6)) !== before,
+      'the cached board was served for a league that had changed');
+  }
+
+  // Two leagues, two player pools. This returned the first room's board.
+  const A = league(12, 12, 84);
+  const B = league(12, 12, 84);
+  B.leagueId = 'OTHER';
+  B.playerDatabase = { ...db };
+  Object.keys(B.playerDatabase).slice(0, 40).forEach((k) => delete B.playerDatabase[k]);
+  check('a second league gets its own board',
+    JSON.stringify(targetBoard(A, 6)) !== JSON.stringify(targetBoard(B, 6)));
+
+  // One entry meant two rooms alternating never hit -- worse than no cache,
+  // because it paid for the key and recomputed anyway.
+  targetBoard(A, 6); targetBoard(B, 6);
+  const alt = fastest(() => { for (let i = 0; i < 20; i++) { targetBoard(A, 6); targetBoard(B, 6); } });
+  check('two rooms alternating still hit the cache', alt < budget(20), `${alt.toFixed(1)}ms for 40 calls`);
+
+  // The board is handed to renderers that sort it. Returning the cached array
+  // itself let one caller rewrite what every later caller received.
+  const L = league(12, 12, 84);
+  const handed = targetBoard(L, 6);
+  const expected = JSON.stringify(handed);
+  handed.reverse();
+  check('a caller sorting the board cannot poison the cache',
+    JSON.stringify(targetBoard(L, 6)) === expected);
+}
+
 console.log(`\n${passed} passed, ${failed} failed`);
 if (failed) process.exit(1);
