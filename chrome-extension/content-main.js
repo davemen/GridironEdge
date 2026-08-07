@@ -2,6 +2,19 @@
 // Accesses the page's React/Redux store directly and posts updates to the isolated content script
 
 (function() {
+  // One instance per world. This file is declared as a content script AND
+  // injected by background.js as a fallback when a tab completes without
+  // reporting a sync -- which a pre-draft lobby always does, because the
+  // scraper deliberately sends nothing when the room is quiet. So the second
+  // injection is the normal case. Each copy installed its own MutationObserver
+  // and its own interval, doubling the scrape cost of every tick.
+  if (window.__GRIDIRON_EDGE_MAIN_INSTALLED__) return;
+  try { window.__GRIDIRON_EDGE_MAIN_INSTALLED__ = true; } catch (e) {
+    // A page can refuse the write, and a page that wants to break its own
+    // draft room does not need our help to do it.
+    console.debug('[Gridiron Edge] sentinel write failed:', e && e.message);
+  }
+
   // Version marker: lets a console check confirm whether Chrome is running the
   // current content script or a cached older one, which is the first thing to
   // rule out when a fix appears to have had no effect.
@@ -691,96 +704,6 @@
     return [];
   }
 
-  /** The roster panel's team dropdown as an element, or null. */
-  function findTeamSelectEl(teams) {
-    if (!Array.isArray(teams) || teams.length < 2) return null;
-    const known = teams
-      .map((t) => String(t.teamName || '').trim().toLowerCase())
-      .filter(Boolean);
-    if (known.length < 2) return null;
-    try {
-      const selects = document.querySelectorAll('select');
-      for (const sel of selects) {
-        if (!sel || !sel.options || sel.options.length < 2) continue;
-        const opts = Array.prototype.map.call(sel.options,
-          (o) => String(o.text || '').trim());
-        const hits = opts.filter((o) => known.indexOf(o.toLowerCase()) !== -1);
-        if (hits.length >= 2 && hits.length >= Math.ceil(opts.length * 0.6)) return sel;
-      }
-    } catch (e) {
-      console.debug('[Gridiron Edge] read failed:', e && e.message);
-    }
-    return null;
-  }
-
-  /**
-   * Read every team's roster by stepping the dropdown through the league.
-   *
-   * An auction renders one roster at a time, so this is the only way to see
-   * the whole board without the Draft Summary tab. It is not part of the
-   * ordinary scrape -- that runs many times a second, and this writes to the
-   * page you are drafting in. It is asked for separately and no more than once
-   * a minute; the throttle is what bounds the flicker, not any promise that it
-   * only runs when a user presses something. The app asks for it by itself.
-   *
-   * The selection is restored in a finally block. Leaving somebody else's
-   * roster on screen mid-auction is worse than not running at all -- you would
-   * be reading the wrong team's needs while the clock is going.
-   *
-   * The <select> is React-controlled, so assigning .value is ignored: React
-   * tracks the previous value on the node and skips the change. The native
-   * setter has to be called directly before the event is dispatched.
-   */
-  async function sweepAllRosters(teams) {
-    const sel = findTeamSelectEl(teams);
-    if (!sel) return { ok: false, reason: 'no-team-dropdown' };
-
-    const proto = (typeof window !== 'undefined' && window.HTMLSelectElement)
-      ? window.HTMLSelectElement.prototype : null;
-    const desc = proto && Object.getOwnPropertyDescriptor(proto, 'value');
-    const nativeSet = desc && desc.set;
-
-    const originalIndex = sel.selectedIndex;
-    const signature = () => JSON.stringify(scrapeRosterPanel());
-    const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
-    const byTeam = [];
-
-    try {
-      for (let i = 0; i < sel.options.length; i++) {
-        const name = String(sel.options[i].text || '').trim();
-        if (!name) continue;
-        const before = signature();
-
-        if (nativeSet) nativeSet.call(sel, sel.options[i].value);
-        else sel.selectedIndex = i;
-        sel.dispatchEvent(new Event('input', { bubbles: true }));
-        sel.dispatchEvent(new Event('change', { bubbles: true }));
-
-        // Wait for the panel to actually repaint. Two teams can legitimately
-        // hold identical rosters (both empty early on), so a signature that
-        // never changes is not an error -- hence the cap rather than a throw.
-        const deadline = Date.now() + 900;
-        let after = before;
-        do {
-          await sleep(60);
-          after = signature();
-        } while (after === before && Date.now() < deadline);
-
-        byTeam.push({ teamName: name, roster: JSON.parse(after) });
-      }
-    } finally {
-      if (nativeSet && sel.options[originalIndex]) {
-        nativeSet.call(sel, sel.options[originalIndex].value);
-      } else {
-        sel.selectedIndex = originalIndex;
-      }
-      sel.dispatchEvent(new Event('input', { bubbles: true }));
-      sel.dispatchEvent(new Event('change', { bubbles: true }));
-    }
-
-    return { ok: true, byTeam };
-  }
-
   function findTeamSelectName(teams) {
     if (!Array.isArray(teams) || teams.length < 2) return null;
     const known = teams
@@ -1297,69 +1220,40 @@
    * fallback. In Chrome's MAIN world the React store is readable directly, so
    * there is nothing here worth sweeping for.
    */
-  // A sweep is already running, and when the last one finished.
+  // The sweep does not live here any more.
   //
-  // This script runs in the page's own world, so `event.source === window` and
-  // the origin check are both satisfied by ANY script in the frame -- an ad, a
-  // tag manager, an XSS on ESPN. A forged request was proven to drive the
-  // roster dropdown through every option, and eight forged messages produced
-  // eight concurrent sweeps whose `finally` blocks then raced to restore the
-  // selection. These bound the damage: one sweep at a time, and no more than
-  // one a minute. They do not make the message unforgeable -- the real fix is
-  // to drive the sweep from the isolated world, which the page cannot reach.
-  let sweepInFlight = false;
-  let sweepLastAt = 0;
-  const SWEEP_MIN_GAP_MS = 60000;
-
-  function runSweep() {
-    if (sweepInFlight) {
-      return Promise.resolve({ ok: false, reason: 'sweep-already-running' });
-    }
-    if (Date.now() - sweepLastAt < SWEEP_MIN_GAP_MS) {
-      return Promise.resolve({ ok: false, reason: 'sweep-too-soon' });
-    }
-    sweepInFlight = true;
-    sweepLastAt = Date.now();
-    const names = findLeagueTeamNames();
-    if (!names.length) {
-      sweepInFlight = false;
-      return Promise.resolve({ ok: false, reason: 'no-team-dropdown' });
-    }
-    const provisional = names.map((n, i) => ({ teamId: i + 1, teamName: n }));
-    return sweepAllRosters(provisional).then((res) => {
-      sweepInFlight = false;
-      if (!res.ok) return res;
-      sweptRosters = res.byTeam;
-      sweptAt = Date.now();
-      const found = res.byTeam.reduce((n, t) => n + t.roster.length, 0);
-      // Push the result out through the ordinary path, so the payload is built
-      // the same way as any other update rather than by a second assembler
-      // that could disagree with it.
-      forceNext = true;
-      lastSyncKey = null;
-      runSoon();
-      return { ok: true, teams: res.byTeam.length, players: found };
-    }).catch((e) => {
-      sweepInFlight = false;
-      return { ok: false, reason: (e && e.message) || 'sweep-threw' };
-    });
-  }
-
-  // The request arrives on the window, not through chrome.runtime.
+  // It used to be triggered by a window message, and this script is declared
+  // world: "MAIN" -- the page's own world -- so `event.source === window` and
+  // the origin check were satisfied by ANY script in the frame. A forged
+  // request was proven to drive the roster dropdown through every option
+  // during a live auction, and eight forged messages produced eight concurrent
+  // sweeps whose `finally` blocks raced to restore the selection. An in-flight
+  // flag and a sixty-second floor bounded that; they could not close it,
+  // because a message anyone can send is a message anyone can send.
   //
-  // This script is declared world: "MAIN", where chrome.runtime does not exist,
-  // so a runtime.onMessage listener here silently never registers -- the
-  // request reached the tab and nothing answered it. content-isolated.js has
-  // the extension APIs and relays across; results already travel this way.
+  // The sweep reads and writes the DOM and nothing else, so it needed nothing
+  // from this world. It runs in content-isolated.js now, which the page cannot
+  // reach, started only by a chrome.runtime message from the app. Its result
+  // arrives here as data, on the channel below, and is folded into the payload
+  // by the same assembler as everything else.
   if (typeof window !== 'undefined' && window.addEventListener) {
     window.addEventListener('message', (event) => {
       if (event.source !== window) return;
       if (event.origin !== 'https://fantasy.espn.com') return;
-      if (!event.data || event.data.type !== 'GRIDIRON_EDGE_SWEEP_REQUEST') return;
-      runSweep().then((result) => {
-        window.postMessage({ type: 'GRIDIRON_EDGE_SWEEP_RESULT', result },
-          'https://fantasy.espn.com');
-      });
+      const msg = event.data;
+      if (!msg || msg.type !== 'GRIDIRON_EDGE_SWEEP_RESULT') return;
+      if (!Array.isArray(msg.byTeam)) return;
+      // A page script can forge this, exactly as it can forge a whole sync --
+      // the payload gate at the worker is what bounds both. What it can no
+      // longer do is make the extension operate the draft room's dropdown.
+      sweptRosters = msg.byTeam;
+      sweptAt = Date.parse(msg.sweptAt) || Date.now();
+      // Out through the ordinary path, so the payload is assembled the same
+      // way as any other update rather than by a second assembler that could
+      // disagree with it.
+      forceNext = true;
+      lastSyncKey = null;
+      runSoon();
     });
   }
 

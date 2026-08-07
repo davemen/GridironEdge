@@ -5,17 +5,39 @@
  * this forwards it to the service worker, which stores it and pushes it to the
  * app page. (It used to POST to a local web server. There is no server now.)
  *
- * That makes this listener a trust boundary, and it was not treating itself as
- * one: the only check was `event.source !== window`, which any script running in
- * the same frame satisfies trivially. Combined with all_frames, any third-party
- * tag or ad on the page could post a GRIDIRON_EDGE_SYNC message and have the
- * extension write attacker-chosen JSON into the file the app renders.
+ * That makes this listener a trust boundary. The first version checked only
+ * `event.source !== window`, which any script in the same frame satisfies. The
+ * origin and the payload shape are checked now as well -- but read the next
+ * paragraph before believing the boundary is closed.
  *
- * Now: the origin must be ESPN, the message must arrive from this exact window,
- * and the payload must look like a league before it goes anywhere.
+ * WHAT THESE CHECKS DO NOT STOP. The scraper is declared world: "MAIN", the
+ * page's own world, so `event.source === window` and `event.origin ===
+ * TRUSTED_ORIGIN` are satisfied BY CONSTRUCTION for any script running on
+ * fantasy.espn.com -- an ad, a tag manager, an XSS on ESPN. A forged
+ * GRIDIRON_EDGE_SYNC still reaches the worker; an audit proved it by loading
+ * this file and firing the message. A nonce would not fix it: every script in
+ * a frame sees every postMessage, so a token sent that way is not a secret.
+ * The only real fix is to stop carrying the data through the page's world,
+ * which needs the React/Redux read in content-main.js to move or go away.
+ *
+ * What HAS been closed is the sweep. It used to be a request posted INTO the
+ * page world, so a forged message drove the roster dropdown through every
+ * option while a live auction ran -- the extension writing into the page on an
+ * attacker's say-so, rather than merely reading a lie. The sweep runs here
+ * now, where the page cannot reach it, and only a chrome.runtime message from
+ * the app can start it.
  */
 
 (function() {
+  // One instance per world. background.js re-injects this file whenever a tab
+  // completes and no sync has been reported yet, and a pre-draft lobby is
+  // quiet by design -- so the redundant injection is the normal case, not an
+  // edge one. Without this, each copy registered its own message listener, its
+  // own sweep locks and its own observers, and two sweeps raced to restore the
+  // dropdown while each believed it held the only lock.
+  if (window.__GRIDIRON_EDGE_ISOLATED_INSTALLED__) return;
+  window.__GRIDIRON_EDGE_ISOLATED_INSTALLED__ = true;
+
   const TRUSTED_ORIGIN = 'https://fantasy.espn.com';
 
   /**
@@ -48,6 +70,250 @@
       return false;   // circular or otherwise unserialisable
     }
     return true;
+  }
+
+
+  // ---------------------------------------------------------------------
+  // Reading every team's roster
+  //
+  // These run HERE, in the isolated world, not in the scraper. They touch only
+  // the DOM -- no React internals -- so nothing about them needs the page's
+  // world, and being here is what makes them unreachable from it.
+  //
+  // findTeamSelectEl and sweepAllRosters are ONLY here -- nothing in the
+  // scraper called them once the trigger moved. scrapeRosterPanel and
+  // findLeagueTeamNames are byte-identical to the copies in content-main.js,
+  // which still reads the live panel for the selected team and still needs the
+  // team list; test/scraper.test.mjs fails if those two ever differ. Two
+  // classic scripts in a repo with no build step cannot share a module, so
+  // identical copies with a test behind them is the strongest available form
+  // of one definition.
+  // ---------------------------------------------------------------------
+
+  /**
+   * The league's team names, taken from the roster panel's own dropdown.
+   *
+   * An auction room renders no draft-results table at all -- confirmed against
+   * a live room, which contains exactly two <table> elements: the queue and one
+   * team's roster. So the team list cannot be recovered from pick rows, because
+   * there are no pick rows. It used to fall back to inventing eight teams
+   * called "Team 1".."Team 8", which is the failure this codebase keeps
+   * repeating: a fabricated league is indistinguishable on screen from a real
+   * one, and every opponent budget derived from it is fiction.
+   *
+   * The dropdown is real data. It is identified by elimination: the room's
+   * other selects are position, NFL club, season and round filters, and every
+   * one of those either leads with an "All ..." option or starts with a year.
+   */
+  function findLeagueTeamNames() {
+    try {
+      const selects = document.querySelectorAll('select');
+      for (const sel of selects) {
+        if (!sel || !sel.options || sel.options.length < 4) continue;
+        const opts = Array.prototype.map.call(sel.options,
+          (o) => String(o.text || '').trim()).filter(Boolean);
+        if (opts.length < 4) continue;
+        const isFilter = opts.some((o) => /^all\b/i.test(o)
+          || /^round\s+\d/i.test(o)
+          || /^\d{4}\b/.test(o));
+        if (isFilter) continue;
+        return opts;
+      }
+    } catch (e) {
+      console.debug('[Gridiron Edge] read failed:', e && e.message);
+    }
+    return [];
+  }
+
+  /**
+   * The roster on screen, as picks. Player, lineup slot and price.
+   *
+   * This is the only pick data an auction room actually renders. It covers one
+   * team -- whichever the dropdown has selected -- so it is deliberately not
+   * presented as the draft board. It is enough to fill in your own roster,
+   * which was the whole of what was missing.
+   *
+   * The slot is a lineup position (BE and FLEX among them), not the player's
+   * position, so it is reported separately and never used as one.
+   */
+  function scrapeRosterPanel() {
+    try {
+      const tables = document.querySelectorAll('table');
+      for (const table of tables) {
+        const rows = table.rows;
+        if (!rows || rows.length < 3) continue;
+        const head = Array.prototype.map.call(rows[0].cells || [],
+          (c) => String(c.innerText || '').trim().toUpperCase());
+        const posCol = head.indexOf('POS');
+        const nameCol = head.indexOf('PLAYER');
+        if (posCol === -1 || nameCol === -1) continue; // the queue table has no POS
+        const priceCol = head.indexOf('$');
+
+        const out = [];
+        for (let i = 1; i < rows.length; i++) {
+          const cells = rows[i].cells;
+          if (!cells || cells.length <= nameCol) continue;
+          const name = String(cells[nameCol].innerText || '').trim();
+          if (!name || /^empty$/i.test(name) || name === '-') continue;
+          let bid = null;
+          if (priceCol > -1 && cells[priceCol]) {
+            const m = String(cells[priceCol].innerText || '').match(/\d+/);
+            if (m) bid = parseInt(m[0], 10);
+          }
+          out.push({
+            playerName: name,
+            rosterSlot: String(cells[posCol].innerText || '').trim(),
+            bidAmount: bid,
+          });
+        }
+        if (out.length) return out;
+      }
+    } catch (e) {
+      console.debug('[Gridiron Edge] roster read failed:', e && e.message);
+    }
+    return [];
+  }
+
+  /** The roster panel's team dropdown as an element, or null. */
+  function findTeamSelectEl(teams) {
+    if (!Array.isArray(teams) || teams.length < 2) return null;
+    const known = teams
+      .map((t) => String(t.teamName || '').trim().toLowerCase())
+      .filter(Boolean);
+    if (known.length < 2) return null;
+    try {
+      const selects = document.querySelectorAll('select');
+      for (const sel of selects) {
+        if (!sel || !sel.options || sel.options.length < 2) continue;
+        const opts = Array.prototype.map.call(sel.options,
+          (o) => String(o.text || '').trim());
+        const hits = opts.filter((o) => known.indexOf(o.toLowerCase()) !== -1);
+        if (hits.length >= 2 && hits.length >= Math.ceil(opts.length * 0.6)) return sel;
+      }
+    } catch (e) {
+      console.debug('[Gridiron Edge] read failed:', e && e.message);
+    }
+    return null;
+  }
+
+  /**
+   * Read every team's roster by stepping the dropdown through the league.
+   *
+   * An auction renders one roster at a time, so this is the only way to see
+   * the whole board without the Draft Summary tab. It is not part of the
+   * ordinary scrape -- that runs many times a second, and this writes to the
+   * page you are drafting in. It is asked for separately and no more than once
+   * a minute; the throttle is what bounds the flicker, not any promise that it
+   * only runs when a user presses something. The app asks for it by itself.
+   *
+   * The selection is restored in a finally block. Leaving somebody else's
+   * roster on screen mid-auction is worse than not running at all -- you would
+   * be reading the wrong team's needs while the clock is going.
+   *
+   * The <select> is React-controlled, so assigning .value is ignored: React
+   * tracks the previous value on the node and skips the change. The native
+   * setter has to be called directly before the event is dispatched.
+   */
+  const MAX_SWEEP_TEAMS = 32;
+  const MAX_SWEEP_ROWS = 2000;
+
+  async function sweepAllRosters(teams) {
+    const sel = findTeamSelectEl(teams);
+    if (!sel) return { ok: false, reason: 'no-team-dropdown' };
+
+    const proto = (typeof window !== 'undefined' && window.HTMLSelectElement)
+      ? window.HTMLSelectElement.prototype : null;
+    const desc = proto && Object.getOwnPropertyDescriptor(proto, 'value');
+    const nativeSet = desc && desc.set;
+
+    const originalIndex = sel.selectedIndex;
+    const signature = () => JSON.stringify(scrapeRosterPanel());
+    const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+    const byTeam = [];
+    let rows = 0;
+
+    try {
+      // Bounded. `sel.options.length` came straight off the page, at up to
+      // 900ms an option: a hostile page planting a <select> with 20,000
+      // options would have held the draft room for hours. A league has at most
+      // MAX_SWEEP_TEAMS teams, and anything past that is not a league.
+      const stop = Math.min(sel.options.length, MAX_SWEEP_TEAMS);
+      for (let i = 0; i < stop; i++) {
+        const name = String(sel.options[i].text || '').trim();
+        if (!name) continue;
+        // And bounded in what it accumulates, for the same reason the worker
+        // bounds the payload: this ends up in chrome.storage, which holds 10MB.
+        if (rows >= MAX_SWEEP_ROWS) break;
+        const before = signature();
+
+        if (nativeSet) nativeSet.call(sel, sel.options[i].value);
+        else sel.selectedIndex = i;
+        sel.dispatchEvent(new Event('input', { bubbles: true }));
+        sel.dispatchEvent(new Event('change', { bubbles: true }));
+
+        // Wait for the panel to actually repaint. Two teams can legitimately
+        // hold identical rosters (both empty early on), so a signature that
+        // never changes is not an error -- hence the cap rather than a throw.
+        const deadline = Date.now() + 900;
+        let after = before;
+        do {
+          await sleep(60);
+          after = signature();
+        } while (after === before && Date.now() < deadline);
+
+        const roster = JSON.parse(after);
+        rows += roster.length;
+        byTeam.push({ teamName: name, roster });
+      }
+    } finally {
+      if (nativeSet && sel.options[originalIndex]) {
+        nativeSet.call(sel, sel.options[originalIndex].value);
+      } else {
+        sel.selectedIndex = originalIndex;
+      }
+      sel.dispatchEvent(new Event('input', { bubbles: true }));
+      sel.dispatchEvent(new Event('change', { bubbles: true }));
+    }
+
+    return { ok: true, byTeam };
+  }
+
+  // The sweep writes into the page you are drafting in, so it is bounded: one
+  // at a time, and no more than once a minute. These locks live here rather
+  // than in the scraper because there they were closure locals in a file the
+  // worker re-injects -- so a second injection created a second set of locks,
+  // and two sweeps raced to restore the dropdown.
+  let sweepInFlight = false;
+  let sweepLastAt = 0;
+  const SWEEP_MIN_GAP_MS = 60 * 1000;
+
+  async function runSweep() {
+    if (sweepInFlight) return;
+    if (Date.now() - sweepLastAt < SWEEP_MIN_GAP_MS) return;
+    sweepInFlight = true;
+    try {
+      const teams = findLeagueTeamNames().map((teamName) => ({ teamName }));
+      const res = await sweepAllRosters(teams);
+      sweepLastAt = Date.now();
+      if (!res || !res.ok) {
+        console.warn('[Gridiron Edge Sync] Sweep did not run:', res && res.reason);
+        return;
+      }
+      // Handed to the scraper as data, because the scraper is what assembles
+      // the payload. This grants the page nothing it did not already have --
+      // it could forge a whole sync before, and this is a strictly smaller lie
+      // -- while removing what it could do: make the extension operate the
+      // dropdown of a draft room mid-auction.
+      window.postMessage({
+        type: 'GRIDIRON_EDGE_SWEEP_RESULT',
+        byTeam: res.byTeam,
+        sweptAt: new Date().toISOString(),
+      }, TRUSTED_ORIGIN);
+    } catch (e) {
+      console.warn('[Gridiron Edge Sync] Sweep failed:', e && e.message);
+    } finally {
+      sweepInFlight = false;
+    }
   }
 
   // The build marker goes in the log line on purpose. Content scripts are
@@ -108,8 +374,8 @@
   if (chrome.runtime && chrome.runtime.onMessage) {
     chrome.runtime.onMessage.addListener((msg) => {
       if (!msg || msg.action !== 'sweepRosters') return false;
-      window.postMessage({ type: 'GRIDIRON_EDGE_SWEEP_REQUEST' }, TRUSTED_ORIGIN);
-      // No reply, deliberately -- see below. `false` closes the channel now
+      runSweep();
+      // No reply, deliberately -- see above. `false` closes the channel now
       // rather than leaving the sender waiting on one that will never answer.
       return false;
     });

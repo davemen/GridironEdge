@@ -359,5 +359,124 @@ console.log('\nESPN\'s id tables are the ones ESPN actually uses');
   }
 }
 
+console.log('\nthe sweep runs where the page cannot reach it');
+{
+  // It used to be triggered by a window message into world MAIN, which any
+  // script on ESPN's page can send -- proven to drive the roster dropdown
+  // through every option during a live auction. It reads and writes the DOM
+  // and nothing else, so it needed nothing from that world.
+  const iso = readFileSync(join(ROOT, 'chrome-extension/content-isolated.js'), 'utf8');
+
+  check('the scraper no longer listens for a sweep request',
+    !src.includes('GRIDIRON_EDGE_SWEEP_REQUEST'),
+    'a forgeable trigger is still installed in the page world');
+  check('and no longer carries the sweep itself',
+    !/function sweepAllRosters/.test(src));
+  check('the isolated world does', /async function sweepAllRosters/.test(iso));
+  check('and starts it only from a chrome.runtime message',
+    /onMessage\.addListener[\s\S]{0,240}runSweep\(\)/.test(iso));
+
+  // The two copies that remain in both files must not drift.
+  const grab = (source, sig) => {
+    const at = source.indexOf(sig);
+    if (at < 0) return null;
+    let depth = 0;
+    for (let i = source.indexOf('{', at); i < source.length; i++) {
+      if (source[i] === '{') depth++;
+      else if (source[i] === '}' && --depth === 0) {
+        return source.slice(at, i + 1).replace(/^[ \t]+/gm, '');
+      }
+    }
+    return null;
+  };
+  ['function scrapeRosterPanel()', 'function findLeagueTeamNames()'].forEach((sig) => {
+    const a = grab(src, sig), b = grab(iso, sig);
+    check(`${sig.slice(9, -2)} is the same in both worlds`, Boolean(a) && a === b,
+      !a || !b ? 'missing from one of them' : 'they differ');
+  });
+
+  // And the sweep is bounded, because sel.options came straight off the page.
+  const bounds = (iso.match(/const MAX_SWEEP_(?:TEAMS|ROWS) = (\d+);/g) || []);
+  check('the sweep caps how many options it will step through', bounds.length === 2,
+    bounds.join(' '));
+  check('and bounds it by the same team count the worker enforces',
+    /MAX_SWEEP_TEAMS = 32;/.test(iso));
+
+  // One instance per world, or the locks and observers are duplicated.
+  check('both halves refuse a second injection',
+    /__GRIDIRON_EDGE_ISOLATED_INSTALLED__/.test(iso)
+      && /__GRIDIRON_EDGE_MAIN_INSTALLED__/.test(src));
+}
+
+console.log('\nand the moved sweep still actually sweeps');
+{
+  // Code motion is not a proof. This drives the real sweepAllRosters out of
+  // the shipped isolated-world file against a fake roster panel and a fake
+  // React-controlled <select>, and checks it visits every team, records each
+  // one's roster, and puts the dropdown back.
+  const iso = readFileSync(join(ROOT, 'chrome-extension/content-isolated.js'), 'utf8');
+
+  const ROSTERS = {
+    "Mac's Marauders": [['QB', 'Josh Allen', '$19'], ['RB', 'Bijan Robinson', '$49']],
+    'Team 1': [['WR', 'Ja\'Marr Chase', '$44']],
+    'Team 2': [['TE', 'Trey McBride', '$21'], ['K', 'Ka\'imi Fairbairn', '$1']],
+  };
+  const names = Object.keys(ROSTERS);
+  let selected = 0;
+  const cell = (t) => ({ innerText: t });
+  const rosterTable = {
+    get rows() {
+      const body = ROSTERS[names[selected]] || [];
+      return [{ cells: [cell('POS'), cell('PLAYER'), cell('$')] }]
+        .concat(body.map((r) => ({ cells: r.map(cell) })))
+        // Three rows minimum, or scrapeRosterPanel skips the table.
+        .concat(body.length < 2 ? [{ cells: [cell('BE'), cell('Empty'), cell('')] }] : []);
+    },
+  };
+  const dispatched = [];
+  const select = {
+    options: names.map((n, i) => ({ text: n, value: String(i) })),
+    selectedIndex: 0,
+    dispatchEvent(e) { dispatched.push(e.type); return true; },
+  };
+  globalThis.HTMLSelectElement = function () {};
+  Object.defineProperty(globalThis.HTMLSelectElement.prototype, 'value', {
+    configurable: true,
+    set(v) { selected = Number(v); this.selectedIndex = selected; },
+    get() { return String(selected); },
+  });
+  globalThis.window.HTMLSelectElement = globalThis.HTMLSelectElement;
+  globalThis.Event = function (type) { this.type = type; };
+  globalThis.setTimeout = (fn, ms) => { fn(); return 0; };
+  globalThis.document.querySelectorAll = (sel) =>
+    (sel === 'select' ? [select] : sel === 'table' ? [rosterTable] : []);
+  globalThis.chrome = { runtime: { id: 'x', onMessage: { addListener() {} }, sendMessage() {} } };
+  globalThis.window.__GRIDIRON_EDGE_ISOLATED_INSTALLED__ = false;
+
+  const ii = iso.indexOf('(function');
+  const jj = iso.lastIndexOf('})();');
+  const isoBody = iso.slice(iso.indexOf('\n', ii) + 1, jj);
+  const isoFns = new Function(`${isoBody}\nreturn { sweepAllRosters, scrapeRosterPanel, findTeamSelectEl };`)();
+
+  check('the isolated half exposes a working dropdown finder',
+    isoFns.findTeamSelectEl(names.map((teamName) => ({ teamName }))) === select);
+
+  const res = await isoFns.sweepAllRosters(names.map((teamName) => ({ teamName })));
+  check('the sweep reports success', res && res.ok === true, JSON.stringify(res));
+  check('it visited every team', res.byTeam && res.byTeam.length === names.length,
+    res.byTeam && String(res.byTeam.length));
+  check('and read each roster, not the same one three times',
+    res.byTeam[0].roster.length === 2 && res.byTeam[1].roster.length === 1
+      && res.byTeam[2].roster.length === 2,
+    res.byTeam && JSON.stringify(res.byTeam.map((t) => t.roster.length)));
+  check('it kept the prices', res.byTeam[0].roster[0].bidAmount === 19,
+    JSON.stringify(res.byTeam[0].roster[0]));
+  // Leaving somebody else's roster on screen mid-auction is worse than not
+  // running at all: you would be reading the wrong team's needs.
+  check('and put the dropdown back where it found it', selected === 0, String(selected));
+  check('driving the select through real events', dispatched.filter((e) => e === 'change').length
+    === names.length + 1, dispatched.join(','));
+}
+
 console.log(`\n${passed} passed, ${failed} failed`);
 if (failed) process.exit(1);
