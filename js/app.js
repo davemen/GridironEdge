@@ -3,7 +3,8 @@
  */
 
 import store from './store.js';
-import espnClient from './espn-client.js';
+import { findPlayer } from './player-database.js';
+import espnClient, { realDbReady } from './espn-client.js';
 import { getDraftRecommendations, calculateAuctionBid } from './engine/draft-assistant.js';
 import { recommendBid, targetBoard, buildLeagueState } from './engine/auction-advisor.js';
 import { optimizeLineup } from './engine/lineup-optimizer.js';
@@ -89,6 +90,13 @@ document.addEventListener('DOMContentLoaded', () => {
   setupSettingsControls();
   setupModals();
 
+  // A league is persisted with the player database it was imported against, so
+  // a stored one predating a projection update keeps the old, smaller set --
+  // which is how a drafted defense could stay invisible after the defenses were
+  // added, with no error anywhere. Fold the current projections in on boot so a
+  // stale store heals itself instead of waiting for the next live sync.
+  realDbReady.then((db) => refreshStoredDatabase(db));
+
   // Check for auto local sync file first
   checkLocalSyncFile();
 
@@ -103,6 +111,58 @@ document.addEventListener('DOMContentLoaded', () => {
   // Perform initial rendering
   renderApp(store.state);
 });
+
+/**
+ * Fold freshly loaded projections into every stored league.
+ *
+ * Existing entries are updated rather than replaced so live draft state --
+ * drafted flags, prices paid, weekly metric history -- survives; genuinely new
+ * players are added. Roster ids already point at these keys, so a pick that was
+ * previously stored as an unresolvable stub resolves on the next render.
+ */
+function refreshStoredDatabase(realDb) {
+  if (!realDb || !Object.keys(realDb).length) return;
+  let changed = 0;
+  Object.values(store.state.leagues || {}).forEach((league) => {
+    if (!league || !league.playerDatabase) return;
+    Object.keys(realDb).forEach((id) => {
+      const prior = league.playerDatabase[id];
+      if (!prior) { league.playerDatabase[id] = realDb[id]; changed++; return; }
+      // Incoming projections win; anything the draft or the season wrote stays.
+      league.playerDatabase[id] = { ...prior, ...realDb[id] };
+    });
+  });
+  // Picks that could not be resolved when they were imported are stored as
+  // MOCK_ stubs carrying a replacement-level guess. Once the real player exists
+  // they should stop being stubs -- otherwise a defense drafted before the
+  // defenses were added stays a stub forever, and no amount of reloading helps.
+  let healed = 0;
+  Object.values(store.state.leagues || {}).forEach((league) => {
+    if (!league || !league.playerDatabase) return;
+    const remap = new Map();
+    Object.keys(league.playerDatabase).forEach((id) => {
+      if (!id.startsWith('MOCK_')) return;
+      const stub = league.playerDatabase[id];
+      const real = findPlayer(realDb, stub.name || id.slice(5).replace(/_/g, ' '),
+                              stub.position);
+      if (real) { remap.set(id, real.id); healed++; }
+    });
+    if (!remap.size) return;
+    (league.teams || []).forEach((t) => {
+      t.roster = (t.roster || []).map((id) => remap.get(id) || id);
+    });
+    ((league.draftState || {}).selections || []).forEach((sel) => {
+      if (remap.has(sel.playerId)) sel.playerId = remap.get(sel.playerId);
+    });
+    remap.forEach((_, stubId) => { delete league.playerDatabase[stubId]; });
+  });
+
+  if (changed || healed) {
+    console.log(`[Gridiron Edge] Stored league database: ${changed} players added, `
+      + `${healed} unresolved picks matched to real players.`);
+    store.save();
+  }
+}
 
 // Setup Page View Navigation Tab Listeners
 function setupNavigation() {
