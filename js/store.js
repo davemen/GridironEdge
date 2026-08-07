@@ -204,10 +204,15 @@ class Store {
   pruneLeagues(keepId) {
     const ids = Object.keys(this.state.leagues);
     if (ids.length <= MAX_LEAGUES) return;
+    // Insertion order breaks ties, because lastUpdated ties are ordinary: two
+    // leagues synced in the same millisecond have no older one, and sorting on
+    // the timestamp alone left which of them survived up to the sort's own
+    // stability. That is a coin flip deciding whose draft is dropped.
+    const seenAt = (id) => Date.parse(this.state.leagues[id].lastUpdated || 0) || 0;
+    const order = new Map(ids.map((id, i) => [id, i]));
     const bySeen = ids
       .filter((id) => id !== keepId)
-      .sort((a, b) => Date.parse(this.state.leagues[b].lastUpdated || 0)
-        - Date.parse(this.state.leagues[a].lastUpdated || 0));
+      .sort((a, b) => (seenAt(b) - seenAt(a)) || (order.get(b) - order.get(a)));
     bySeen.slice(MAX_LEAGUES - 1).forEach((id) => {
       delete this.state.leagues[id];
       if (this.state.currentLeagueId === id) this.state.currentLeagueId = keepId;

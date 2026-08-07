@@ -159,6 +159,11 @@ console.log('\nstored state is bounded, and its keys are just keys');
   store.state.currentLeagueId = null;
   for (let i = 1; i <= 12; i++) {
     store.saveLeague(`L${i}`, { leagueId: `L${i}`, teams: [], playerDatabase: {} });
+    // Distinct, ascending, and set explicitly. Twelve saves land in the same
+    // millisecond, so without this there is no "oldest" and the assertion
+    // below is decided by the sort's stability -- which made it flaky roughly
+    // one run in five.
+    store.state.leagues[`L${i}`].lastUpdated = new Date(1000 + i * 1000).toISOString();
   }
   const kept = Object.keys(store.state.leagues);
   check('the number of stored leagues is capped', kept.length <= 8, `${kept.length} kept`);
