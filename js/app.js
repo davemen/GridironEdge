@@ -438,6 +438,31 @@ function freeAgentsIn(league) {
   return Object.values(league.playerDatabase || {}).filter(p => !taken.has(String(p.id)));
 }
 
+/**
+ * Says when picks arrived that could not be matched to a manager.
+ *
+ * An unattributed pick is deliberately given no owner rather than being guessed
+ * onto a team -- guessing corrupts a roster and the budget model behind every
+ * bid ceiling. But the visible result is a roster that looks empty for no
+ * stated reason, which is indistinguishable from a broken sync. Say it.
+ */
+function renderAttributionBanner(league) {
+  const sels = (league.draftState || {}).selections || [];
+  const orphans = sels.filter((s) => s.teamId === null || s.teamId === undefined).length;
+  let el = document.getElementById('attribution-banner');
+  if (!orphans) { if (el) el.remove(); return; }
+  if (!el) {
+    el = document.createElement('div');
+    el.id = 'attribution-banner';
+    el.style.cssText = 'background:#7f1d1d;color:#fff;padding:0.6rem 1rem;font-size:0.85rem;'
+      + 'font-weight:600;text-align:center;border-bottom:1px solid #ef4444;';
+    document.body.insertBefore(el, document.body.firstChild);
+  }
+  el.innerHTML = `${orphans} of ${sels.length} picks could not be matched to a manager, `
+    + `so they are missing from every roster. They are still off the draft board. `
+    + `Run <code>__GRIDIRON_EDGE_DEBUG__()</code> in the ESPN tab's console to see why.`;
+}
+
 /** Says plainly when the league on screen is demo data rather than yours. */
 function renderSandboxBanner(league) {
   let el = document.getElementById('sandbox-banner');
@@ -478,6 +503,7 @@ function renderApp(state) {
   // The sandbox is invented data. It looked identical to a real league on every
   // screen, so a stale one could be mistaken for a broken sync for a long time.
   renderSandboxBanner(league);
+  renderAttributionBanner(league);
 
   // Re-draw active navigation tab links
   const links = navBar.querySelectorAll('.nav-link');

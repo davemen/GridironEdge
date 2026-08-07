@@ -5,7 +5,7 @@
   // Version marker: lets a console check confirm whether Chrome is running the
   // current content script or a cached older one, which is the first thing to
   // rule out when a fix appears to have had no effect.
-  try { window.__GRIDIRON_EDGE_VERSION__ = '2026.08.07-debug'; } catch (e) {}
+  try { window.__GRIDIRON_EDGE_VERSION__ = '2026.08.07-attrib'; } catch (e) {}
   console.log("[Gridiron Edge Sync] Main world script initialized (2026.08.05-bidfix).");
 
   let lastSyncKey = null;
@@ -553,13 +553,39 @@
         // exact equality, then blame team 1 for every miss. That silently piled
         // the whole draft onto one roster: if you were team 1 you owned
         // everybody, and if you were not, your roster never filled at all.
-        const norm = (x) => String(x || '').toLowerCase().replace(/\s+/g, ' ').trim();
+        // Punctuation has to go. "Mac's Marauders" against "Macs Marauders
+        // Team", or a curly apostrophe against a straight one, is not a match by
+        // any string comparison -- and this is the third time in this codebase
+        // that an apostrophe has silently broken a lookup.
+        const norm = (x) => String(x || '')
+          .toLowerCase()
+          .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+          // Apostrophes are REMOVED, not spaced -- "Mac's" and "Daves" have to
+          // land on the same string. Turning them into spaces produces
+          // "mac s marauders", which matches neither spelling. This is the
+          // identical mistake that once priced Ja'Marr Chase at replacement.
+          .replace(/['\u2019\u2018\u0060]/g, '')
+          .replace(/[^a-z0-9 ]+/g, ' ')
+          .replace(/\s+/g, ' ')
+          .trim();
+
         const findDrafter = (name) => {
           const n = norm(name);
           if (!n) return null;
-          return teams.find(t => norm(t.teamName) === n)
-            || teams.find(t => norm(t.teamName).includes(n) || n.includes(norm(t.teamName)))
-            || null;
+          const exact = teams.filter(t => norm(t.teamName) === n);
+          if (exact.length === 1) return exact[0];
+
+          // Token containment rather than substring. A substring test matches
+          // "Team 8" inside "Team 87" and hands a pick to the wrong manager;
+          // comparing whole words cannot do that. Require exactly one team to
+          // match, so an ambiguous name stays unattributed instead of guessing.
+          const nt = n.split(' ').filter(Boolean);
+          const covers = (a, b) => a.length && a.every(w => b.includes(w));
+          const hits = teams.filter(t => {
+            const tt = norm(t.teamName).split(' ').filter(Boolean);
+            return covers(nt, tt) || covers(tt, nt);
+          });
+          return hits.length === 1 ? hits[0] : null;
         };
 
         let unattributed = 0;
