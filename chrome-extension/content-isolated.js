@@ -2,7 +2,8 @@
  * Isolated-world half of the sync bridge.
  *
  * The MAIN-world script scrapes the draft room and postMessages the result here;
- * this forwards it to the service worker, which POSTs it to the local server.
+ * this forwards it to the service worker, which stores it and pushes it to the
+ * app page. (It used to POST to a local web server. There is no server now.)
  *
  * That makes this listener a trust boundary, and it was not treating itself as
  * one: the only check was `event.source !== window`, which any script running in
@@ -63,6 +64,48 @@
       }
     }
   });
+
+  /**
+   * Relay a "scan all rosters" request to the scraper, and its answer back.
+   *
+   * The scraper is declared world: "MAIN", where chrome.runtime does not
+   * exist -- so a chrome.runtime.onMessage listener placed there never
+   * registers, and the request reached the tab and was answered by nobody.
+   * That surfaced as "the draft room did not respond".
+   *
+   * This half is the one with extension APIs, so the request lands here and
+   * crosses to the scraper the same way results already cross back: a
+   * postMessage on the shared window, origin-checked in both directions.
+   */
+  const SWEEP_TIMEOUT_MS = 45000;
+
+  if (chrome.runtime && chrome.runtime.onMessage) {
+    chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
+      if (!msg || msg.action !== 'sweepRosters') return false;
+
+      let settled = false;
+      const finish = (result) => {
+        if (settled) return;
+        settled = true;
+        window.removeEventListener('message', onResult);
+        sendResponse(result);
+      };
+      function onResult(event) {
+        if (event.source !== window) return;
+        if (event.origin !== TRUSTED_ORIGIN) return;
+        if (!event.data || event.data.type !== 'GRIDIRON_EDGE_SWEEP_RESULT') return;
+        finish(event.data.result);
+      }
+      window.addEventListener('message', onResult);
+      window.postMessage({ type: 'GRIDIRON_EDGE_SWEEP_REQUEST' }, TRUSTED_ORIGIN);
+
+      // A sweep waits on a re-render per team, so it needs real time -- but it
+      // must not leave the button spinning forever if the scraper is not there.
+      setTimeout(() => finish({ ok: false, reason: 'scraper-did-not-answer' }),
+        SWEEP_TIMEOUT_MS);
+      return true; // the response is asynchronous
+    });
+  }
 
   function showRefreshBanner() {
     if (document.getElementById('gridiron-refresh-banner')) return;

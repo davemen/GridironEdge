@@ -1275,29 +1275,42 @@
    * fallback. In Chrome's MAIN world the React store is readable directly, so
    * there is nothing here worth sweeping for.
    */
-  if (typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.onMessage) {
-    chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
-      if (!msg || msg.action !== 'sweepRosters') return false;
-      const names = findLeagueTeamNames();
-      if (!names.length) {
-        sendResponse({ ok: false, reason: 'no-team-dropdown' });
-        return false;
-      }
-      const provisional = names.map((n, i) => ({ teamId: i + 1, teamName: n }));
-      sweepAllRosters(provisional).then((res) => {
-        if (!res.ok) { sendResponse(res); return; }
-        sweptRosters = res.byTeam;
-        sweptAt = Date.now();
-        const found = res.byTeam.reduce((n, t) => n + t.roster.length, 0);
-        // Push the result out through the ordinary path, so the payload is
-        // built the same way as any other update rather than by a second
-        // assembler that could disagree with it.
-        forceNext = true;
-        lastSyncKey = null;
-        runSoon();
-        sendResponse({ ok: true, teams: res.byTeam.length, players: found });
-      }).catch((e) => sendResponse({ ok: false, reason: e && e.message }));
-      return true; // the response is asynchronous
+  function runSweep() {
+    const names = findLeagueTeamNames();
+    if (!names.length) {
+      return Promise.resolve({ ok: false, reason: 'no-team-dropdown' });
+    }
+    const provisional = names.map((n, i) => ({ teamId: i + 1, teamName: n }));
+    return sweepAllRosters(provisional).then((res) => {
+      if (!res.ok) return res;
+      sweptRosters = res.byTeam;
+      sweptAt = Date.now();
+      const found = res.byTeam.reduce((n, t) => n + t.roster.length, 0);
+      // Push the result out through the ordinary path, so the payload is built
+      // the same way as any other update rather than by a second assembler
+      // that could disagree with it.
+      forceNext = true;
+      lastSyncKey = null;
+      runSoon();
+      return { ok: true, teams: res.byTeam.length, players: found };
+    }).catch((e) => ({ ok: false, reason: (e && e.message) || 'sweep-threw' }));
+  }
+
+  // The request arrives on the window, not through chrome.runtime.
+  //
+  // This script is declared world: "MAIN", where chrome.runtime does not exist,
+  // so a runtime.onMessage listener here silently never registers -- the
+  // request reached the tab and nothing answered it. content-isolated.js has
+  // the extension APIs and relays across; results already travel this way.
+  if (typeof window !== 'undefined' && window.addEventListener) {
+    window.addEventListener('message', (event) => {
+      if (event.source !== window) return;
+      if (event.origin !== 'https://fantasy.espn.com') return;
+      if (!event.data || event.data.type !== 'GRIDIRON_EDGE_SWEEP_REQUEST') return;
+      runSweep().then((result) => {
+        window.postMessage({ type: 'GRIDIRON_EDGE_SWEEP_RESULT', result },
+          'https://fantasy.espn.com');
+      });
     });
   }
 

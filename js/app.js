@@ -536,6 +536,12 @@ export function renderMissingPicksBanner(league) {
         'no-draft-tab': 'No ESPN draft room tab is open.',
         'no-team-dropdown': 'No team dropdown was found in the draft room.',
         'no-extension': 'The extension bridge is not available here.',
+        // Both mean the scraper is not running in that tab, which is what
+        // happens when the draft room was opened before the extension was
+        // installed or updated. Reloading the tab injects it.
+        'no-response': 'The draft room tab has no scraper running — reload it.',
+        'scraper-did-not-answer':
+          'The draft room did not finish scanning — reload the ESPN tab and retry.',
       }[res && res.reason]
         || `The draft room did not respond (${(res && res.reason) || 'unknown'}).`);
     }
