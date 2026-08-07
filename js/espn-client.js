@@ -7,6 +7,7 @@ import store from './store.js';
 import { mockPlayers, mockLeague } from './mock-data.js';
 import { loadProjections, toPlayerDatabase, findPlayer, playerKey } from './player-database.js';
 import { proTeamAbbrev } from './nfl-teams.js';
+import { isSafeKey } from './store.js';
 import { DEFAULT_ROSTER_SETTINGS, startersCount } from './engine/lineup-rules.js';
 
 /**
@@ -107,7 +108,15 @@ class ESPNClient {
       'mSettings', 'mRoster', 'mTeam', 'mMatchup',
       'mMatchupScore', 'mStandings', 'mTransactionHistory', 'kona_player_info'
     ];
-    const url = `https://fantasy.espn.com/apis/v3/games/ffl/seasons/${this.season}/segments/0/leagues/${leagueId}?view=${views.join('&view=')}`;
+    // leagueId is typed by the user and pasted into a credentialed same-origin
+    // fetch. The host is a literal so the origin cannot move, but a '../' or an
+    // embedded '?' or '#' aims the request at a different ESPN endpoint while
+    // carrying the session.
+    if (!/^\d+$/.test(String(leagueId))) {
+      throw new Error('League ID must be numeric.');
+    }
+    const url = `https://fantasy.espn.com/apis/v3/games/ffl/seasons/${encodeURIComponent(this.season)}`
+      + `/segments/0/leagues/${encodeURIComponent(leagueId)}?view=${views.join('&view=')}`;
 
     try {
       const response = await fetch(url);
@@ -340,7 +349,7 @@ class ESPNClient {
           // know nothing about, which then flowed into every ceiling and every
           // roster ranking as though it were measured.
           match = unresolvedPlayer(p.playerName, p.playerPosition, p.playerTeam);
-          db[match.id] = match;
+          if (isSafeKey(match.id)) db[match.id] = match;
         }
 
         if (match) {
@@ -390,7 +399,7 @@ class ESPNClient {
     if (espnData.currentNomination) {
       // One resolver for both mappers -- see resolveNomination above.
       const match = resolveNomination(db, espnData.currentNomination);
-      if (match && match.isUnknownPlayer) db[match.id] = match;
+      if (match && match.isUnknownPlayer && isSafeKey(match.id)) db[match.id] = match;
       currentNomination = match ? match.name : null;
       currentNominationId = match ? String(match.id) : null;
       // Carry the live bid alongside the name so the advisor can price against
@@ -642,6 +651,9 @@ class ESPNClient {
     const playerDatabase = {};
     const addPlayer = (player, ratings) => {
       if (!player || player.id === undefined || player.id === null) return;
+      // The id is chosen by whoever sent the payload. "__proto__" as a player
+      // id made Object.getPrototypeOf(db) return the injected record.
+      if (!isSafeKey(player.id)) return;
       const position = this.mapESPNPosition(player.defaultPositionId);
       playerDatabase[String(player.id)] = {
         id: String(player.id),

@@ -74,30 +74,40 @@ function looksLikeAScrape(data) {
   return true;
 }
 
-chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
-  if (!message || message.action !== 'sync') return false;
-
-  // sender.origin is the field Chrome guarantees for this; sender.url can be
-  // absent for some contexts and was the weaker check this used before.
+/**
+ * May this sender talk to the worker at all?
+ *
+ * ESPN's draft room, or one of our own extension pages. Anything else is
+ * refused: this worker used to forward whatever it was handed, from wherever.
+ *
+ * sender.origin is the field Chrome guarantees for this; sender.url can be
+ * absent for some contexts and was the weaker check this used before.
+ *
+ * Ask the runtime for our own origin rather than building it from a literal
+ * scheme. Safari serves extension pages from safari-web-extension://, so
+ * "chrome-extension://" + runtime.id matched nothing there and syncs sent from
+ * an extension page were refused by the worker shipping alongside it.
+ *
+ * Trimmed by hand rather than with `new URL(...).origin`: neither
+ * chrome-extension: nor safari-web-extension: is a "special" scheme, so the URL
+ * parser reports their origin as the string "null" -- which compares equal to
+ * itself and would have let any extension through.
+ *
+ * One function, because there are two listeners on this channel and they had
+ * two different ideas of who may speak.
+ */
+function isTrustedSender(sender) {
   const origin = (sender && sender.origin)
     || (sender && sender.url ? new URL(sender.url).origin : '');
-  // ESPN's draft room, or one of our own extension pages. Anything else is
-  // refused: this worker used to forward whatever it was handed, from wherever.
-  //
-  // Ask the runtime for our own origin rather than building it from a literal
-  // scheme. Safari serves extension pages from safari-web-extension://, so
-  // "chrome-extension://" + runtime.id matched nothing there and syncs sent
-  // from an extension page were refused by the worker shipping alongside it.
-  //
-  // Trimmed by hand rather than with `new URL(...).origin`: neither
-  // chrome-extension: nor safari-web-extension: is a "special" scheme, so the
-  // URL parser reports their origin as the string "null" -- which compares
-  // equal to itself and would have let any extension through.
   const ownOrigin = chrome.runtime.getURL('').replace(/\/$/, '');
-  if (origin !== TRUSTED_ORIGIN && origin !== ownOrigin) {
-    console.warn('[Gridiron Edge] Refused a sync from', origin || 'an unknown sender');
-    return false;
-  }
+  if (origin === TRUSTED_ORIGIN || origin === ownOrigin) return true;
+  console.warn('[Gridiron Edge] Refused a message from', origin || 'an unknown sender');
+  return false;
+}
+
+chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+  if (!message || message.action !== 'sync') return false;
+  if (!isTrustedSender(sender)) return false;
   if (!looksLikeAScrape(message.data)) {
     console.warn('[Gridiron Edge] Refused a payload that is not a league.');
     return false;
@@ -133,8 +143,13 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 const FALLBACK_AFTER_MS = 6000;
 const reported = new Set();
 
+// Same sender check as the listener above. This one only marks a tab as having
+// reported, so a forged message costs nothing worse than a skipped fallback
+// injection -- but two listeners on one channel with two different ideas of who
+// may speak is how the weaker one becomes the one that matters.
 chrome.runtime.onMessage.addListener((message, sender) => {
-  if (message && message.action === 'sync' && sender && sender.tab) {
+  if (!isTrustedSender(sender)) return false;
+  if (message && message.action === 'sync' && sender.tab) {
     reported.add(sender.tab.id);
   }
   return false;

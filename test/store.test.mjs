@@ -105,5 +105,33 @@ console.log('\nrepeated saves collapse into one render');
   check('three saves in a turn notify once', notified === 1, `${notified} notifications`);
 }
 
+console.log('\nstored state is bounded, and its keys are just keys');
+{
+  // Nothing capped state.leagues, and each league carries its own copy of the
+  // 523-player database -- 21 leagues measured 2.7MB against a 5-10MB quota.
+  // Once save() starts failing, the app runs on state that is never persisted.
+  store.state.leagues = {};
+  store.state.currentLeagueId = null;
+  for (let i = 1; i <= 12; i++) {
+    store.saveLeague(`L${i}`, { leagueId: `L${i}`, teams: [], playerDatabase: {} });
+  }
+  const kept = Object.keys(store.state.leagues);
+  check('the number of stored leagues is capped', kept.length <= 8, `${kept.length} kept`);
+  check('and the league just synced is one of them', kept.includes('L12'), kept.join(','));
+  check('the oldest went first', !kept.includes('L1'), kept.join(','));
+  check('and the active league still resolves',
+    Boolean(store.getActiveLeague()) && store.state.currentLeagueId === 'L12');
+
+  // A key that came off the wire must not be able to reach the prototype.
+  const before = Object.keys(store.state.leagues).length;
+  store.saveLeague('__proto__', { leagueId: '__proto__', teams: [] });
+  check('a league id of __proto__ is refused',
+    Object.keys(store.state.leagues).length === before);
+  check('and nothing reached Object.prototype', ({}).leagueId === undefined
+    && ({}).teams === undefined);
+  check('the store is still usable afterwards',
+    Object.getPrototypeOf(store.state.leagues) === Object.prototype);
+}
+
 console.log(`\n${passed} passed, ${failed} failed`);
 if (failed) process.exit(1);

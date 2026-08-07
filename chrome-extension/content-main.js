@@ -594,7 +594,16 @@
         playerName: p.playerName || p.player?.fullName || p.name,
         playerPosition: position,
         playerTeam: team,
-        drafterTeamId: p.drafterTeamId || p.teamId || 1
+        // Null, never 1, and never via `||`.
+        //
+        // Defaulting an unattributed pick to the first team corrupts that
+        // roster AND the budget model every bid ceiling is derived from -- the
+        // DOM path says exactly this, at length, four lines of comment, and
+        // then this path quietly did the opposite. `||` also swallowed a
+        // legitimate teamId of 0, and the diagnostic that counts unattributed
+        // picks filters on `== null`, so it was structurally blind here.
+        drafterTeamId: typeof (p.drafterTeamId ?? p.teamId) === 'number'
+          ? (p.drafterTeamId ?? p.teamId) : null
       };
     });
 

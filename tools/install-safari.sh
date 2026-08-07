@@ -24,7 +24,16 @@
 # reminder at the end is not a formality.
 set -euo pipefail
 
-TEAM="${1:-DWQ9ZN5SGU}"
+# The signing team. It is not a credential, but it is an identifier tying a
+# public repo to a named Apple developer account, which is a phishing pivot --
+# so it comes from the environment or the command line, and the script says
+# what to do rather than embedding it.
+TEAM="${1:-${GRIDIRON_TEAM_ID:-}}"
+if [ -z "$TEAM" ]; then
+  echo "No Apple Team ID. Pass it as the first argument, or set GRIDIRON_TEAM_ID." >&2
+  echo "  ./tools/install-safari.sh ABCDE12345" >&2
+  exit 1
+fi
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 PROJ="$ROOT/../GridironEdge-Safari/GridironEdge/GridironEdge.xcodeproj"
 APP=/Applications/GridironEdge.app

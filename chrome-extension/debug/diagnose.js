@@ -51,7 +51,7 @@
         text: t,
       });
     });
-  } catch (e) { /* ignore */ }
+  } catch (e) { /* a probe, not a requirement: the row below reports what was found */ }
   out.bidCandidates = bidGuesses.slice(0, 25);
 
   // ---- 3. The results table the pick scraper needs
@@ -73,7 +73,7 @@
         firstRows: text.split('\n').slice(0, 6).map((r) => clip(r, 90)),
       });
     });
-  } catch (e) { /* ignore */ }
+  } catch (e) { /* a probe, not a requirement: the row below reports what was found */ }
   tables.sort((a, b) => a.len - b.len);
   out.resultsTables = tables.slice(0, 4);
   out.resultsTableFound = tables.length > 0;
@@ -88,7 +88,7 @@
       if (!/^\$\d+$/.test(lines[1])) return;
       budgets.push({ team: clip(lines[0], 40), budget: lines[1] });
     });
-  } catch (e) { /* ignore */ }
+  } catch (e) { /* a probe, not a requirement: the row below reports what was found */ }
   out.budgetRows = budgets.slice(0, 14);
   out.budgetRowsFound = budgets.length;
 

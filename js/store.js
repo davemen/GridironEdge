@@ -5,6 +5,24 @@
 
 const STORAGE_KEY = 'gridiron_edge_state';
 
+/**
+ * How many leagues are kept. See pruneLeagues -- this is a quota ceiling, not
+ * a limit on how many drafts you may follow at once.
+ */
+const MAX_LEAGUES = 8;
+
+/**
+ * A key an outsider chose, that is still just a key.
+ *
+ * League ids and player ids both arrive from a scrape and are both used as
+ * object keys. "__proto__" as a player id made Object.getPrototypeOf(db)
+ * return the injected record and String(db) throw a TypeError.
+ */
+export function isSafeKey(key) {
+  const k = String(key);
+  return k.length > 0 && k !== '__proto__' && k !== 'constructor' && k !== 'prototype';
+}
+
 const defaultState = {
   currentLeagueId: null,
   leagues: {}, // Map of leagueId -> League data
@@ -112,6 +130,16 @@ class Store {
 
   // Save or update a league's details
   saveLeague(leagueId, leagueData) {
+    // A key that came off the wire must not be able to reach the prototype.
+    // playerDatabase[player.id] and leagues[leagueId] are both attacker-keyed:
+    // an id of "__proto__" made Object.getPrototypeOf() return the injected
+    // record and String(db) throw. No Object.prototype pollution followed --
+    // that was checked -- but a map whose shape an outsider chooses is one
+    // change away from it.
+    if (!isSafeKey(leagueId)) {
+      console.warn('[Gridiron Edge] Refused a league id that is not a plain key:', leagueId);
+      return;
+    }
     this.state.leagues[leagueId] = {
       ...this.state.leagues[leagueId],
       ...leagueData,
@@ -119,7 +147,31 @@ class Store {
     };
     this.state.currentLeagueId = leagueId;
     this.state.lastSyncTime = new Date().toISOString();
+    this.pruneLeagues(leagueId);
     this.save();
+  }
+
+  /**
+   * Keep the most recently seen leagues and drop the rest.
+   *
+   * Nothing bounded this. Each league carries its own copy of the 523-player
+   * database -- about 128KB serialised -- so twenty-one leagues measured 2.7MB
+   * against a 5-10MB localStorage quota. A sync loop with rotating league ids
+   * fills it, and once save() starts failing the app runs on state that is
+   * never persisted. Ordinary use never reaches this: it is the ceiling, not a
+   * policy about how many drafts you may follow.
+   */
+  pruneLeagues(keepId) {
+    const ids = Object.keys(this.state.leagues);
+    if (ids.length <= MAX_LEAGUES) return;
+    const bySeen = ids
+      .filter((id) => id !== keepId)
+      .sort((a, b) => Date.parse(this.state.leagues[b].lastUpdated || 0)
+        - Date.parse(this.state.leagues[a].lastUpdated || 0));
+    bySeen.slice(MAX_LEAGUES - 1).forEach((id) => {
+      delete this.state.leagues[id];
+      if (this.state.currentLeagueId === id) this.state.currentLeagueId = keepId;
+    });
   }
 
   // Delete a league from local storage

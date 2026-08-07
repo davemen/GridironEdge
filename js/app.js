@@ -430,7 +430,16 @@ function setupModals() {
       return;
     }
 
-    const url = 'https://fantasy.espn.com/apis/v3/games/ffl/seasons/' + season + '/segments/0/leagues/' + leagueId + '?view=' + views.join('&view=');
+    // Both are digits or this does not run. They come off the URL bar, and
+    // they are pasted into a credentialed same-origin fetch: a '../' or an
+    // embedded '?' or '#' redirects that request somewhere else on ESPN,
+    // carrying the session with it.
+    if(!/^\\d+$/.test(String(leagueId)) || !/^\\d+$/.test(String(season))){
+      alert('Error: Gridiron Edge expected a numeric league and season in the address bar.');
+      return;
+    }
+
+    const url = 'https://fantasy.espn.com/apis/v3/games/ffl/seasons/' + encodeURIComponent(season) + '/segments/0/leagues/' + encodeURIComponent(leagueId) + '?view=' + views.join('&view=');
     
     try {
       const response = await fetch(url);
@@ -1255,7 +1264,12 @@ function renderDraftReadiness(state) {
 // Render Live Draft Command Center
 export function renderDraftPage(league = store.getActiveLeague()) {
   if (!league) return;
-  checkDraftReadiness().then(renderDraftReadiness).catch(() => {});
+  // The readiness strip is a nicety -- it says how fresh the scrape is -- and
+  // it must never take the draft page down with it. But silence is not the
+  // same as "nothing to report": say which one this is.
+  checkDraftReadiness().then(renderDraftReadiness).catch((e) => {
+    console.warn('[Gridiron Edge] Could not read the sync state:', e && e.message);
+  });
 
   const currentPick = league.draftState.currentPick;
   const db = league.playerDatabase;
