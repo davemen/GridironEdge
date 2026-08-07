@@ -27,7 +27,7 @@ choices matter: run all five in parallel, and use **fresh** agents each round so
 Scores drop when a round reaches ground the last one did not. That is the
 system working, not a regression.
 
-**Round 5 raised 85 findings. 79 are fixed; 6 are open and listed below.**
+**Round 5 raised 85 findings. 80 are fixed; 5 are open and listed below.**
 A round 6 has not been run — every score above is round 5's, and nothing in
 this file claims the fixes moved them. That is what round 6 is for.
 
@@ -55,14 +55,20 @@ If a mutation survives, the fixture is wrong, not the finding.
 
 ## Still open
 
-1. **The repo is public and its history holds real league data.** 27 blobs of
-   `imported_league.json` reachable from `origin/main`, carrying three real
-   league ids, the owner's team name, `myTeamId`, per-team FAAB and full pick
-   lists — plus a 14.6MB `sleeper_players.json` with ~11k birth dates and high
-   schools. `.gitignore` covers them today; that does not remove blobs. The fix
-   is `git filter-repo --invert-paths` and a **force-push of all refs**, which
-   rewrites published history — **the owner's call, not an agent's.** Ask before
-   touching it.
+Numbered as they were when round 5 closed; item 1 has since been done.
+
+1. ~~The repo's history held real league data.~~ **Done 2026-08-07.**
+   `git filter-repo` stripped `imported_league.json`, `sleeper_*.json` and
+   `espn_news.json` from all 154 commits, plus three league ids and the owner's
+   real team name from blobs *and* commit messages. Two things worth knowing
+   next time: `--replace-text` does not touch commit messages (that is
+   `--replace-message`), and neither catches a string wrapped across two lines
+   of a comment. And **force-pushing was not enough** -- GitHub went on serving
+   the old blobs by SHA, proven by fetching one back after the push -- so the
+   repo was deleted and recreated. All 28 data blobs and the old tip now
+   404/422, verified from a fresh clone. The pre-purge bundle is at
+   `../GridironEdge-pre-purge.bundle`; **it contains everything that was
+   removed**, so delete it once you are satisfied.
 
 2. **`GRIDIRON_EDGE_SYNC` is still forgeable, and a nonce cannot fix it.**
    `content-main.js` runs in world MAIN, so `event.source === window` and the

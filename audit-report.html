@@ -160,7 +160,7 @@
       </div>
     </div>
     <div class="status-line"><span class="dot">▲</span> Well below
-      · 3 open findings</div>
+      · 2 open findings</div>
     
   <svg class="spark" viewBox="0 0 260 72" role="img"
        aria-label="Score by round: 31, 62, 52, 58, 64 out of 100. Target 90.">
@@ -399,15 +399,15 @@
       <span class="sum-score" data-status="serious">64/100</span></summary>
     <p class="just">The CSP is now complete and its enforcement was proven live in headless Chrome against the byte-identical shipped policy: zero JS execution across six injection variants and zero outbound requests from img, css url(), form or script to a listening local server. background.js now bounds bytes and counts. Four of round 4's proven sinks are genuinely escaped. But both structural trust-boundary holes are unchanged, escaping is still applied sink-by-sink rather than by construction -- eight more raw sinks, six proven end-to-end from a forged sync -- and the repo's own XSS gate is green while all of them exist. The repo is also public with real league data in its history. A fixed-sink list that regrows every round means the mechanism, not the instances, is the defect.</p>
     <ul class="findings">
-    <li class="finding high">
+    <li class="finding high done">
       <div class="f-head">
         <span class="sev sev-high">high</span>
         <span class="f-title">Real ESPN league data in public git history</span>
-        
+        <span class="fixed-tag">fixed</span>
       </div>
       <div class="f-where">git history (origin/main)</div>
       <div class="f-body"><span class="lbl">Evidence</span> gh repo view reports PUBLIC. git rev-list origin/main --objects finds 27 blobs of imported_league.json carrying three real league ids, the user's team name, myTeamId, per-team FAAB and full pick lists, plus a 14,624,207-byte sleeper_players.json with 10,954 birth dates and high schools. .gitignore covers them today; deletion does not remove blobs. No credentials found in 940 objects across 13 patterns.</div>
-      <div class="f-body"><span class="lbl">Fix</span> git filter-repo --invert-paths those paths, force-push all refs and the backtest branch, ask GitHub to purge caches, and treat the three league ids as disclosed. Needs the owner's decision: it rewrites published history.</div>
+      <div class="f-body"><span class="lbl">Fix</span> FIXED 2026-08-07. git filter-repo stripped imported_league.json, sleeper_*.json and espn_news.json from all 154 commits, plus three league ids and the owner's team name from blobs AND commit messages. Force-pushing was not enough on its own -- GitHub kept serving the old blobs by SHA, verified by fetching one back after the push -- so the repo was deleted and recreated. All 28 data blobs and the old main tip now 404/422. Nothing was attached to the repo (0 forks, stars, issues, PRs, releases, tags). Pre-purge backup bundle kept outside the repo.</div>
     </li>
     <li class="finding high">
       <div class="f-head">
