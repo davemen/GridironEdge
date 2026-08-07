@@ -70,19 +70,22 @@ const PATTERNS = [
   [/\b(questionable|doubtful|limited in practice|did not practice|dnp|injury|hurt|strain|sprain)\b/i, 'injury_risk'],
 ];
 
+import { playerKey } from '../player-database.js';
+
 const num = (v, d = 0) => (typeof v === 'number' && isFinite(v) ? v : d);
 
-/** Normalise a name for matching across feeds that punctuate differently. */
-export function normalizeName(name) {
-  return String(name || '')
-    .toLowerCase()
-    .normalize('NFD').replace(/[̀-ͯ]/g, '')
-    .replace(/[.'’-]/g, ' ')
-    .replace(/\b(jr|sr|ii|iii|iv|v)\b/g, ' ')
-    .replace(/[^a-z ]/g, ' ')
-    .replace(/\s+/g, ' ')
-    .trim();
-}
+/**
+ * Normalise a name for matching across feeds that punctuate differently.
+ *
+ * This was a third, independent normalizer that turned apostrophes into spaces
+ * where playerKey removes them -- the exact difference whose own comment records
+ * that it once valued the consensus number-one receiver at replacement level.
+ * "Ja'Marr Chase" came out as "ja marr chase" here and "jamarr chase" there, so
+ * any comparison across the two modules could not match an apostrophe name at
+ * all. It is now the same function, re-exported under the name this module's
+ * callers already use.
+ */
+export const normalizeName = playerKey;
 
 /** NFL team abbreviations, keyed by the club names ESPN writes in its tags. */
 export const TEAM_ALIASES = {

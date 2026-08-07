@@ -23,17 +23,13 @@
  * never been scheduled between two teams that did not exist.
  */
 
-const STARTER_SLOTS = { QB: 1, RB: 2, WR: 2, TE: 1, 'D/ST': 1, K: 1 };
-const FLEX_POS = ['RB', 'WR', 'TE'];
-const N_FLEX = 1;
+import { STARTER_SLOTS, FLEX_POS, N_FLEX, REGULAR_WEEKS, PLAYOFF_TEAMS, BYE_TEAMS }
+  from './lineup-rules.js';
 
 // Week-to-week scoring noise for a whole lineup, in points. Fantasy teams are
 // far more volatile than their projections suggest: this is what makes a
 // stronger roster only a favourite rather than a certainty.
 const WEEKLY_SD = 22;
-const REGULAR_WEEKS = 14;
-const PLAYOFF_TEAMS = 6;
-const BYE_TEAMS = 2;
 
 const num = (v, d = 0) => (typeof v === 'number' && isFinite(v) ? v : d);
 

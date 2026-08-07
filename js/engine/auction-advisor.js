@@ -40,10 +40,8 @@
  * is the whole point, and a static chart cannot. See BACKTEST.md.
  */
 
-const STARTER_SLOTS = { QB: 1, RB: 2, WR: 2, TE: 1, 'D/ST': 1, K: 1 };
-const FLEX_POS = ['RB', 'WR', 'TE'];
-const N_FLEX = 1;
-const MAX_AT_POS = { QB: 3, RB: 7, WR: 7, TE: 3, 'D/ST': 2, K: 2 };
+import { STARTER_SLOTS, FLEX_POS, N_FLEX, MAX_AT_POS, openStarterSlots }
+  from './lineup-rules.js';
 
 const BENCH_WEIGHT = 0.12;       // depth is worth something, but far less than a starter
 const MUST_BUY_POINTS = 10.0;    // lineup points lost by missing him
@@ -118,28 +116,6 @@ export function buildLeagueState(league, parById = null) {
   };
 }
 
-/**
- * Starting slots still to fill. The flex is ONE slot shared between running
- * backs, receivers and tight ends -- granting each of them its own flex
- * allowance claimed eight flex-eligible starters where the lineup has six, so a
- * roster of two backs and three receivers still reported an open running back
- * slot and kept a full bid ceiling for one.
- */
-function openStarterSlots(counts) {
-  const out = {};
-  let flexOpen = N_FLEX;
-  Object.keys(STARTER_SLOTS).forEach((pos) => {
-    const have = counts[pos] || 0;
-    const need = STARTER_SLOTS[pos] - have;
-    if (need > 0) out[pos] = need;
-    else if (FLEX_POS.includes(pos)) flexOpen -= Math.min(flexOpen, -need);
-  });
-  // Whatever flex remains can be filled by any flex-eligible position.
-  if (flexOpen > 0) {
-    FLEX_POS.forEach((pos) => { out[pos] = (out[pos] || 0) + flexOpen; });
-  }
-  return out;
-}
 
 // ---------------------------------------------------------------------------
 // Par values and inflation

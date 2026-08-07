@@ -10,7 +10,8 @@ import { getDraftRecommendations, calculateAuctionBid } from './engine/draft-ass
 import { recommendBid, targetBoard, buildLeagueState } from './engine/auction-advisor.js';
 import { optimizeLineup } from './engine/lineup-optimizer.js';
 import { recommendLineupStrategy } from './engine/bracket-strategy.js';
-import { evaluateWaivers, getWaiverRecommendations, CATEGORY, ACTION } from './engine/roster-manager.js';
+import { evaluateWaivers, getWaiverRecommendations, freeAgentPool, CATEGORY, ACTION }
+  from './engine/roster-manager.js';
 import { refreshNews, fetchLeagueNews, normalizeName, relevanceTo, EVENT_IMPACT }
   from './engine/news-monitor.js';
 import { generateTradeProposals } from './engine/trade-generator.js';
@@ -429,28 +430,6 @@ function setupModals() {
   });
 }
 
-/** Players nobody has drafted and nobody owns. */
-function freeAgentsIn(league) {
-  const db = league.playerDatabase || {};
-  const taken = new Set();
-  (league.teams || []).forEach(t => (t.roster || []).forEach(id => taken.add(String(id))));
-  ((league.draftState || {}).selections || []).forEach(s => {
-    if (s && s.playerId) taken.add(String(s.playerId));
-  });
-  // Bar the names too. A pick stored as an unmatched stub leaves the real
-  // player looking free, which is how an owned player came back as a target.
-  const takenNames = new Set();
-  Object.values(db).forEach(p => {
-    if (taken.has(String(p.id)) && p.name) takenNames.add(draftedNameKey(p.name));
-  });
-  ((league.draftState || {}).selections || []).forEach(s => {
-    const rec = s && s.playerId ? db[s.playerId] : null;
-    if (rec && rec.name) takenNames.add(draftedNameKey(rec.name));
-  });
-  return Object.values(db).filter(
-    p => !taken.has(String(p.id)) && !takenNames.has(draftedNameKey(p.name))
-  );
-}
 
 /**
  * Says when picks arrived that could not be matched to a manager.
@@ -662,7 +641,7 @@ function renderApp(state) {
  * prices come from the same engine the Live Draft tab uses.
  */
 function draftMovesHtml(league, ranked, meRanked, drafting = true) {
-  const moves = highestImpactMoves(league, freeAgentsIn(league));
+  const moves = highestImpactMoves(league, freeAgentPool(league, league.playerDatabase || {}));
   const isAuction = drafting && (league.draftState || {}).draftType === 'auction';
   const nom = drafting ? (league.draftState || {}).currentNomination : null;
   let html = '';
@@ -815,7 +794,7 @@ export function renderHomePage(league = store.getActiveLeague()) {
   // counts that could call an empty roster "Core Quarterback".
   let moves = [];
   try {
-    moves = highestImpactMoves(league, freeAgentsIn(league));
+    moves = highestImpactMoves(league, freeAgentPool(league, league.playerDatabase || {}));
   } catch (err) {
     console.error('Roster assessment failed:', err);
   }

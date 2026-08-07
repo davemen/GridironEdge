@@ -7,6 +7,7 @@
  * unnamed backup gets promoted, and that a dead feed degrades to "no news"
  * rather than to a wrong answer.
  */
+import { playerKey } from '../js/player-database.js';
 import { mockLeague, mockPlayers } from '../js/mock-data.js';
 import {
   classifyHeadline, normalizeName, applyNews, triage, EVENT_IMPACT,
@@ -61,8 +62,17 @@ console.log('\nheadline classification');
     check(`"${text.slice(0, 44)}..." -> ${want}`, classifyHeadline(text) === want,
       `got ${classifyHeadline(text)}`);
   });
-  check('name normalisation handles punctuation and suffixes',
-    normalizeName("Ja'Marr Chase Jr.") === 'ja marr chase');
+  // This used to assert 'ja marr chase' -- the apostrophe spaced rather than
+  // removed. That was a second normalizer disagreeing with playerKey on exactly
+  // the name whose mismatch once valued the consensus number one at replacement
+  // level, and the test was pinning the bug in place. Both are one function now,
+  // so the assertion is that they agree.
+  check('name normalisation matches the player database exactly',
+    normalizeName("Ja'Marr Chase Jr.") === playerKey("Ja'Marr Chase Jr."),
+    `${normalizeName("Ja'Marr Chase Jr.")} vs ${playerKey("Ja'Marr Chase Jr.")}`);
+  check('and it removes the apostrophe rather than spacing it',
+    normalizeName("Ja'Marr Chase Jr.") === 'jamarr chase',
+    normalizeName("Ja'Marr Chase Jr."));
 }
 
 console.log('\nnews maps onto the right players');

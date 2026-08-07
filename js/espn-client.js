@@ -19,6 +19,43 @@ export const realDbReady = loadProjections().then((proj) => {
   return realDb;
 });
 
+/**
+ * Resolve the player currently on the block.
+ *
+ * Both mappers need this and both had their own copy. The copy in mapESPNLeague
+ * read `playerDatabase` seventy-seven lines before its own `const` declaration --
+ * a TDZ ReferenceError that only fired on a non-scraped payload with a live
+ * nomination, which is why it survived — and it compared raw lowercased names
+ * where the working copy correctly used findPlayer. One function, called twice.
+ */
+function resolveNomination(db, nomination) {
+  const name = typeof nomination === 'object' ? nomination.name : nomination;
+  if (!name) return null;
+  const team = typeof nomination === 'object' ? nomination.team : 'FA';
+  const position = typeof nomination === 'object' ? nomination.position : 'RB';
+
+  const found = findPlayer(db, name, position, team);
+  if (found) return found;
+
+  console.warn('[Gridiron Edge] "' + name + '" is not in the projection set; '
+    + 'valuing him at replacement level rather than guessing.');
+  return {
+    id: `MOCK_${playerKey(name).replace(/\s+/g, '_') || 'unknown'}`,
+    key: playerKey(name),
+    name,
+    position,
+    team,
+    // Unknown players get replacement level, not a mid-range guess -- an
+    // invented projection would flow straight into a bid ceiling.
+    projectedPoints: position === 'QB' ? 9.0 : (position === 'RB' ? 4.5 : (position === 'WR' ? 4.5 : 3.0)),
+    isUnknownPlayer: true,
+    volatility: 4.0,
+    injuryStatus: 'Healthy',
+    byeWeek: 6,
+    adp: 120.0,
+  };
+}
+
 class ESPNClient {
   constructor() {
     // Current year of NFL season
@@ -298,35 +335,10 @@ class ESPNClient {
     let currentNominationBid = null;
     let currentNominationMax = null;
     if (espnData.currentNomination) {
-      const nomName = typeof espnData.currentNomination === 'object' ? espnData.currentNomination.name : espnData.currentNomination;
-      const nomTeam = typeof espnData.currentNomination === 'object' ? espnData.currentNomination.team : 'FA';
-      const nomPos = typeof espnData.currentNomination === 'object' ? espnData.currentNomination.position : 'RB';
-      
-      // Resolve against the real database first; it normalises the suffixes and
-      // punctuation that ESPN and FantasyPros disagree about.
-      let match = findPlayer(db, nomName, nomPos, nomTeam);
-
-      if (!match) {
-        console.warn('[Gridiron Edge] "' + nomName + '" is not in the projection set; '
-          + 'valuing him at replacement level rather than guessing.');
-        const mockId = `MOCK_${nomName.replace(/\s+/g, '_')}`;
-        match = {
-          id: mockId,
-          name: nomName,
-          position: nomPos,
-          team: nomTeam,
-          // Unknown players get replacement level, not a mid-range guess -- an
-          // invented projection would flow straight into a bid ceiling.
-          projectedPoints: nomPos === 'QB' ? 9.0 : (nomPos === 'RB' ? 4.5 : (nomPos === 'WR' ? 4.5 : 3.0)),
-          isUnknownPlayer: true,
-          volatility: 4.0,
-          injuryStatus: 'Healthy',
-          byeWeek: 6,
-          adp: 120.0
-        };
-        db[mockId] = match;
-      }
-      currentNomination = match.name;
+      // One resolver for both mappers -- see resolveNomination above.
+      const match = resolveNomination(db, espnData.currentNomination);
+      if (match && match.isUnknownPlayer) db[match.id] = match;
+      currentNomination = match ? match.name : null;
       // Carry the live bid alongside the name so the advisor can price against
       // what the player is actually going for right now.
       currentNominationBid = typeof espnData.currentNomination === 'object'
@@ -482,30 +494,11 @@ class ESPNClient {
     let currentNominationBid = null;
     let currentNominationMax = null;
     if (espnData.currentNomination) {
-      const nomName = typeof espnData.currentNomination === 'object' ? espnData.currentNomination.name : espnData.currentNomination;
-      const nomTeam = typeof espnData.currentNomination === 'object' ? espnData.currentNomination.team : 'FA';
-      const nomPos = typeof espnData.currentNomination === 'object' ? espnData.currentNomination.position : 'RB';
       
-      let match = Object.values(playerDatabase).find(pl => pl.name.toLowerCase() === nomName.toLowerCase());
-      if (!match) {
-        const mockId = `MOCK_${nomName.replace(/\s+/g, '_')}`;
-        match = {
-          id: mockId,
-          name: nomName,
-          position: nomPos,
-          team: nomTeam,
-          // Unknown players get replacement level, not a mid-range guess -- an
-          // invented projection would flow straight into a bid ceiling.
-          projectedPoints: nomPos === 'QB' ? 9.0 : (nomPos === 'RB' ? 4.5 : (nomPos === 'WR' ? 4.5 : 3.0)),
-          isUnknownPlayer: true,
-          volatility: 4.0,
-          injuryStatus: 'Healthy',
-          byeWeek: 6,
-          adp: 120.0
-        };
-        playerDatabase[mockId] = match;
-      }
-      currentNomination = match.name;
+      // Resolved against the real database, which is built further down this
+      // function -- so the resolution happens after it exists, not before.
+      const match = resolveNomination(realDb || {}, espnData.currentNomination);
+      currentNomination = match ? match.name : null;
       // Carry the live bid alongside the name so the advisor can price against
       // what the player is actually going for right now.
       currentNominationBid = typeof espnData.currentNomination === 'object'

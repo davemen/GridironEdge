@@ -29,9 +29,6 @@
  * sharpen a call, the confidence is lowered instead of a number being invented.
  */
 
-const STARTER_SLOTS = { QB: 1, RB: 2, WR: 2, TE: 1, 'D/ST': 1, K: 1 };
-const FLEX_POS = ['RB', 'WR', 'TE'];
-const N_FLEX = 1;
 const FINAL_WEEK = 17;
 const PLAYOFF_WEEKS = [15, 16, 17];
 
@@ -60,6 +57,7 @@ const INJURY = {
 };
 
 import { playerKey, draftedNameKey } from '../player-database.js';
+import { STARTER_SLOTS, FLEX_POS, N_FLEX } from './lineup-rules.js';
 
 const num = (v, d = 0) => (typeof v === 'number' && isFinite(v) ? v : d);
 const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
@@ -493,7 +491,15 @@ function benchReason({ player, category, startProb, breakout, block, replacement
 // Waiver wire
 // ---------------------------------------------------------------------------
 
-function freeAgentPool(league, db) {
+/**
+ * Players nobody has drafted and nobody owns.
+ *
+ * Exported because js/app.js had a line-for-line copy of this, plus a third
+ * weaker variant inside renderPreseasonOutlook that skipped the name barring
+ * entirely -- so the Championship page could still offer a player another
+ * manager owned.
+ */
+export function freeAgentPool(league, db) {
   const owned = new Set();
   league.teams.forEach((t) => (t.roster || []).forEach((id) => owned.add(id)));
   // A drafted player is off the board whether or not we worked out who bought
