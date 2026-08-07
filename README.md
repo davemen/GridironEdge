@@ -39,10 +39,19 @@ which pushes it down a live port to the app page. Measured median delivery
 latency is **under a millisecond**; the previous poll could take up to three
 seconds.
 
-**Outside a draft.** The toolbar popup's Sync button reads a league page
-directly, and the Setup screen accepts a pasted JSON payload for private leagues.
+**In an auction room.** ESPN renders no draft board in an auction — the room
+contains your queue and one team's roster, and nothing else. So a scrape sees
+only the team whose panel is open, and the app steps the room's own dropdown
+through the league to read the rest. That happens by itself, throttled to once
+a minute, and stops after two passes that add nothing. You will see the roster
+panel cycle while it runs. It is a snapshot, not a feed.
 
-Nothing leaves your machine. No accounts, no API keys, no network service.
+**Outside a draft.** The Setup screen connects a public league by ID, or
+accepts a JSON payload pasted from the Setup Bookmarklet for private ones.
+
+No accounts, no API keys, and no service to run. The app reads three public
+endpoints — ESPN's league and news APIs and Sleeper's trending feed — and
+uploads nothing anywhere.
 
 ## Where the numbers come from
 

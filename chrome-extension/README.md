@@ -1,73 +1,70 @@
-# Gridiron Edge ESPN Sync Chrome Extension
+# The draft-room scraper
 
-This Chrome Extension automates the process of scraping your private/public ESPN Fantasy Football leagues and synchronizing them directly with your local Gridiron Edge server, bypassing the need to copy-paste JSON files manually.
+Reads your live ESPN draft room and hands it to the app. Four files:
 
----
+| File | Runs in | Does |
+|---|---|---|
+| `content-main.js` | the page's own world | reads the draft room and posts what it finds |
+| `content-isolated.js` | the extension's world | forwards that to the service worker |
+| `background.js` | the service worker | stores it and pushes it to the app page |
+| `popup.js` | the toolbar popup | reads a league page outside a draft |
 
-## Installation Instructions
+## Installing
 
-1. **Open Chrome Extensions Page:**
-   Open Google Chrome and navigate to `chrome://extensions/` in your address bar.
+The extension is the **repo root**, not this directory — `manifest.json` lives
+one level up and references `index.html`, `js/` and `icons/` alongside these
+scripts. Loading this folder fails for lack of a manifest.
 
-2. **Enable Developer Mode:**
-   Toggle the **Developer mode** switch in the top right corner of the page to **ON**.
+1. `chrome://extensions` → **Developer mode**
+2. **Load unpacked** → select the repo root
+3. Click the toolbar icon; the app opens in a tab
+4. Open your ESPN draft room in another tab
 
-3. **Load the Extension:**
-   * Click the **Load unpacked** button in the top-left corner.
-   * In the file selector, navigate to your `GridironEdge` project folder.
-   * Select and load the `chrome-extension` directory.
+There is no server. Earlier versions POSTed each scrape to a local Python
+process which wrote a file the page re-fetched every three seconds; that is
+gone, along with the file and the launcher script. Data now travels
+`content script → service worker → app page` over a long-lived port, with
+`chrome.storage.local` as the durable snapshot behind it.
 
-4. **Pin the Extension (Optional but recommended):**
-   Click the puzzle piece icon in Chrome's top right toolbar, locate **Gridiron Edge ESPN Sync**, and click the pin icon.
+For Safari, see [SAFARI.md](../SAFARI.md) — it needs a signed native app, and
+`tools/install-safari.sh` builds and installs one.
 
----
+## When it stops working
 
-## How to Use
+**Check which build the page is running first.** Content scripts are injected
+at page load, so a draft room opened before an extension update keeps the old
+ones — and keeps scraping perfectly well, so nothing looks broken while a newly
+added path is simply absent. In the ESPN tab's console:
 
-1. **Start Your Local Server:**
-   Ensure the Gridiron Edge server is running:
-   ```bash
-   python3 server.py
-   ```
-2. **Go to ESPN Fantasy Football:**
-   Open your browser and navigate to your league home page (e.g., `https://fantasy.espn.com/football/league?leagueId=XXXXXX`).
-3. **Open the Extension & Sync:**
-   * Click the extension icon.
-   * Click **Sync Active League**.
-   * If the local development server is running, the extension will instantly sync the data.
-   * If the server is offline, it will automatically fallback to copying the JSON payload to your clipboard so you can paste it manually.
-
-## Troubleshooting
-
-**Reload the extension after any edit.** Chrome caches content scripts, so an
-edit you just made may not be running. Go to `chrome://extensions`, hit reload on
-Gridiron Edge, then refresh the ESPN tab. This is the first thing to rule out
-when a fix appears to have done nothing.
-
-**Confirm which version is actually loaded.** In the ESPN tab's console:
-
-```js
-window.__GRIDIRON_EDGE_VERSION__     // e.g. '2026.08.07-rejects'
+```
+[Gridiron Edge Sync] Isolated script initialized (2026.08.07-sweep).
+[Gridiron Edge Sync] Main world script initialized (2026.08.07-sweep).
 ```
 
-If that is not the version you expect, the reload did not take and nothing else
-you observe is meaningful. (`manifest.json` carries a separate, coarser version
-for Chrome's own use; the marker above is the one that tracks code changes.)
+Two lines, matching builds. Either missing or older means **reload that tab**.
 
-**See what the scraper actually parsed.** In the ESPN tab's console:
+Then, in the same console:
 
 ```js
-__GRIDIRON_EDGE_DEBUG__()
+__GRIDIRON_EDGE_DEBUG__()      // what the scraper last parsed
 ```
 
-It prints the teams and budgets it found, how many picks it parsed, how many it
-attributed to you, how many it could not attribute at all, the last dozen picks
-with their owners — and a second table of every row it *dropped*, with the
-reason. That last table is usually the answer. `window.__GRIDIRON_EDGE_LAST__`
-holds the raw payload if you want to inspect it directly.
+This is set on the page's own `window`, so it is reachable in Chrome. **In
+Safari it is not** — there the scraper runs in the isolated world and the page
+console cannot see it; use **Develop → Web Extension Background Content** to
+read the service worker's log instead.
 
-**Banners in the app tell you when something is wrong.** An amber banner means
-the app read fewer picks than ESPN reports; a red one means picks arrived that
-could not be matched to a manager. Neither is silent.
+The app's own banner is usually more direct: it reports how many picks ESPN
+says have been made against how many were read.
 
-**Deeper diagnostics** live in [`debug/`](debug/) as console-paste scripts.
+### An auction room reads differently
+
+ESPN renders no draft board in an auction — the room contains exactly two
+tables, your queue and one team's roster. So a scrape sees only the team whose
+panel is open, and the app steps the room's own dropdown through the league to
+read the rest. That is automatic, throttled to once a minute, and it gives up
+after two passes that add nothing.
+
+You will see the roster panel cycle through the teams while it runs. If picks
+never appear, the dropdown is not being found; if the panel does not move, it
+refused the change event.

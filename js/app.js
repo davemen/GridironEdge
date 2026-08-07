@@ -2659,10 +2659,12 @@ function renderPreseasonOutlook(league, runs = 3000) {
 
   // Highest impact moves: where this roster loses the most points a week
   // against the league, measured rather than asserted.
-  const drafted = new Set((league.draftState?.selections || []).map(s => s.playerId));
-  (league.teams || []).forEach(t => (t.roster || []).forEach(id => drafted.add(id)));
-  const freeAgents = Object.values(league.playerDatabase || {}).filter(p => !drafted.has(p.id));
-  const moves = highestImpactMoves(league, freeAgents);
+  // freeAgentPool, not a third hand-rolled variant. This one barred by id
+  // only, so a pick stored under an unresolved stub -- a name findPlayer could
+  // not match, which is routine in a scraped auction -- left the real record in
+  // the pool and the Championship page offered a player another manager owns.
+  // roster-manager.js's header says this copy was removed; it was not.
+  const moves = highestImpactMoves(league, freeAgentPool(league, league.playerDatabase || {}));
 
   const plan = document.getElementById('sim-action-plan');
   if (plan) {

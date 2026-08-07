@@ -289,7 +289,12 @@ export function getDraftRecommendations(league) {
   let tierWarning = null;
   const topTEs = availablePlayers.filter(p => p.position === 'TE' && p.projectedPoints > 13);
   if (topTEs.length === 1 && topTEs[0].id === topPick.id) {
-    tierWarning = "The highest-value tier of Tight Ends is about to disappear. Kelce and LaPorta represent significant positional advantage.";
+    // Names the tight end who is actually left. This read "Kelce and LaPorta
+    // represent significant positional advantage" whoever the player was and
+    // whatever season it is -- a hardcoded string that reads like analysis,
+    // which CLAUDE.md treats as the same offence as a hardcoded number.
+    tierWarning = `${topTEs[0].name} is the last tight end projected above `
+      + `13 points per game. Every other option is a tier down.`;
   }
   const topRBs = availablePlayers.filter(p => p.position === 'RB' && p.projectedPoints > 16);
   if (topRBs.length <= 2 && topPick.position !== 'RB' && needs.RB) {
@@ -300,7 +305,16 @@ export function getDraftRecommendations(league) {
   const nextPickAvailable = withAvailability.filter(p => p.availabilityAtNext > 50).slice(0, 3);
 
   // Create primary selection reasonings
-  const whyBest = `Highest value over replacement remaining at ${topPick.position}. Projects for ${topPick.projectedPoints} points per game with stable snap shares (${Math.round((topPick.metrics?.snapShare || 0.8)*100)}%).`;
+  // The snap-share clause appears only when there IS a snap share. The
+  // projection set carries no `metrics`, so the `|| 0.8` fallback fired for
+  // every player and the panel always claimed a measured 80%. espn-client
+  // deliberately leaves snapShare undefined "so the engine treats them as
+  // unknown rather than inventing a number"; this consumed that undefined and
+  // invented one anyway.
+  const snap = topPick.metrics && typeof topPick.metrics.snapShare === 'number'
+    ? ` on a ${Math.round(topPick.metrics.snapShare * 100)}% snap share` : '';
+  const whyBest = `Highest value over replacement remaining at ${topPick.position}. `
+    + `Projects for ${topPick.projectedPoints} points per game${snap}.`;
   const adv = `Provides +${Math.round(ranked[0].replacementVal * 10) / 10} points of advantage relative to next available baseline.`;
   const risk = topPick.injuryStatus !== 'Healthy' ? 'High due to injury concern' : (topPick.volatility > 4.5 ? 'Medium (high volatility player)' : 'Low');
 

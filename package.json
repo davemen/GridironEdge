@@ -7,8 +7,10 @@
   "scripts": {
     "test": "node --test test/*.test.mjs",
     "coverage": "node --test --experimental-test-coverage test/*.test.mjs",
-    "serve": "python3 server.py",
+    "serve": "python3 -m http.server 8000",
     "audit-report": "node audit/build-report.mjs"
   },
-  "engines": { "node": ">=18" }
+  "engines": {
+    "node": ">=18"
+  }
 }
