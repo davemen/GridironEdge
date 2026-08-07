@@ -170,20 +170,34 @@ export function connectPort(onDraft) {
  * the page the user is drafting in, so it never happens on a timer -- this is
  * the explicit request, and it is the user who makes it.
  *
- * Resolves to { ok, teams, players } or { ok: false, reason }.
+ * Sent straight to the tab rather than through the service worker. Routing it
+ * through the worker meant the worker had to answer asynchronously, from
+ * inside a tabs.query callback, and Safari does not hold a message channel
+ * open across that: the reply never arrived and a scan that was about to run
+ * reported "the draft room did not respond". This page has the tabs
+ * permission, so the hop bought nothing and cost the only thing that broke.
+ *
+ * Resolves once the request is DELIVERED, not once the scan finishes: it
+ * reports { ok: true, started: true }. The scan's result comes back as picks
+ * on the ordinary sync route, so the caller judges success by the pick count
+ * moving. Nothing here waits for a reply from the content script.
  */
 export function requestRosterSweep() {
-  if (!hasExtensionBridge() || !chrome.runtime.sendMessage) {
+  if (!hasExtensionBridge() || !chrome.tabs || !chrome.tabs.query) {
     return Promise.resolve({ ok: false, reason: 'no-extension' });
   }
   return new Promise((resolve) => {
     try {
-      chrome.runtime.sendMessage({ action: 'sweepRosters' }, (res) => {
+      chrome.tabs.query({ url: 'https://fantasy.espn.com/*' }, (tabs) => {
         if (chrome.runtime.lastError) {
           resolve({ ok: false, reason: chrome.runtime.lastError.message });
           return;
         }
-        resolve(res || { ok: false, reason: 'no-response' });
+        const draft = (tabs || []).find((t) => t.url && /\/draft/.test(t.url));
+        if (!draft) { resolve({ ok: false, reason: 'no-draft-tab' }); return; }
+        // Sent without a callback. Nothing replies -- see below.
+        chrome.tabs.sendMessage(draft.id, { action: 'sweepRosters' });
+        resolve({ ok: true, started: true });
       });
     } catch (e) {
       resolve({ ok: false, reason: e.message });

@@ -118,50 +118,6 @@ chrome.runtime.onMessage.addListener((message, sender) => {
   return false;
 });
 
-/**
- * Forward a "scan all rosters" request from the app page to the draft room.
- *
- * The app page cannot talk to a content script directly, and the content
- * script is the only thing that can drive the roster dropdown. This is the
- * only inbound route, and it is deliberately narrow: one action, only from our
- * own page, only to a fantasy.espn.com draft tab.
- */
-chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
-  if (!message || message.action !== 'sweepRosters') return false;
-
-  const ownOrigin = chrome.runtime.getURL('').replace(/\/$/, '');
-  const origin = (sender && sender.origin)
-    || (sender && sender.url ? new URL(sender.url).origin : '');
-  if (origin !== ownOrigin) {
-    console.warn('[Gridiron Edge] Refused a sweep request from', origin || 'an unknown sender');
-    return false;
-  }
-
-  chrome.tabs.query({ url: 'https://fantasy.espn.com/*' }, (tabs) => {
-    const draft = (tabs || []).find((t) => t.url && /\/draft/.test(t.url));
-    if (!draft) {
-      sendResponse({ ok: false, reason: 'no-draft-tab' });
-      return;
-    }
-    // Fire and forget. Waiting for the content script's reply meant relying on
-    // an async sendResponse surviving `return true`, and in Safari it does not:
-    // the callback fired with no result and no lastError, so a sweep that was
-    // about to run reported "the draft room did not respond".
-    //
-    // Nothing needs that reply. The sweep's actual output travels the ordinary
-    // sync route -- the one visibly delivering picks already -- so the app
-    // learns it worked by the picks arriving, which is also the only proof
-    // worth having.
-    try {
-      chrome.tabs.sendMessage(draft.id, { action: 'sweepRosters' });
-    } catch (e) {
-      sendResponse({ ok: false, reason: e.message });
-      return;
-    }
-    sendResponse({ ok: true, started: true });
-  });
-  return true; // the response is asynchronous
-});
 
 chrome.tabs.onUpdated.addListener((tabId, info, tab) => {
   if (info.status !== 'complete') return;
