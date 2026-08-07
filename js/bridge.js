@@ -25,6 +25,34 @@
 
 export const STORAGE_KEY = 'gridironDraft';
 
+/**
+ * What makes one draft payload different from the last.
+ *
+ * A bid tick has to count as a change -- the whole point of the advisory panel
+ * is that it moves while a player is on the block -- so the live bid is in the
+ * key alongside the pick count, the nomination and every budget. Written once
+ * because both the deduper and the HTTP fallback need exactly this question
+ * answered the same way; two versions of it would drift into one route
+ * treating a bid as news and the other not.
+ *
+ * Returns null when the payload cannot be keyed, which is treated as "always
+ * new" rather than "unchanged": showing the same draft twice is a wasted
+ * render, and dropping a real one is a stale board.
+ */
+export function changeKey(data) {
+  if (!data || typeof data !== 'object') return null;
+  try {
+    const nom = data.currentNomination;
+    return JSON.stringify([
+      data.draftDetail?.picks?.length || 0,
+      nom && typeof nom === 'object' ? [nom.name, nom.bid] : nom,
+      (data.teams || []).map((t) => t.faabRemaining),
+    ]);
+  } catch (e) {
+    return null;   // circular or unserialisable: treat as new
+  }
+}
+
 /** Are we running as an extension page, with storage available? */
 export function hasExtensionBridge() {
   return typeof chrome !== 'undefined'
@@ -97,12 +125,7 @@ export function pollHttp(onDraft, intervalMs = 3000) {
       const res = await fetch('imported_league.json?cb=' + Date.now(), { cache: 'no-store' });
       if (res.ok) {
         const data = await res.json();
-        // Same change key the extension uses, so a bid tick counts as a change.
-        const key = JSON.stringify([
-          data.draftDetail?.picks?.length || 0,
-          data.currentNomination,
-          (data.teams || []).map((t) => t.faabRemaining),
-        ]);
+        const key = changeKey(data);
         if (key !== lastKey) { lastKey = key; onDraft(data); }
       }
     } catch (e) {
@@ -156,13 +179,6 @@ export function connectPort(onDraft) {
 }
 
 /**
- * Subscribe by whichever route is available.
- *
- * With the extension present this is both the port (fast) and storage (durable
- * and a fallback if the worker was asleep). The same draft arriving twice is
- * harmless — the import is keyed on content — and missing one is not.
- */
-/**
  * Ask the draft room to read every team's roster.
  *
  * An auction renders one roster at a time, so the only way to see the whole
@@ -205,9 +221,39 @@ export function requestRosterSweep() {
   });
 }
 
+/**
+ * Subscribe by whichever route is available.
+ *
+ * With the extension present this is both the port (fast) and storage (durable,
+ * and the fallback if the worker was asleep).
+ *
+ * This used to say the same draft arriving twice was harmless because the
+ * import is keyed on content. It is not: nothing downstream was keyed, so both
+ * copies were mapped, serialised, written and rendered in full. Measured at 40
+ * deliveries for 20 syncs. It is deduped below.
+ */
 export function listenForDrafts(onDraft) {
   if (!hasExtensionBridge()) return pollHttp(onDraft);
-  const stopPort = connectPort(onDraft);
-  const stopStorage = subscribe(onDraft);
+
+  // Both routes carry every update, so every scrape arrived TWICE -- measured
+  // at 40 deliveries for 20 syncs. Each one cost a full re-map, a JSON
+  // serialisation of the whole league, a synchronous localStorage write and a
+  // complete re-render, so half of the app's work during a live auction was
+  // spent recomputing a draft it had just finished computing.
+  //
+  // Deduped here rather than by dropping a route: the port is the fast path
+  // and storage is the safety net for a suspended service worker, and which of
+  // the two arrives first is not knowable. Whichever wins, the other is
+  // recognised as the same draft and discarded.
+  let lastKey = null;
+  const once = (data) => {
+    const key = changeKey(data);
+    if (key !== null && key === lastKey) return;
+    lastKey = key;
+    onDraft(data);
+  };
+
+  const stopPort = connectPort(once);
+  const stopStorage = subscribe(once);
   return () => { stopPort(); stopStorage(); };
 }

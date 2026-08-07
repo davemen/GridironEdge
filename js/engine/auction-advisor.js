@@ -109,7 +109,12 @@ export function buildLeagueState(league, parById = null) {
     byId,
     rosterSize,
     myTeamId: league.myTeamId,
-    me: byId.get(league.myTeamId) || teams[0],
+    // Null when the owner is unknown, never teams[0]. An auction room does not
+    // always say which team is yours, and the scrape reports null rather than
+    // guess -- but this then quietly substituted the first team, so the budget
+    // on screen and every bid ceiling under it described a stranger's roster
+    // while looking entirely ordinary. Callers must handle null.
+    me: byId.get(league.myTeamId) || null,
     leagueSize: league.leagueSize || teams.length,
     moneyLeft: teams.reduce((a, t) => a + t.budget, 0),
     slotsLeft: teams.reduce((a, t) => a + t.spotsLeft, 0),
@@ -463,6 +468,20 @@ export function recommendBid(league, player, currentBid = 0, options = {}) {
 
   const state = buildLeagueState(league, parById);
   const me = state.me;
+  // Every number below is "how much is he worth TO YOUR ROSTER". With no
+  // roster there is no answer, and the previous stand-in -- the first team in
+  // the league -- produced a complete, confident, wrong one.
+  if (!me) {
+    return {
+      player, action: 'UNKNOWN', maxBid: null, recommendedBid: null,
+      mustBuy: false, confidence: 'none', ownerUnknown: true,
+      reason: 'Which team is yours has not been established, so a bid ceiling '
+        + 'cannot be computed for it.',
+      lossIfMissed: null, budgetAfterWin: null, budgetToCompleteRoster: null,
+      tradeoff: '', expectedPrice: null, inflation: null,
+      budgetRemaining: null, spotsLeft: null,
+    };
+  }
   // If the draft room told us the most we may bid, trust it over our own
   // budget arithmetic -- it accounts for league rules we cannot see.
   const roomMax = league.draftState?.currentNominationMax;
@@ -724,7 +743,9 @@ export function targetBoard(league, limit = 8, options = {}) {
   const draftedIds = new Set((league.draftState?.selections || []).map((s) => s.playerId));
   const available = Object.values(db).filter((p) => !draftedIds.has(p.id));
   const state = buildLeagueState(league);
-  if (state.me.spotsLeft <= 0) return [];
+  // "How badly does THIS roster need him" has no answer without a roster, and
+  // an empty watchlist is the honest one. state.me was previously teams[0].
+  if (!state.me || state.me.spotsLeft <= 0) return [];
 
   const par = parValues(available, state, options.startingBudget || 200);
   const shortlist = available

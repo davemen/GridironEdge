@@ -36,9 +36,29 @@ function makeEl(id) {
     style: { cssText: '' },
     classList: { add() {}, remove() {}, contains() { return false; } },
     children: [], parentElement: null,
+    // Writing innerHTML or textContent DESTROYS the children, as it does in a
+    // browser. Without that, an element appended and then wiped by the same
+    // render is indistinguishable from one that survived -- which is the exact
+    // bug this file exists to catch, and an earlier version of this stub still
+    // could not see it because these setters left `children` untouched.
+    // innerHTML and textContent are two views of ONE content, as in a browser:
+    // writing either replaces the other and destroys the children. Keeping
+    // them as independent fields made `el.innerHTML = el.innerHTML` -- a write
+    // that wipes an element in any real render -- invisible to an assertion on
+    // textContent, so the very destruction this file exists to catch passed.
     get innerHTML() { return written.get(id) || ''; },
-    set innerHTML(v) { written.set(id, String(v)); },
-    innerText: '', textContent: '', value: '',
+    set innerHTML(v) {
+      written.set(id, String(v));
+      this._text = String(v).replace(/<[^>]*>/g, '');
+      this.children.length = 0;
+    },
+    get textContent() { return this._text || ''; },
+    set textContent(v) {
+      this._text = String(v);
+      written.set(id, String(v));
+      this.children.length = 0;
+    },
+    innerText: '', _text: '', value: '',
     // A real element has both. Without `dataset` any code doing el.dataset.x
     // throws here but works in a browser, which is the wrong way round for a
     // test; without recorded children, an element appended and then discarded
@@ -46,7 +66,11 @@ function makeEl(id) {
     dataset: {},
     addEventListener() {}, removeEventListener() {},
     appendChild(child) { this.children.push(child); return child; },
-    remove() {}, insertBefore() {}, insertAdjacentHTML() {},
+    // remove() emptied nothing, so an element the app had deleted still
+    // answered getElementById with its last contents -- and a test asking
+    // "is the banner gone?" read the text of a banner that was gone.
+    remove() { this._text = ''; written.set(this.id, ''); this.children.length = 0; },
+    insertBefore() {}, insertAdjacentHTML() {},
     setAttribute() {}, getAttribute() { return null; },
     querySelector: () => makeEl(id + ':child'), querySelectorAll: () => [],
     closest: () => null, focus() {},
@@ -177,41 +201,46 @@ for (const scenario of [
 console.log('\nan auction the app can only partly see');
 {
   // ESPN reports more picks than were read: an auction room renders one team's
-  // roster and no results table, so this is its normal state rather than an
-  // error. The banner has to say so, and the offer to scan the rest has to
-  // actually reach the page -- the first version mounted it into a panel that
-  // the rest of that render then rebuilt, so it was appended and discarded and
-  // never appeared. An assertion on "was it created" would have passed.
+  // roster and no results table, so this is its normal state, not an error.
+  // The app closes the gap itself by stepping the room's dropdown through the
+  // league, so while that can still work the banner must stay OUT of the way.
+  // It appears only once scanning has stopped being able to fix it -- because
+  // a gap that survives is permanent, and those players will keep being
+  // offered as targets while somebody already owns them.
   const league = buildLeague({});
   league.picksMadeOnEspn = 46;
   league.draftState = league.draftState || {};
   league.draftState.selections = [{ playerId: 1 }, { playerId: 2 }];
   load(league);
 
+  const sweep = app.autoSweepState();
+  sweep.fruitless = 0;
   let err = null;
   try { app.renderMissingPicksBanner(league); } catch (e) { err = e; }
   check('the banner renders with a partly-read board', !err,
     err && `${err.constructor.name}: ${err.message}`);
+  check('it stays quiet while the scan can still close the gap',
+    document.getElementById('missing-picks-banner').textContent === '');
 
+  // Two scans that added nothing: the gap is not closable.
+  sweep.fruitless = 2;
+  app.renderMissingPicksBanner(league);
   const banner = document.getElementById('missing-picks-banner');
-  check('the banner says how many were read',
+  check('once scanning gives up it says how many were read',
     /46 picks; 2 were read/.test(banner.textContent), banner.textContent);
-  const scan = banner.children.find((c) => c.id === 'missing-picks-scan');
-  check('the scan button survives the render that created it', Boolean(scan),
-    `banner has ${banner.children.length} children`);
-  check('and it is labelled', scan && scan.textContent === 'Scan all rosters',
-    scan && scan.textContent);
+  check('and says scanning could not recover the rest',
+    /Scanning every roster did not recover the other 44/.test(banner.textContent),
+    banner.textContent);
 
-  // A complete board must not offer it.
+  // A complete board says nothing at all, whatever the scan history.
   const full = buildLeague({});
   full.picksMadeOnEspn = 2;
   full.draftState = full.draftState || {};
   full.draftState.selections = [{ playerId: 1 }, { playerId: 2 }];
-  const before = document.getElementById('missing-picks-banner').children.length;
   load(full);
   app.renderMissingPicksBanner(full);
-  check('a complete board adds no scan button',
-    document.getElementById('missing-picks-banner').children.length === before);
+  check('a complete board shows no banner',
+    document.getElementById('missing-picks-banner').textContent === '');
 }
 
 console.log(`\n${passed} passed, ${failed} failed`);

@@ -599,7 +599,12 @@ class ESPNClient {
           key: playerKey(player.fullName || ''),
           // No invented mid-range guess: unknown means replacement level.
           projectedPoints: typeof p.ratings?.overall?.projectedPoints === 'number'
-            ? p.ratings.overall.projectedPoints : replacementPoints(mapESPNPosition(player.defaultPositionId)),
+            ? p.ratings.overall.projectedPoints
+            // `this.` -- mapESPNPosition is a method, and the bare identifier
+            // here was a ReferenceError that aborted the whole import the
+            // moment any player arrived without a projection, which is the
+            // exact case this branch exists to handle.
+            : replacementPoints(this.mapESPNPosition(player.defaultPositionId)),
           volatility: this.getVolatilityByPos(player.defaultPositionId),
           injuryStatus: this.mapESPNInjury(player.injuryStatus),
           byeWeek: player.byeWeek || 6,

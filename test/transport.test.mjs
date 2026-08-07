@@ -99,7 +99,13 @@ await new Promise((r) => setTimeout(r, 20));
 console.log('\ndelivery is immediate, not polled');
 const med = timings.sort((a, b) => a - b)[Math.floor(timings.length / 2)];
 const worst = Math.max(...timings);
+// `got >= 20` passed at 40 and printed "40 deliveries for 20 sends" as ok.
+// Both routes carry every update, so each scrape was mapped, serialised,
+// stored and rendered twice -- half the app's work in a live auction spent
+// recomputing a draft it had just computed. An unbounded lower bound cannot
+// see that; the count has to be exact.
 check('every update was delivered', got >= 20, `${got} deliveries for 20 sends`);
+check('and delivered exactly once', got === 20, `${got} deliveries for 20 sends`);
 // The old transport could take the full 3s poll interval. Anything in the tens
 // of milliseconds is a different category; the budget is loose on purpose.
 check('median latency is sub-millisecond', med < 1, `${med.toFixed(3)}ms`);

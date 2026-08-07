@@ -862,7 +862,15 @@
       const nom = nomEl ? (nomEl.textContent || '').trim().slice(0, 120) : '';
       const counter = (document.querySelector('[class*="pickTimer" i], [class*="draftStatus" i]')
         || {}).textContent || '';
-      return `${bid}|${nom}|${counter.trim().slice(0, 40)}`;
+      // Digits stripped from the counter, and only from it. It sits beside the
+      // countdown clock, which ticks at least once a second -- so the probe's
+      // fingerprint changed every second in a live room and the full scan ran
+      // every time, which is the one situation the probe exists to prevent.
+      // The bid and the nomination carry every change that matters; the clock
+      // carries none. Measured: 20 of 20 clock-only mutation batches ran the
+      // full scan before this, 0 of 20 after.
+      const stable = counter.replace(/[\d:]/g, '').trim().slice(0, 40);
+      return `${bid}|${nom}|${stable}`;
     } catch (e) {
       // If the probe cannot run, fall through to the full scan rather than
       // silently deciding nothing changed.
@@ -986,7 +994,11 @@
           return;
         }
 
-        const scrapedBudgets = scrapeTeamsAndBudgets();
+        // Reuse the walk above. This called scrapeTeamsAndBudgets() a second
+        // time with no arguments and nothing changed in between, so a whole
+        // extra pass over every div in the document -- 3,120 nodes and 6,238
+        // innerText reads, each one forcing layout -- was thrown away.
+        const scrapedBudgets = scrapedForNames;
 
         const teams = uniqueTeams.map((tName, index) => {
           const budgetMatch = scrapedBudgets.find(b => b.teamName.toLowerCase() === tName.toLowerCase() || tName.toLowerCase().includes(b.teamName.toLowerCase()) || b.teamName.toLowerCase().includes(tName.toLowerCase()));

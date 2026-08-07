@@ -58,11 +58,77 @@ let lastSyncFileTimestamp = null;
  * the scraper sees a change, with chrome.storage as the durable snapshot behind
  * it. There is no server, no port to open and nothing for a user to run.
  */
+/**
+ * Close the gap in an auction board without being asked.
+ *
+ * An auction room renders one team's roster at a time, so a scrape sees only
+ * the selected team and the board is short by everyone else's picks -- which
+ * then keep being offered as targets while somebody already owns them. The
+ * room's own dropdown can reach the rest, so the app steps it through the
+ * league itself rather than putting a button in front of the user.
+ *
+ * Three limits, because this writes to the page being drafted in:
+ *
+ *   - throttled, so the roster panel is not cycling through eight teams
+ *     continuously while a bid clock is running;
+ *   - it gives up after two sweeps that added nothing, since some gaps are not
+ *     closable by sweeping (a name the projection set cannot resolve stays
+ *     missing however many times the rosters are read) and flickering the
+ *     draft room forever to re-learn that helps nobody;
+ *   - when it gives up, the interface says the board is still short. A gap
+ *     that cannot be closed is exactly the case the user has to know about.
+ */
+const AUTO_SWEEP_MIN_GAP_MS = 60000;
+const AUTO_SWEEP_MAX_FRUITLESS = 2;
+const autoSweep = { last: 0, inFlight: false, sawHave: -1, fruitless: 0 };
+
+export function autoSweepState() { return autoSweep; }
+
+function maybeAutoSweep(league) {
+  const expected = league && league.picksMadeOnEspn;
+  const have = ((league && league.draftState) || {}).selections?.length || 0;
+  if (typeof expected !== 'number' || have >= expected) {
+    // The board is complete: forget the history so a later gap starts fresh.
+    autoSweep.fruitless = 0;
+    autoSweep.sawHave = -1;
+    return;
+  }
+
+  // Did the previous sweep achieve anything? Judged on picks, which is the
+  // only evidence that means anything -- the scan itself reports nothing back.
+  if (autoSweep.sawHave >= 0) {
+    if (have > autoSweep.sawHave) autoSweep.fruitless = 0;
+    else autoSweep.fruitless += 1;
+    autoSweep.sawHave = -1;
+  }
+
+  if (autoSweep.inFlight) return;
+  if (autoSweep.fruitless >= AUTO_SWEEP_MAX_FRUITLESS) return;
+  if (Date.now() - autoSweep.last < AUTO_SWEEP_MIN_GAP_MS) return;
+
+  autoSweep.last = Date.now();
+  autoSweep.inFlight = true;
+  requestRosterSweep().then((res) => {
+    autoSweep.inFlight = false;
+    if (res && res.ok) {
+      autoSweep.sawHave = have;
+      return;
+    }
+    // A sweep that could not start is not a fruitless sweep; it is a broken
+    // one, and retrying every minute would hide that. Stop and let the banner
+    // say the board is short.
+    autoSweep.fruitless = AUTO_SWEEP_MAX_FRUITLESS;
+    console.warn('[Gridiron Edge] Roster scan unavailable:',
+      (res && res.reason) || 'unknown');
+  });
+}
+
 function startDraftSync() {
   return listenForDrafts(async (data) => {
     try {
       await espnClient.importScrapedPayload(data);
       // The store subscriber renders whatever tab is active.
+      maybeAutoSweep(store.getActiveLeague());
     } catch (e) {
       // A malformed payload costs one update, not the session -- but it is not
       // silent, because "the app stopped updating" with no console output is
@@ -486,24 +552,19 @@ function renderCompetingLeagueBanner(league) {
  * another manager already owns is the visible symptom of a silent parse
  * failure, and it should not be the only symptom.
  */
-// A scan in flight, and what to say about it. The scan reports nothing back --
-// its result arrives as picks on the ordinary sync route -- so "did it work?"
-// is answered by the pick count moving, not by a reply.
-let sweepWatch = null;      // { startedAt, haveAtStart }
-let sweepMessage = '';
-
 export function renderMissingPicksBanner(league) {
   const expected = league.picksMadeOnEspn;
   const have = ((league.draftState || {}).selections || []).length;
-
-  if (sweepWatch && have > sweepWatch.haveAtStart) {
-    const gained = have - sweepWatch.haveAtStart;
-    sweepMessage = `Scan added ${gained} ${gained === 1 ? 'pick' : 'picks'}.`;
-    sweepWatch = null;
-  }
   let el = document.getElementById('missing-picks-banner');
   const missing = typeof expected === 'number' ? expected - have : 0;
-  if (!(missing > 0)) { if (el) el.remove(); return; }
+
+  // Nothing missing, or the app is still closing the gap by itself. The scan
+  // used to be a button here; it runs automatically now, so announcing a gap
+  // that is about to disappear would be noise. It is only worth saying once
+  // scanning has stopped being able to fix it.
+  const stillTrying = autoSweep.fruitless < AUTO_SWEEP_MAX_FRUITLESS;
+  if (!(missing > 0) || stillTrying) { if (el) el.remove(); return; }
+
   if (!el) {
     el = document.createElement('div');
     el.id = 'missing-picks-banner';
@@ -511,69 +572,13 @@ export function renderMissingPicksBanner(league) {
       + 'font-weight:600;text-align:center;border-bottom:1px solid #f59e0b;';
     document.body.insertBefore(el, document.body.firstChild);
   }
-  // Rebuilt each time the count changes, not on every render, so a click does
-  // not land on a button that was replaced a frame earlier.
-  const key = `${expected}/${have}`;
-  if (el.dataset.key === key) return;
-  el.dataset.key = key;
+  // A gap that survived the scans is real and permanent for this draft -- a
+  // name the projection set could not resolve stays missing however many times
+  // the rosters are read. Saying so is the whole point: these players are the
+  // ones the advice can still offer while somebody already owns them.
   el.textContent = `ESPN has made ${expected} picks; ${have} were read. `
-    + `The ${missing} missing still look available, so they may appear as targets `
-    + `even though somebody owns them.`;
-
-  // The offer to fix it belongs with the statement of the problem. It lived on
-  // the My Team page, mounted into a panel that the rest of that render then
-  // rebuilt -- so it was appended and immediately discarded, and never
-  // appeared at all.
-  const btn = document.createElement('button');
-  btn.id = 'missing-picks-scan';
-  btn.textContent = 'Scan all rosters';
-  btn.style.cssText = 'margin-left:0.75rem;padding:0.2rem 0.7rem;border-radius:4px;'
-    + 'border:1px solid #fcd34d;background:transparent;color:#fff;font-weight:600;'
-    + 'cursor:pointer;font-size:0.8rem;';
-  const say = (msg) => {
-    sweepMessage = msg;
-    const s = document.getElementById('missing-picks-scan-status');
-    if (s) s.textContent = ' ' + msg;
-  };
-  btn.addEventListener('click', async () => {
-    btn.disabled = true;
-    say('Scanning — watch the draft room cycle through each team.');
-    const res = await requestRosterSweep();
-    btn.disabled = false;
-    if (res && res.ok) {
-      // Started, not finished. The picks themselves are the completion signal.
-      sweepWatch = { startedAt: Date.now(), haveAtStart: have };
-      setTimeout(() => {
-        if (!sweepWatch) return;   // picks landed; a later render said so
-        sweepWatch = null;
-        say('The scan added no picks. If the draft room’s roster panel did not '
-          + 'cycle through the teams, its dropdown did not accept the change.');
-      }, 75000);
-    } else {
-      // Name the failure. "Could not scan" would cover a draft room that is not
-      // open and a dropdown that could not be found, which need different
-      // things from the user.
-      say({
-        'no-draft-tab': 'No ESPN draft room tab is open.',
-        'no-team-dropdown': 'No team dropdown was found in the draft room.',
-        'no-extension': 'The extension bridge is not available here.',
-        // The scan no longer waits for a reply, so this should not occur. Kept
-        // because the message is still true if it somehow does.
-        'no-response': 'The draft room tab has no scraper running — reload it.',
-      }[res && res.reason]
-        || `The draft room did not respond (${(res && res.reason) || 'unknown'}).`);
-    }
-  });
-  el.appendChild(btn);
-
-  const status = document.createElement('span');
-  status.id = 'missing-picks-scan-status';
-  status.style.cssText = 'font-weight:400;';
-  // Carried across the rebuild. The banner is recreated whenever the counts
-  // change -- which is exactly what a successful scan causes -- so a message
-  // held only in the old node would be destroyed by the event it describes.
-  status.textContent = sweepMessage ? ' ' + sweepMessage : '';
-  el.appendChild(status);
+    + `Scanning every roster did not recover the other ${missing}, so they still `
+    + `look available and may appear as targets even though somebody owns them.`;
 }
 
 /** Says plainly when the league on screen is demo data rather than yours. */
@@ -1560,6 +1565,19 @@ function auctionMarketTableHtml(league) {
 function renderAuctionBoard(league, db, rec) {
   const recPanel = document.getElementById('draft-rec-panel');
   const state = buildLeagueState(league);
+
+  // Every figure on this panel is "worth what to YOUR roster". With no owner
+  // established there is no answer, and the advisor used to substitute the
+  // first team in the league -- so the budget, the ceiling and the watchlist
+  // all described a stranger and looked entirely ordinary. My Team already
+  // asks this question; the page whose numbers matter most in a live auction
+  // was the one that skipped it.
+  if (!state.me) {
+    if (recPanel) recPanel.innerHTML = '';
+    renderOwnerPrompt(league, recPanel);
+    return;
+  }
+
   const nominated = findNominatedPlayer(db, league.draftState.currentNomination);
 
   // Targets worth planning around, whether or not one is on the block.
@@ -1937,9 +1955,39 @@ export function renderRosterPage(league = store.getActiveLeague()) {
 
     <div style="border-top:1px solid var(--border-color); padding-top:1rem; font-size:0.85rem; color:var(--text-secondary);">
       <strong>Position Depth Check:</strong><br>
-      Our Wide Receiver room is deep and healthy. We can afford to trade backup WRs to acquire starting RB reinforcements.
+      ${depthCheckText(players, league)}
     </div>
   `;
+}
+
+/**
+ * What the roster is actually short of, counted from the roster.
+ *
+ * This slot read, unconditionally and regardless of who was on the team: "Our
+ * Wide Receiver room is deep and healthy. We can afford to trade backup WRs to
+ * acquire starting RB reinforcements." It said that with an empty roster. It is
+ * the exact sentence CLAUDE.md cites as the canonical offence -- a hardcoded
+ * string that reads like analysis is the same lie as a hardcoded number, and
+ * harder to spot because nothing about it looks generated.
+ */
+function depthCheckText(players, league) {
+  const need = [];
+  const spare = [];
+  ['QB', 'RB', 'WR', 'TE'].forEach((pos) => {
+    const want = (league.rosterSettings && league.rosterSettings[pos]) || 0;
+    if (!want) return;
+    const have = players.filter((p) => p.position === pos).length;
+    if (have < want) need.push(`${pos} (${have}/${want})`);
+    else if (have > want) spare.push(`${pos} (${have - want} spare)`);
+  });
+
+  if (!players.length) return 'No players on this roster yet.';
+  const parts = [];
+  if (need.length) parts.push(`Short at ${esc(need.join(', '))}.`);
+  if (spare.length) parts.push(`Surplus at ${esc(spare.join(', '))}.`);
+  // "Nothing to report" and "we have not looked" must not share a message.
+  if (!parts.length) return 'Every starting slot is filled with none spare.';
+  return parts.join(' ');
 }
 
 /**

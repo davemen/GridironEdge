@@ -1,4 +1,5 @@
 import { optimizeLineup } from './lineup-optimizer.js';
+import { PLAYOFF_TEAMS, BYE_TEAMS } from './lineup-rules.js';
 import { getWaiverRecommendations } from './roster-manager.js';
 import { generateTradeProposals } from './trade-generator.js';
 
@@ -217,13 +218,20 @@ export function runSeasonSimulation(league, runs = 1000) {
     const myRankIdx = standings.findIndex(s => s.teamId === league.myTeamId);
     const myRank = myRankIdx + 1;
 
-    // 3. Playoff evaluations (Top 4 teams make playoffs)
-    const playoffSize = 4;
+    // 3. Playoff evaluations.
+    //
+    // This was `const playoffSize = 4` with a bye for the top 2, against
+    // PLAYOFF_TEAMS = 6 in lineup-rules.js -- and BOTH engines write the same
+    // three spans (#sim-playoff-pct, #sim-champ-pct, #sim-bye-pct), so the
+    // same roster read 0% here and a positive number from the preseason model
+    // depending only on which page drew last. lineup-rules.js's own header
+    // describes this exact drift in the past tense; it was still shipping.
+    const playoffSize = PLAYOFF_TEAMS;
     const madePlayoffs = myRank <= playoffSize;
 
     if (madePlayoffs) {
       playoffReaches++;
-      if (myRank <= 2) {
+      if (myRank <= BYE_TEAMS) {
         byeReaches++;
       }
 
