@@ -217,6 +217,44 @@
    * tracks the previous value on the node and skips the change. The native
    * setter has to be called directly before the event is dispatched.
    */
+  // How long to wait for the roster panel to redraw before giving up on a team.
+  const PANEL_SETTLE_MS = 250;
+
+  /**
+   * Resolve as soon as the roster panel changes, or after `capMs`.
+   *
+   * The sweep used to poll `signature()` every 60ms until a 900ms deadline, so
+   * a team whose roster genuinely matched the last one cost the entire 900ms.
+   * Watching the DOM answers on the repaint itself; the cap is only reached
+   * when nothing happened, which is the case that has to end quickly.
+   */
+  function waitForPanelChange(signature, before, capMs) {
+    return new Promise((resolve) => {
+      let done = false;
+      let observer = null;
+      let timer = null;
+      const finish = (value) => {
+        if (done) return;
+        done = true;
+        if (observer) observer.disconnect();
+        if (timer !== null) clearTimeout(timer);
+        resolve(value);
+      };
+      try {
+        observer = new MutationObserver(() => {
+          const now = signature();
+          if (now !== before) finish(now);
+        });
+        observer.observe(document.body, { childList: true, subtree: true, characterData: true });
+      } catch (e) {
+        // No observer available: fall back to the cap alone, which is still
+        // correct, just slower for a team that did change.
+        observer = null;
+      }
+      timer = setTimeout(() => finish(signature()), capMs);
+    });
+  }
+
   const MAX_SWEEP_TEAMS = 32;
   const MAX_SWEEP_ROWS = 2000;
 
@@ -234,6 +272,7 @@
     const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
     const byTeam = [];
     let rows = 0;
+    let unchanged = 0;
 
     try {
       // Bounded. `sel.options.length` came straight off the page, at up to
@@ -254,15 +293,27 @@
         sel.dispatchEvent(new Event('input', { bubbles: true }));
         sel.dispatchEvent(new Event('change', { bubbles: true }));
 
-        // Wait for the panel to actually repaint. Two teams can legitimately
-        // hold identical rosters (both empty early on), so a signature that
-        // never changes is not an error -- hence the cap rather than a throw.
-        const deadline = Date.now() + 900;
-        let after = before;
-        do {
-          await sleep(60);
-          after = signature();
-        } while (after === before && Date.now() < deadline);
+        // Wait for the panel to actually repaint.
+        //
+        // Two teams can legitimately hold identical rosters -- both empty, early
+        // in an auction -- so a signature that never changes is not an error.
+        // But polling it to a 900ms deadline meant every such team cost the full
+        // 900ms, and "every team is empty" is precisely the state the automatic
+        // sweep fires in: measured at 11,011ms for twelve teams, three times
+        // over, with the roster panel cycling the whole while.
+        //
+        // A MutationObserver answers as soon as the panel actually redraws, so
+        // the deadline is only ever paid by a team whose roster genuinely has
+        // not changed -- and it is a quarter of what it was.
+        const after = await waitForPanelChange(signature, before, PANEL_SETTLE_MS);
+        if (after === before) {
+          // Two in a row that did not move means the panel is not repainting
+          // for us at all -- more likely than every remaining team being
+          // identical. Stop rather than burning the deadline once per team.
+          if (++unchanged >= 2) break;
+        } else {
+          unchanged = 0;
+        }
 
         const roster = JSON.parse(after);
         rows += roster.length;

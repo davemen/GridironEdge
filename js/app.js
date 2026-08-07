@@ -1194,7 +1194,7 @@ export function renderHomePage(league = store.getActiveLeague()) {
  * them means the advice on it is current. This used to ask a local server for
  * its health; now it asks the bridge, because the server is gone.
  */
-async function checkDraftReadiness() {
+async function checkDraftReadiness(league = store.getActiveLeague()) {
   const source = describeSource();
 
   if (source.kind !== 'extension') {
@@ -1203,7 +1203,15 @@ async function checkDraftReadiness() {
         + 'push draft data to it. Open Gridiron Edge from the toolbar button.' };
   }
 
-  const latest = await readLatest();
+  // The league we just rendered already carries when it was scraped, so read
+  // that rather than pulling the whole payload back out of chrome.storage.
+  //
+  // This ran on every renderDraftPage -- several times a second in a live
+  // auction -- and each call was a structured clone of a payload the worker
+  // permits up to 5MB, to produce the string "last update 3s ago". It only
+  // falls back to storage when the app has no league yet, which is once.
+  const scrapedAt = league && league.scrapedAt;
+  const latest = scrapedAt ? { scrapedAt } : await readLatest();
   if (!latest) {
     return { ok: false, kind: 'no-sync',
       message: 'The extension is loaded, but it has never seen a draft room. Open '
@@ -1267,7 +1275,7 @@ export function renderDraftPage(league = store.getActiveLeague()) {
   // The readiness strip is a nicety -- it says how fresh the scrape is -- and
   // it must never take the draft page down with it. But silence is not the
   // same as "nothing to report": say which one this is.
-  checkDraftReadiness().then(renderDraftReadiness).catch((e) => {
+  checkDraftReadiness(league).then(renderDraftReadiness).catch((e) => {
     console.warn('[Gridiron Edge] Could not read the sync state:', e && e.message);
   });
 

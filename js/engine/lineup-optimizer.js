@@ -145,13 +145,17 @@ export function optimizeLineup(roster, db, settings, strategy = 'floor') {
     }
   });
 
-  // Optimization explanation
+  // What the strategy actually did, in the terms the code actually uses.
+  //
+  // The floor line claimed to have "valued floor stability and consistent
+  // routes run". The engine has never read routes run -- it subtracts half a
+  // player's volatility, which is a different statement and a checkable one.
   const explanation = [];
-  if (strategy === 'ceiling') {
-    explanation.push("Upside-oriented strategy active. Volatility has been weighted positively to raise roster ceiling against our matchup opponent.");
-  } else {
-    explanation.push("Reliability-oriented strategy active. Valued floor stability and consistent routes run to protect weekly points.");
-  }
+  const vol = strategy === 'ceiling' ? 'added' : 'subtracted';
+  explanation.push(`${strategy === 'ceiling' ? 'Upside' : 'Reliability'}-oriented: `
+    + `half of each player's week-to-week volatility was ${vol} before ranking, `
+    + `so ${strategy === 'ceiling' ? 'the widest range' : 'the steadiest'} `
+    + 'starters win close calls.');
 
   return {
     starters,

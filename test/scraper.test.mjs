@@ -503,6 +503,25 @@ console.log('\nand the moved sweep still actually sweeps');
   check('and put the dropdown back where it found it', selected === 0, String(selected));
   check('driving the select through real events', dispatched.filter((e) => e === 'change').length
     === names.length + 1, dispatched.join(','));
+
+  // Two teams whose panels never change must not each cost the full deadline:
+  // "every team is empty" is exactly the state the automatic sweep fires in,
+  // and it was measured at 11,011ms for twelve teams.
+  const EMPTY = { 'A': [], 'B': [], 'C': [], 'D': [], 'E': [], 'F': [] };
+  const emptyNames = Object.keys(EMPTY);
+  selected = 0;
+  const emptyTable = {
+    rows: [{ cells: [cell('POS'), cell('PLAYER'), cell('$')] },
+           { cells: [cell('BE'), cell('Empty'), cell('')] },
+           { cells: [cell('BE'), cell('Empty'), cell('')] }],
+  };
+  select.options = emptyNames.map((n, i) => ({ text: n, value: String(i) }));
+  globalThis.document.querySelectorAll = (sel) =>
+    (sel === 'select' ? [select] : sel === 'table' ? [emptyTable] : []);
+  const flat = await isoFns.sweepAllRosters(emptyNames.map((teamName) => ({ teamName })));
+  check('it gives up once two panels in a row have not moved',
+    flat.ok === true && flat.byTeam.length <= 2,
+    `stepped ${flat.byTeam && flat.byTeam.length} of ${emptyNames.length} teams`);
 }
 
 console.log(`\n${passed} passed, ${failed} failed`);

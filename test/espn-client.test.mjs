@@ -292,6 +292,25 @@ console.log('\nthe API mapper, which nothing exercised at all');
     empty.projectionsMissing === true && Object.keys(empty.playerDatabase).length === 0);
 }
 
+console.log('\nthe league remembers when it was read');
+{
+  // The scraper has always stamped scrapedAt on the payload and the mapper
+  // dropped it, so the readiness strip pulled the entire payload back out of
+  // chrome.storage on every draft render -- several times a second in a live
+  // auction, a structured clone of up to 5MB -- to produce "last update 3s ago".
+  const at = Date.now() - 4000;
+  const l = await espnClient.importScrapedPayload({
+    ...payload([pick(1, 'Josh Allen', 'QB', 'BUF', 1, 19)], { leagueId: 'WHEN' }),
+    scrapedAt: at,
+  });
+  check('the mapper carries the scrape time onto the league',
+    l.scrapedAt === at, `${l.scrapedAt} against ${at}`);
+  const without = await espnClient.importScrapedPayload(
+    payload([pick(1, 'Josh Allen', 'QB', 'BUF', 1, 19)], { leagueId: 'WHENLESS' }));
+  check('and leaves it undefined rather than inventing one',
+    without.scrapedAt === undefined, String(without.scrapedAt));
+}
+
 console.log('\nthe scraped mapper marks what it had to assume');
 {
   const l = await espnClient.importScrapedPayload(payload(

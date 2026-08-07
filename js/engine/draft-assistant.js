@@ -57,7 +57,6 @@ export function getDraftRecommendations(league) {
   const draftOrder = draftState.draftOrder || league.teams.map((t) => t.teamId);
   const userOrderIdx = draftOrder.indexOf(league.myTeamId);
   const roundIdx = Math.floor((currentPick - 1) / league.leagueSize);
-  const isEvenRound = (roundIdx + 1) % 2 === 0;
   
   // Snake calculation
   let nextUserPick = currentPick;
@@ -92,20 +91,7 @@ export function getDraftRecommendations(league) {
     availabilityAtNext: survivalPct(p, nextUserPick),
   }));
 
-  // Sort shortlist candidate lists
-  const wrCandidates = withAvailability.filter(p => p.position === 'WR');
-  const rbCandidates = withAvailability.filter(p => p.position === 'RB');
-  const qbCandidates = withAvailability.filter(p => p.position === 'QB');
-  const teCandidates = withAvailability.filter(p => p.position === 'TE');
 
-  // Compute replacements levels
-  const getReplacementDiff = (player, list) => {
-    // Difference between this player's projection and the baseline available player of the same position in 2 rounds
-    const posList = list.filter(p => p.position === player.position);
-    const baselineIdx = Math.min(posList.length - 1, Math.max(2, Math.floor(picksToNext / 3)));
-    const baseline = posList[baselineIdx] || player;
-    return player.projectedPoints - baseline.projectedPoints;
-  };
 
   /* -----------------------------------------------------------------------
    * Ranking: marginal starting-lineup value, priced against who survives to
@@ -293,7 +279,17 @@ export function getDraftRecommendations(league) {
   }
   const topRBs = availablePlayers.filter(p => p.position === 'RB' && p.projectedPoints > 16);
   if (topRBs.length <= 2 && topPick.position !== 'RB' && needs.RB) {
-    tierWarning = "Running Back scarcity alert! Only a few high-volume backs remain. Reaching for other positions reduces long-term roster value.";
+    // Names them, and says how many. This was a fixed sentence -- "Only a few
+    // high-volume backs remain. Reaching for other positions reduces long-term
+    // roster value." -- printed whoever was on the board, five lines below the
+    // tight-end warning that had already been corrected for exactly this and
+    // carries a comment citing CLAUDE.md by name.
+    tierWarning = topRBs.length === 0
+      ? 'No running back left is projected above 16 points per game, and your '
+        + 'backfield is not full.'
+      : `${topRBs.length === 1 ? 'Only ' : ''}${topRBs.map(p => p.name).join(' and ')} `
+        + `${topRBs.length === 1 ? 'is' : 'are'} still projected above 16 points per `
+        + `game, and your backfield is not full.`;
   }
 
   // Next available suggestions

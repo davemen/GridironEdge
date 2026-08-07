@@ -386,11 +386,22 @@ export function runSeasonSimulation(league, runs = 1000) {
       title: `Set up backup for ${questionableStarter.name}`,
       desc: `Currently ${questionableStarter.injuryStatus}. Ensure a conditional backup starter is designated in Matchups.`
     });
-  } else {
+  } else if (starters.length) {
+    // Says how many, and only when there are any. This fired for a team with
+    // ZERO starters, announcing that all of them were projected healthy and
+    // optimised -- a fixed sentence that reads as a check having been run.
     actionPlan.push({
       type: 'immediate',
       title: 'Maintain current lineup configuration',
-      desc: 'All starters are projected healthy and optimized for the next matchup.'
+      desc: `All ${starters.length} starters are healthy and none is on a bye `
+        + 'this week.'
+    });
+  } else {
+    actionPlan.push({
+      type: 'immediate',
+      title: 'No lineup to assess',
+      desc: 'No player on this roster resolved to a projection, so there is '
+        + 'nothing to check.'
     });
   }
 
@@ -428,7 +439,11 @@ export function runSeasonSimulation(league, runs = 1000) {
     playoffPct,
     champPct,
     byePct,
-    rivalName: rivalTeam ? rivalTeam.teamName : 'Fumble Recovery',
+    // Null when there is no rival to name. This defaulted to 'Fumble Recovery',
+    // which is a team out of mock-data.js -- a real league would have been
+    // told its chief threat was a team from the sandbox. Nothing reads this
+    // field, which made it dead code AND a landmine.
+    rivalName: rivalTeam ? rivalTeam.teamName : null,
     competitors: competitors.slice(0, 3), // Return top 3 rivals
     actionPlan
   };

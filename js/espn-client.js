@@ -472,6 +472,11 @@ class ESPNClient {
       rosterSettings: positionLimits,
       // Assumed, not read. See positionLimits above.
       rosterSettingsSource: 'assumed',
+      // When the room was actually read. The payload has carried this since the
+      // scraper was written and the mapper dropped it, so the readiness strip
+      // pulled the whole payload back out of chrome.storage on every render to
+      // find it again.
+      scrapedAt: typeof espnData.scrapedAt === 'number' ? espnData.scrapedAt : undefined,
       waiverSettings: {
         faabBudget: 100,
         processingDays: ['Wednesday', 'Thursday'],
