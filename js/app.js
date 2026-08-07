@@ -635,9 +635,10 @@ function renderHomePage(league = store.getActiveLeague()) {
     document.getElementById('match-opp-name').innerHTML = '';
     document.getElementById('match-opp-proj').innerHTML = '—';
     document.getElementById('matchup-strategy-hint').innerHTML =
-      '<strong>No matchup yet.</strong><br>This league has no schedule, so there is '
-      + 'no opponent to analyse. Roster strength and championship odds are on the '
-      + 'Championship Plan tab.';
+      '<strong>No matchup yet.</strong><br>Fixtures are published once the draft is '
+      + 'finished, and this fills in on its own from the next sync — opponent, '
+      + 'projections and the floor-versus-ceiling call for the week. Until then, '
+      + 'roster strength and championship odds are on the Championship Plan tab.';
   } else {
       hint.innerHTML = '<strong>No schedule and no roster yet.</strong><br>Connect a league to begin.';
     }
@@ -1473,7 +1474,8 @@ function renderMatchupPage(league = store.getActiveLeague()) {
   startersGrid.innerHTML = '';
 
   if (!opt) {
-    startersGrid.innerHTML = '<div class="empty-state">No players on roster. Connect league settings.</div>';
+    startersGrid.innerHTML = '<div class="empty-state">No players on this roster yet. '
+      + 'Once the draft fills it, lineup advice appears here on the next sync.</div>';
     return;
   }
 
@@ -2050,8 +2052,10 @@ function renderPreseasonOutlook(league) {
     }).join('');
     plan.innerHTML = `
       <div style="font-size:0.82rem; color:var(--text-secondary); margin-bottom:0.5rem;">
-        Preseason outlook — no fixtures exist yet, so seasons are simulated over a
-        balanced round robin. Your roster ranks <strong>#${o.rank} of ${o.leagueSize}</strong>
+        Preseason outlook — the schedule is published after the draft, so until then
+        seasons are simulated over a balanced round robin. These odds re-read your
+        real fixtures automatically once they exist. Your roster ranks
+        <strong>#${o.rank} of ${o.leagueSize}</strong>
         at ${o.myPoints} projected points a week, against a league best of ${o.bestPoints}
         and a median of ${o.medianPoints}. A title is worth ${par}% to an average team here.
       </div>
