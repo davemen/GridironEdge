@@ -134,20 +134,39 @@ export function findPlayer(db, name, position, team) {
   if (position === 'D/ST' || DST_TAG.test(key)) {
     const nick = key.replace(DST_TAG_ALL, ' ').replace(/\s+/g, ' ').trim();
     if (nick) {
-      const last = nick.split(' ').pop();
-      const hit = all.filter((p) => p.position === 'D/ST'
-        && (p.key === nick || p.key.split(' ').pop() === last));
+      // "Houston Texans" can arrive as the nickname, the city, or both, so
+      // compare on any word rather than only the last one.
+      const words = new Set(nick.split(' ').filter(Boolean));
+      const hit = all.filter((p) => {
+        if (p.position !== 'D/ST') return false;
+        if (p.key === nick) return true;
+        const pw = p.key.split(' ');
+        return pw.some((w) => words.has(w));
+      });
       if (hit.length === 1) return hit[0];
     }
   }
 
-  const partial = all.filter(
+  // A contains-match is loose enough to cross positions: the single hit for
+  // "Washington" is the receiver Parker Washington, not a defense. Returning it
+  // regardless of the position asked for is how a wideout ended up filling a
+  // roster slot nobody drafted him into. When the caller knows the position,
+  // honour it.
+  let partial = all.filter(
     (p) => p.key.includes(key) || key.includes(p.key)
   );
-  if (partial.length === 1) return partial[0];
-  if (partial.length > 1 && position) {
+  if (position) {
     const byPos = partial.filter((p) => p.position === position);
-    if (byPos.length === 1) return byPos[0];
+    // Only fall back to the unfiltered set if the position knocked everything
+    // out -- that means the feeds disagree about position, not about identity.
+    if (byPos.length) partial = byPos;
+    else partial = [];
+  }
+  if (partial.length === 1) return partial[0];
+  if (partial.length > 1 && team) {
+    const t = String(team).toUpperCase().trim();
+    const byTeam = partial.filter((p) => String(p.team || '').toUpperCase() === t);
+    if (byTeam.length === 1) return byTeam[0];
   }
 
   // ESPN abbreviates the first name in a roster panel -- "B. Robinson",

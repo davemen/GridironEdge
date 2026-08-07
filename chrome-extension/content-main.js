@@ -5,7 +5,7 @@
   // Version marker: lets a console check confirm whether Chrome is running the
   // current content script or a cached older one, which is the first thing to
   // rule out when a fix appears to have had no effect.
-  try { window.__GRIDIRON_EDGE_VERSION__ = '2026.08.06-roster'; } catch (e) {}
+  try { window.__GRIDIRON_EDGE_VERSION__ = '2026.08.07-debug'; } catch (e) {}
   console.log("[Gridiron Edge Sync] Main world script initialized (2026.08.05-bidfix).");
 
   let lastSyncKey = null;
@@ -607,6 +607,34 @@
           currentNomination: currentNom
         };
       }
+
+      // Keep the last payload reachable from the console. Every scraper bug so
+      // far has been diagnosed by guessing at ESPN's markup and shipping a fix
+      // blind; this makes what was actually parsed inspectable in one command.
+      try {
+        window.__GRIDIRON_EDGE_LAST__ = data;
+        window.__GRIDIRON_EDGE_DEBUG__ = function () {
+          const d = window.__GRIDIRON_EDGE_LAST__;
+          if (!d) { console.log('No payload captured yet.'); return; }
+          const picks = (d.draftDetail && d.draftDetail.picks) || [];
+          const mine = picks.filter(function (p) { return p.drafterTeamId === d.myTeamId; });
+          const orphan = picks.filter(function (p) { return p.drafterTeamId == null; });
+          console.log('%c GRIDIRON EDGE — what the scraper sees ',
+            'background:#00e5ff;color:#000;font-weight:bold');
+          console.log('source           :', d.isDOMScraped ? 'DOM scrape' : 'ESPN store');
+          console.log('league / my team :', d.leagueId, '/ id', d.myTeamId);
+          console.log('teams found      :', (d.teams || []).map(function (t) {
+            return t.teamId + ':' + t.teamName + ' ($' + t.faabRemaining + ')'; }).join('  '));
+          console.log('picks parsed     :', picks.length,
+                      '| mine:', mine.length, '| unattributed:', orphan.length);
+          console.table(picks.slice(-12).map(function (p) {
+            return { pick: p.overallPickNumber, player: p.playerName, pos: p.playerPosition,
+                     nfl: p.playerTeam, ownerId: p.drafterTeamId, bid: p.bidAmount };
+          }));
+          console.log('MY PICKS:', mine.map(function (p) { return p.playerName; }).join(', ') || '(none)');
+          return d;
+        };
+      } catch (e) { /* console access is best effort */ }
 
       const picksCount = data.draftDetail.picks.length;
       const nomName = currentNom ? currentNom.name : '';
