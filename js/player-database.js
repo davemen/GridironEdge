@@ -119,7 +119,7 @@ export function toPlayerDatabase(projections) {
  * about suffixes and punctuation often enough to matter. Returns null when
  * genuinely unknown, so callers can say so instead of inventing a projection.
  */
-export function findPlayer(db, name, position) {
+export function findPlayer(db, name, position, team) {
   if (!name) return null;
   const key = playerKey(name);
   const all = Object.values(db);
@@ -148,6 +148,32 @@ export function findPlayer(db, name, position) {
   if (partial.length > 1 && position) {
     const byPos = partial.filter((p) => p.position === position);
     if (byPos.length === 1) return byPos[0];
+  }
+
+  // ESPN abbreviates the first name in a roster panel -- "B. Robinson",
+  // "J. Allen", "P. Nacua". Neither an exact nor a substring match can reach
+  // "Bijan Robinson" from "b robinson", so a whole roster resolved to nothing
+  // and the page sat empty. Match the surname and the initial instead.
+  const parts = key.split(' ');
+  if (parts.length >= 2 && parts[0].length === 1) {
+    const initial = parts[0];
+    const surname = parts.slice(1).join(' ');
+    let hits = all.filter((p) => {
+      const pp = p.key.split(' ');
+      return pp.length >= 2 && pp[0][0] === initial && pp.slice(1).join(' ') === surname;
+    });
+    if (hits.length > 1 && position) hits = hits.filter((p) => p.position === position);
+    // Two players can genuinely share an initial, a surname and a position --
+    // Jonathan Taylor and J'Mari Taylor are both running backs. The NFL team
+    // separates them, and a draft row carries it.
+    if (hits.length > 1 && team) {
+      const t = String(team).toUpperCase().trim();
+      const byTeam = hits.filter((p) => String(p.team || '').toUpperCase() === t);
+      if (byTeam.length === 1) return byTeam[0];
+    }
+    if (hits.length === 1) return hits[0];
+    // Still ambiguous: guessing would attach the wrong projection to a roster
+    // slot, which is worse than reporting the player as unknown.
   }
   return null;
 }

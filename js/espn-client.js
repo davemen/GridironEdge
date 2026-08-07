@@ -210,7 +210,7 @@ class ESPNClient {
         // punctuation and naming differences that resolver exists to absorb --
         // "Texans D/ST" against "Houston Texans" among them -- were left to a
         // substring test that cannot bridge them.
-        let match = findPlayer(db, p.playerName, p.playerPosition);
+        let match = findPlayer(db, p.playerName, p.playerPosition, p.playerTeam);
 
         if (!match) {
           console.warn('[Gridiron Edge] Drafted player "' + p.playerName + '" ('
@@ -265,7 +265,7 @@ class ESPNClient {
       
       // Resolve against the real database first; it normalises the suffixes and
       // punctuation that ESPN and FantasyPros disagree about.
-      let match = findPlayer(db, nomName, nomPos);
+      let match = findPlayer(db, nomName, nomPos, nomTeam);
 
       if (!match) {
         console.warn('[Gridiron Edge] "' + nomName + '" is not in the projection set; '
