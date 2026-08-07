@@ -45,12 +45,34 @@ function broadcast(message) {
  * script checks this too; a service worker that trusts its callers is one
  * bypass away from writing whatever it is handed.
  */
+const MAX_PAYLOAD_BYTES = 5 * 1024 * 1024;
+const MAX_TEAMS = 32;
+const MAX_PICKS = 1000;
+
 function looksLikeAScrape(data) {
   if (!data || typeof data !== 'object' || Array.isArray(data)) return false;
   if (typeof data.leagueId !== 'string' && typeof data.leagueId !== 'number') return false;
   if (!Array.isArray(data.teams) || data.teams.length === 0) return false;
   const picks = data.draftDetail && data.draftDetail.picks;
-  return picks === undefined || Array.isArray(picks);
+  if (picks !== undefined && !Array.isArray(picks)) return false;
+
+  // Bounds, which this copy did not have and content-isolated.js did. A 9MB
+  // payload was accepted here and rejected there, and this path is reachable
+  // without passing through that one -- the content script messages the worker
+  // directly whenever it has extension APIs. chrome.storage.local holds 10MB
+  // and unlimitedStorage is not requested, so an oversized write exhausts the
+  // quota and displaces the real draft.
+  //
+  // The counts matter as much as the bytes: a forged sync can name as many
+  // teams and picks as it likes, and every one of them is rendered.
+  if (data.teams.length > MAX_TEAMS) return false;
+  if (picks && picks.length > MAX_PICKS) return false;
+  try {
+    if (JSON.stringify(data).length > MAX_PAYLOAD_BYTES) return false;
+  } catch (e) {
+    return false;   // circular or otherwise unserialisable
+  }
+  return true;
 }
 
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {

@@ -179,6 +179,41 @@ check('our own extension page may sync', JSON.stringify(store) !== beforeOwn,
   globalThis.chrome = realChrome;
 }
 
+console.log('\nthe worker refuses a payload that is too big to be a draft');
+{
+  // content-isolated.js capped payloads at 5MB; this copy of the same check
+  // did not, and the worker is reachable without passing through it -- the
+  // content script messages it directly whenever it has extension APIs. A 9MB
+  // payload was accepted here and rejected there. chrome.storage.local holds
+  // 10MB with no unlimitedStorage, so an oversized write displaces the draft.
+  const big = { leagueId: 'BIG', teams: [{ teamId: 1 }],
+                draftDetail: { picks: [] }, filler: 'x'.repeat(6 * 1024 * 1024) };
+  const beforeBig = JSON.stringify(store);
+  listeners.message.forEach((f) => f({ action: 'sync', data: big },
+    { origin: 'https://fantasy.espn.com' }, () => {}));
+  check('an oversized payload is refused', JSON.stringify(store) === beforeBig);
+
+  // Counts, not only bytes: a forged sync can name as many teams as it likes
+  // and every one of them is rendered.
+  const many = { leagueId: 'MANY',
+                 teams: Array.from({ length: 500 }, (_, i) => ({ teamId: i })),
+                 draftDetail: { picks: [] } };
+  const beforeMany = JSON.stringify(store);
+  listeners.message.forEach((f) => f({ action: 'sync', data: many },
+    { origin: 'https://fantasy.espn.com' }, () => {}));
+  check('an implausible number of teams is refused',
+    JSON.stringify(store) === beforeMany);
+
+  // ...and a real draft still gets through, or the cap would pass by refusing
+  // everything.
+  const ok = { leagueId: 'OK', teams: [{ teamId: 1, faabRemaining: 200 }],
+               draftDetail: { picks: [{ overallPickNumber: 1 }] } };
+  const beforeOk = JSON.stringify(store);
+  listeners.message.forEach((f) => f({ action: 'sync', data: ok },
+    { origin: 'https://fantasy.espn.com' }, () => {}));
+  check('an ordinary draft still stores', JSON.stringify(store) !== beforeOk);
+}
+
 console.log('\nthe popup only offers to scrape ESPN itself');
 {
   // `tab.url.includes('fantasy.espn.com')` accepted any URL that merely
