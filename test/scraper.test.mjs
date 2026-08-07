@@ -98,6 +98,50 @@ check('a skill player keeps his team and price',
 check('an injury tag does not break the name',
   Boolean(by('Mike Evans Q')));
 
+console.log('\nthe best row wins whatever order the DOM gives them');
+{
+  // The fixture above lists the full results row BEFORE the bare panel rows,
+  // so first-wins and best-wins pick the same row and the suite could not tell
+  // them apart -- reverting the dedupe to first-wins passed all 30 checks. The
+  // bug it guards against had the panel row first, which is the ordering here.
+  const PANEL_FIRST = [
+    'Broncos D/ST',
+    'Broncos D/ST\nDEN\nD/ST',
+    "30\nBroncos D/ST\nDEN\nD/ST\nMac's Marauders\n144\n130.7\n$1",
+    'Texans D/ST\nHOU\nD/ST',
+    "70\nTexans D/ST\nHOU\nD/ST\nMac's Marauders\n173\n128\n$1",
+    // A third priced row: findDraftSummaryContainer needs three dollar figures
+    // before it will accept a block as an auction results table, so that a lone
+    // budget label cannot pass for one.
+    "1\nJosh Allen\nBUF\nQB\nMac's Marauders\n120\n387.9\n$19",
+  ];
+  const panelFirst = {
+    innerText: 'PLAYER TEAM POS DRAFTED BY COST\n' + PANEL_FIRST.join('\n'),
+    children: PANEL_FIRST.map(mkEl),
+    querySelectorAll: () => PANEL_FIRST.map(mkEl),
+  };
+  globalThis.document.querySelectorAll = () => [panelFirst];
+  globalThis.document.querySelector = () => panelFirst;
+
+  const out = scrapeDraftDOM() || [];
+  const den = out.find((p) => p.playerName === 'Broncos');
+  const hou = out.find((p) => p.playerName === 'Texans');
+  check('the richer row wins even when the bare one came first',
+    Boolean(den) && den.drafterTeamName === "Mac's Marauders",
+    den && String(den.drafterTeamName));
+  check('and it keeps the real pick number',
+    Boolean(den) && den.overallPickNumber === 30, den && String(den.overallPickNumber));
+  check('the same holds for the second defense',
+    Boolean(hou) && hou.drafterTeamName === "Mac's Marauders"
+      && hou.overallPickNumber === 70,
+    hou && `${hou.drafterTeamName} @ ${hou.overallPickNumber}`);
+  check('neither is counted twice',
+    out.filter((p) => p.playerName === 'Broncos').length === 1);
+
+  globalThis.document.querySelectorAll = () => [container];
+  globalThis.document.querySelector = () => container;
+}
+
 console.log('\nan auction results table is found at all');
 {
   // The header above is a snake's ("Round 1 ... PROJ PTS"), which is the only

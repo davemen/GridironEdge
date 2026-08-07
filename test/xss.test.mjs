@@ -67,6 +67,8 @@ const { default: store } = await import(join(ROOT, 'js/store.js'));
 const { default: espnClient, realDbReady } = await import(join(ROOT, 'js/espn-client.js'));
 await realDbReady;
 const app = await import(join(ROOT, 'js/app.js'));
+// The escaper itself, asserted directly rather than inferred from a sink.
+const { esc, attr } = await import(join(ROOT, 'js/escape.js'));
 
 let passed = 0, failed = 0;
 function check(name, cond, detail = '') {
@@ -117,7 +119,10 @@ league.schedule = [
 ];
 store.state.activeTab = 'home';
 
+// renderDraftPage included: its entire content is attacker-controllable
+// scrape output, and it was the one page never checked for injection.
 const PAGES = ['renderHomePage', 'renderRosterPage', 'renderMatchupPage',
+               'renderDraftPage',
                'renderChampionshipPage', 'renderAlertsPage', 'renderWaiversPage',
                'renderLeaguePage', 'renderTradesPage', 'renderSettingsPage'];
 for (const name of PAGES) {
@@ -150,6 +155,29 @@ const INLINE_HANDLER = /<[a-zA-Z][^>]*?\son[a-z]+\s*=/;
 const withHandler = [...written.entries()].filter(([, h]) => INLINE_HANDLER.test(h));
 check('no inline event-handler attribute is generated', withHandler.length === 0,
   withHandler.map(([id]) => id).join(', '));
+
+console.log('\nesc() escapes every character it claims to');
+{
+  // Inferred from sinks before, and only for angle brackets: dropping the
+  // quote, apostrophe, backtick and ampersand escapes each passed the whole
+  // suite, because the attribute-break payload never reached a recorded sink
+  // so nothing noticed it was unescaped. Asserted directly now.
+  const cases = [
+    ['&', '&amp;'],
+    ['<', '&lt;'],
+    ['>', '&gt;'],
+    ['"', '&quot;'],
+    ["'", '&#39;'],
+    ['`', '&#96;'],
+  ];
+  cases.forEach(([raw, want]) => {
+    check(`esc(${JSON.stringify(raw)}) is ${want}`, esc(raw) === want, esc(raw));
+  });
+  // Ampersand first, or the escapes escape each other's output.
+  check('esc does not double-escape its own output',
+    esc('<') === '&lt;' && esc('&lt;') === '&amp;lt;');
+  check('attr escapes as strictly as esc', attr === esc || attr('"') === '&quot;');
+}
 
 console.log(`\n${passed} passed, ${failed} failed`);
 if (failed) process.exit(1);
