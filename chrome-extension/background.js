@@ -143,16 +143,22 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       sendResponse({ ok: false, reason: 'no-draft-tab' });
       return;
     }
-    chrome.tabs.sendMessage(draft.id, { action: 'sweepRosters' }, (res) => {
-      if (chrome.runtime.lastError) {
-        // The scraper is not in this tab: in Chrome it runs in the MAIN world
-        // and cannot receive messages, and there the React store makes the
-        // sweep unnecessary anyway.
-        sendResponse({ ok: false, reason: chrome.runtime.lastError.message });
-        return;
-      }
-      sendResponse(res || { ok: false, reason: 'no-response' });
-    });
+    // Fire and forget. Waiting for the content script's reply meant relying on
+    // an async sendResponse surviving `return true`, and in Safari it does not:
+    // the callback fired with no result and no lastError, so a sweep that was
+    // about to run reported "the draft room did not respond".
+    //
+    // Nothing needs that reply. The sweep's actual output travels the ordinary
+    // sync route -- the one visibly delivering picks already -- so the app
+    // learns it worked by the picks arriving, which is also the only proof
+    // worth having.
+    try {
+      chrome.tabs.sendMessage(draft.id, { action: 'sweepRosters' });
+    } catch (e) {
+      sendResponse({ ok: false, reason: e.message });
+      return;
+    }
+    sendResponse({ ok: true, started: true });
   });
   return true; // the response is asynchronous
 });

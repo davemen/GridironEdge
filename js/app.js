@@ -486,9 +486,20 @@ function renderCompetingLeagueBanner(league) {
  * another manager already owns is the visible symptom of a silent parse
  * failure, and it should not be the only symptom.
  */
+// A scan in flight, and what to say about it. The scan reports nothing back --
+// its result arrives as picks on the ordinary sync route -- so "did it work?"
+// is answered by the pick count moving, not by a reply.
+let sweepWatch = null;      // { startedAt, haveAtStart }
+let sweepMessage = '';
+
 export function renderMissingPicksBanner(league) {
   const expected = league.picksMadeOnEspn;
   const have = ((league.draftState || {}).selections || []).length;
+
+  if (sweepWatch && have > sweepWatch.haveAtStart) {
+    sweepMessage = `Scan added ${have - sweepWatch.haveAtStart} picks.`;
+    sweepWatch = null;
+  }
   let el = document.getElementById('missing-picks-banner');
   const missing = typeof expected === 'number' ? expected - have : 0;
   if (!(missing > 0)) { if (el) el.remove(); return; }
@@ -518,16 +529,25 @@ export function renderMissingPicksBanner(league) {
   btn.style.cssText = 'margin-left:0.75rem;padding:0.2rem 0.7rem;border-radius:4px;'
     + 'border:1px solid #fcd34d;background:transparent;color:#fff;font-weight:600;'
     + 'cursor:pointer;font-size:0.8rem;';
-  const say = (msg) => { const s = document.getElementById('missing-picks-scan-status');
-                         if (s) s.textContent = ' ' + msg; };
+  const say = (msg) => {
+    sweepMessage = msg;
+    const s = document.getElementById('missing-picks-scan-status');
+    if (s) s.textContent = ' ' + msg;
+  };
   btn.addEventListener('click', async () => {
     btn.disabled = true;
-    say('Scanning — the draft room will cycle through each team.');
+    say('Scanning — watch the draft room cycle through each team.');
     const res = await requestRosterSweep();
     btn.disabled = false;
     if (res && res.ok) {
-      say(`Read ${res.players} players across ${res.teams} teams. `
-        + 'This is a snapshot; picks made after it need another scan.');
+      // Started, not finished. The picks themselves are the completion signal.
+      sweepWatch = { startedAt: Date.now(), haveAtStart: have };
+      setTimeout(() => {
+        if (!sweepWatch) return;   // picks landed; a later render said so
+        sweepWatch = null;
+        say('The scan added no picks. If the draft room’s roster panel did not '
+          + 'cycle through the teams, its dropdown did not accept the change.');
+      }, 75000);
     } else {
       // Name the failure. "Could not scan" would cover a draft room that is not
       // open and a dropdown that could not be found, which need different
@@ -536,12 +556,9 @@ export function renderMissingPicksBanner(league) {
         'no-draft-tab': 'No ESPN draft room tab is open.',
         'no-team-dropdown': 'No team dropdown was found in the draft room.',
         'no-extension': 'The extension bridge is not available here.',
-        // Both mean the scraper is not running in that tab, which is what
-        // happens when the draft room was opened before the extension was
-        // installed or updated. Reloading the tab injects it.
+        // The scan no longer waits for a reply, so this should not occur. Kept
+        // because the message is still true if it somehow does.
         'no-response': 'The draft room tab has no scraper running — reload it.',
-        'scraper-did-not-answer':
-          'The draft room did not finish scanning — reload the ESPN tab and retry.',
       }[res && res.reason]
         || `The draft room did not respond (${(res && res.reason) || 'unknown'}).`);
     }
@@ -551,6 +568,10 @@ export function renderMissingPicksBanner(league) {
   const status = document.createElement('span');
   status.id = 'missing-picks-scan-status';
   status.style.cssText = 'font-weight:400;';
+  // Carried across the rebuild. The banner is recreated whenever the counts
+  // change -- which is exactly what a successful scan causes -- so a message
+  // held only in the old node would be destroyed by the event it describes.
+  status.textContent = sweepMessage ? ' ' + sweepMessage : '';
   el.appendChild(status);
 }
 

@@ -79,36 +79,26 @@
    * That surfaced as "the draft room did not respond".
    *
    * This half is the one with extension APIs, so the request lands here and
-   * crosses to the scraper the same way results already cross back: a
-   * postMessage on the shared window, origin-checked in both directions.
+   * crosses to the scraper by postMessage on the shared window.
+   *
+   * Nothing is sent back along this channel. Replying meant holding the
+   * message port open across an await with `return true`, and Safari does not
+   * keep it: the caller's callback fired with no result and no lastError, so a
+   * sweep that was about to run reported "the draft room did not respond".
+   *
+   * The sweep's result travels the ordinary sync route instead -- the same one
+   * carrying every pick -- so the app finds out it worked by the picks
+   * arriving. That is the only evidence worth reporting anyway: a success
+   * message from a scraper that then produced nothing would be worse than no
+   * message at all.
    */
-  const SWEEP_TIMEOUT_MS = 45000;
-
   if (chrome.runtime && chrome.runtime.onMessage) {
-    chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
+    chrome.runtime.onMessage.addListener((msg) => {
       if (!msg || msg.action !== 'sweepRosters') return false;
-
-      let settled = false;
-      const finish = (result) => {
-        if (settled) return;
-        settled = true;
-        window.removeEventListener('message', onResult);
-        sendResponse(result);
-      };
-      function onResult(event) {
-        if (event.source !== window) return;
-        if (event.origin !== TRUSTED_ORIGIN) return;
-        if (!event.data || event.data.type !== 'GRIDIRON_EDGE_SWEEP_RESULT') return;
-        finish(event.data.result);
-      }
-      window.addEventListener('message', onResult);
       window.postMessage({ type: 'GRIDIRON_EDGE_SWEEP_REQUEST' }, TRUSTED_ORIGIN);
-
-      // A sweep waits on a re-render per team, so it needs real time -- but it
-      // must not leave the button spinning forever if the scraper is not there.
-      setTimeout(() => finish({ ok: false, reason: 'scraper-did-not-answer' }),
-        SWEEP_TIMEOUT_MS);
-      return true; // the response is asynchronous
+      // No reply, deliberately -- see below. `false` closes the channel now
+      // rather than leaving the sender waiting on one that will never answer.
+      return false;
     });
   }
 
