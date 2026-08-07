@@ -5,7 +5,8 @@
 
 import store from './store.js';
 import { mockPlayers, mockLeague } from './mock-data.js';
-import { loadProjections, toPlayerDatabase, findPlayer, playerKey } from './player-database.js';
+import { loadProjections, toPlayerDatabase, findPlayer, playerKey, noteInsert }
+  from './player-database.js';
 import { proTeamAbbrev } from './nfl-teams.js';
 import { isSafeKey } from './store.js';
 import { DEFAULT_ROSTER_SETTINGS, startersCount } from './engine/lineup-rules.js';
@@ -349,7 +350,7 @@ class ESPNClient {
           // know nothing about, which then flowed into every ceiling and every
           // roster ranking as though it were measured.
           match = unresolvedPlayer(p.playerName, p.playerPosition, p.playerTeam);
-          if (isSafeKey(match.id)) db[match.id] = match;
+          if (isSafeKey(match.id)) { db[match.id] = match; noteInsert(db); }
         }
 
         if (match) {
@@ -399,7 +400,10 @@ class ESPNClient {
     if (espnData.currentNomination) {
       // One resolver for both mappers -- see resolveNomination above.
       const match = resolveNomination(db, espnData.currentNomination);
-      if (match && match.isUnknownPlayer && isSafeKey(match.id)) db[match.id] = match;
+      if (match && match.isUnknownPlayer && isSafeKey(match.id)) {
+        db[match.id] = match;
+        noteInsert(db);
+      }
       currentNomination = match ? match.name : null;
       currentNominationId = match ? String(match.id) : null;
       // Carry the live bid alongside the name so the advisor can price against

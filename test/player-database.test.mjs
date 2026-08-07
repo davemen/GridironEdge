@@ -12,7 +12,7 @@
 import { readFileSync } from 'fs';
 import { fileURLToPath } from 'url';
 import { join } from 'path';
-import { toPlayerDatabase, findPlayer, playerKey } from '../js/player-database.js';
+import { toPlayerDatabase, findPlayer, playerKey, noteInsert } from '../js/player-database.js';
 
 const ROOT = join(fileURLToPath(new URL('.', import.meta.url)), '..');
 const proj = JSON.parse(readFileSync(join(ROOT, 'data/projections-2026.json'), 'utf8'));
@@ -152,6 +152,40 @@ console.log('\nunknown players stay unknown');
 {
   check('a made-up name resolves to nothing', hit('Zxqv Notaplayer', 'RB') === null);
   check('an empty name resolves to nothing', hit('', 'RB') === null);
+}
+
+console.log('\nthe index knows when it is stale, without walking every key');
+{
+  // The validity check was `cached.size === Object.keys(db).length`, and
+  // Object.keys allocates an array of every key on every lookup: 89% of
+  // findPlayer's cost was that one comparison. It is a counter now, so the two
+  // ways the index can go stale still have to be caught.
+  const someone = Object.values(db)[0];
+  check('an ordinary lookup resolves', Boolean(findPlayer(db, someone.name)));
+
+  // A caller spreading the database drops the non-enumerable index entirely.
+  const clone = { ...db };
+  check('a spread copy still resolves', Boolean(findPlayer(clone, someone.name)));
+
+  // A record inserted after the index was built must be findable. This is not
+  // hypothetical: the mapper adds a placeholder for every name it could not
+  // resolve, on every sync.
+  const added = { id: 'MOCK_zz_test', key: 'zz test', name: 'Zz Test',
+                  position: 'RB', team: 'FA', projectedPoints: 4.5 };
+  clone[added.id] = added;
+  noteInsert(clone);
+  check('a record added after indexing is found',
+    Boolean(findPlayer(clone, 'Zz Test')),
+    'the index served a stale answer for a player that is present');
+  check('and the rest still resolve', Boolean(findPlayer(clone, someone.name)));
+
+  // Two in a row, because a counter that only ever notices the first would
+  // pass the check above.
+  const second = { id: 'MOCK_yy_test', key: 'yy test', name: 'Yy Test',
+                   position: 'WR', team: 'FA', projectedPoints: 4.5 };
+  clone[second.id] = second;
+  noteInsert(clone);
+  check('and so is a second one', Boolean(findPlayer(clone, 'Yy Test')));
 }
 
 console.log(`\n${passed} passed, ${failed} failed`);

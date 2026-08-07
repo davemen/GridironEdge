@@ -1744,6 +1744,21 @@ function renderAuctionBoard(league, db, rec) {
 
   const initial = recommendBid(league, nominated, scrapedBid ?? 0);
 
+  // What the user has typed, before this whole subtree is replaced.
+  //
+  // The panel is rebuilt by innerHTML on every sync -- up to eight a second in
+  // a live auction -- which destroys and recreates #auction-current-bid. Any
+  // override typed into it reverted to the scraped figure on the next tick,
+  // measured: a typed "37" became "4" with the scrape state unchanged. The
+  // winner-price input two rows down has been guarded against exactly this
+  // since it was written; the bid input was not, and it is the one the whole
+  // panel is about.
+  const liveBid = document.getElementById('auction-current-bid');
+  const typing = liveBid && document.activeElement === liveBid;
+  const typedBid = typing ? liveBid.value : null;
+  const caret = typing && typeof liveBid.selectionStart === 'number'
+    ? [liveBid.selectionStart, liveBid.selectionEnd] : null;
+
   recPanel.innerHTML = `
     <div style="background:linear-gradient(135deg,#0f172a,#1e293b); padding:1.25rem;
                 border-radius:8px; border:2px solid ${initial.mustBuy ? '#f59e0b' : 'var(--accent-cyan)'};
@@ -1798,6 +1813,19 @@ function renderAuctionBoard(league, db, rec) {
 
   const bidInput = document.getElementById('auction-current-bid');
   bidInput.oninput = () => draw(Math.max(0, parseInt(bidInput.value, 10) || 0));
+
+  // Put the user back where they were. Restoring the value alone still moves
+  // the caret to the end, which mangles an edit in the middle of a number.
+  if (typedBid !== null) {
+    bidInput.value = typedBid;
+    if (bidInput.focus) bidInput.focus();
+    if (caret && bidInput.setSelectionRange) {
+      try { bidInput.setSelectionRange(caret[0], caret[1]); } catch (e) {
+        // Some inputs refuse a selection range; the value is what matters.
+      }
+    }
+    draw(Math.max(0, parseInt(typedBid, 10) || 0));
+  }
 
   document.getElementById('btn-nom-record-win').onclick = () => {
     const teamId = parseInt(document.getElementById('nom-winner-team').value, 10);

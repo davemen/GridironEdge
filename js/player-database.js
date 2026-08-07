@@ -167,7 +167,8 @@ export function buildIndex(db) {
     // two numbers disagree forever, so the index rebuilt on every single lookup
     // -- measured at 51ms per 190 lookups against 0.2ms indexed, and worse than
     // the full scan it replaced.
-    value: { players, byKey, byPosition, bySurname, size: all.length },
+    value: { players, byKey, byPosition, bySurname, size: all.length,
+             inserts: db[INSERTS] || 0 },
     enumerable: false, configurable: true, writable: true,
   });
   return db;
@@ -175,15 +176,50 @@ export function buildIndex(db) {
 
 const INDEX = Symbol.for('gridironEdge.index');
 
-/** The index if one was built, otherwise derived on the spot. */
+/**
+ * The index if one was built and still describes this database, otherwise a
+ * fresh one.
+ *
+ * The validity check used to be `cached.size === Object.keys(db).length`, and
+ * Object.keys allocates an array of every key on every call: 192 lookups cost
+ * 3.84ms, of which 3.40ms -- 89% -- was that one comparison, against 0.06ms
+ * for the lookups themselves. A CPU profile of the live sync loop put 8.3% of
+ * every tick in here.
+ *
+ * A counter is enough, and it is cheaper than what it replaces. The two ways
+ * the index goes stale are both writes: a caller spreads the database
+ * ({ ...db, EXTRA }), which drops the non-enumerable index entirely and is
+ * therefore self-announcing, or a mapper inserts a record afterwards, which
+ * `noteInsert` records. Neither needs the key list walked to be noticed.
+ */
 function indexOf(db) {
   const cached = db[INDEX];
-  // A caller can spread the database ({ ...db, EXTRA }), which drops the
-  // non-enumerable index, and a mapper can add a record after it was built.
-  // Compare against the total size, not the keyed size.
-  if (cached && cached.size === Object.keys(db).length) return cached;
+  if (cached && cached.inserts === (db[INSERTS] || 0)) return cached;
   buildIndex(db);
   return db[INDEX];
+}
+
+const INSERTS = Symbol.for('gridironEdge.inserts');
+
+/**
+ * Tell the index a record was added after it was built.
+ *
+ * Call this beside any `db[id] = ...` on a database that findPlayer will later
+ * be asked about. Forgetting it means a lookup can miss a record that is
+ * present -- which is why the mappers call it at every insertion site rather
+ * than relying on a size check to notice for them.
+ */
+export function noteInsert(db) {
+  if (!db || typeof db !== 'object') return;
+  try {
+    Object.defineProperty(db, INSERTS, {
+      value: (db[INSERTS] || 0) + 1,
+      enumerable: false, configurable: true, writable: true,
+    });
+  } catch (e) {
+    // A frozen database cannot have been written to either, so there is
+    // nothing for the index to miss.
+  }
 }
 
 /**

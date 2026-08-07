@@ -51,6 +51,13 @@ function makeEl(id) {
       written.set(id, String(v));
       this._text = String(v).replace(/<[^>]*>/g, '');
       this.children.length = 0;
+      // Writing innerHTML REPLACES the elements inside, as it does in a
+      // browser: an input in that markup is a new node with the value the
+      // markup gives it, not the node the user was typing in. Without this the
+      // stub kept handing back the same object with the same `.value`, so
+      // "the typed bid survived the re-render" passed whether or not anything
+      // preserved it -- the exact shape of a test passing for the wrong reason.
+      replaceInputs(String(v));
     },
     get textContent() { return this._text || ''; },
     set textContent(v) {
@@ -73,7 +80,10 @@ function makeEl(id) {
     insertBefore() {}, insertAdjacentHTML() {},
     setAttribute() {}, getAttribute() { return null; },
     querySelector: () => makeEl(id + ':child'), querySelectorAll: () => [],
-    closest: () => null, focus() {},
+    closest: () => null,
+    focus() { globalThis.document.activeElement = this; },
+    setSelectionRange(a, b) { this.selectionStart = a; this.selectionEnd = b; },
+    selectionStart: 0, selectionEnd: 0,
   };
   el.parentElement = { parentElement: { appendChild() {} }, appendChild() {} };
   return el;
@@ -83,6 +93,31 @@ const getEl = (id) => {
   if (!elCache.has(id)) elCache.set(id, makeEl(id));
   return elCache.get(id);
 };
+
+/**
+ * Re-create every element the freshly written markup declares.
+ *
+ * Only ids that are already known are touched, so this models replacement
+ * rather than pretending to be a parser.
+ */
+function replaceInputs(html) {
+  const tag = /<(input|select|textarea)\b[^>]*\bid="([^"]+)"[^>]*>/g;
+  let m;
+  while ((m = tag.exec(html)) !== null) {
+    const [whole, , elId] = m;
+    if (!elCache.has(elId)) continue;
+    const fresh = makeEl(elId);
+    const val = /\bvalue="([^"]*)"/.exec(whole);
+    fresh.value = val ? val[1] : '';
+    elCache.set(elId, fresh);
+    if (globalThis.document && globalThis.document.activeElement
+        && globalThis.document.activeElement.id === elId) {
+      // The node it pointed at no longer exists. A browser moves focus to the
+      // body; what matters here is that it is no longer this input.
+      globalThis.document.activeElement = null;
+    }
+  }
+}
 globalThis.document = {
   body: makeEl('body'), documentElement: makeEl('html'),
   getElementById: (id) => getEl(id),
@@ -196,6 +231,35 @@ for (const scenario of [
     `got ${moves.length} chars`);
   const champ = written.get('dashboard-champ-prob') || '';
   check('Championship Outlook has a figure', /\d/.test(champ), `got "${champ}"`);
+}
+
+console.log('\na bid being typed survives the next sync');
+{
+  // The recommendation panel is rebuilt by innerHTML on every sync -- up to
+  // eight a second in a live auction -- which destroys and recreates the bid
+  // input. A typed override reverted to the scraped figure on the next tick.
+  const auction = buildLeague({ picks: 12, draftType: 'auction' });
+  auction.draftState.currentNomination = 'Josh Allen';
+  auction.draftState.currentNominationBid = 4;
+  load(auction);
+  app.renderDraftPage(auction);
+
+  const bid = getEl('auction-current-bid');
+  bid.value = '37';
+  bid.focus();
+  check('the user is typing in the bid box', document.activeElement === bid);
+
+  app.renderDraftPage(auction);
+  check('the typed bid survives a re-render', getEl('auction-current-bid').value === '37',
+    `became "${getEl('auction-current-bid').value}" -- the scraped figure won`);
+
+  // And when nobody is typing, the scrape is still allowed to update it.
+  document.activeElement = null;
+  auction.draftState.currentNominationBid = 9;
+  app.renderDraftPage(auction);
+  check('and the scrape still updates it when nobody is typing',
+    getEl('auction-current-bid').value !== '37',
+    'the box is now stuck on a stale value instead');
 }
 
 console.log('\nthe board of who is left renders in both draft types');
