@@ -3,7 +3,7 @@
  */
 
 import store from './store.js';
-import { listenForDrafts, describeSource, readLatest } from './bridge.js';
+import { listenForDrafts, describeSource, readLatest, requestRosterSweep } from './bridge.js';
 import { esc, attr, num, int } from './escape.js';
 import { findPlayer, playerKey, draftedNameKey } from './player-database.js';
 import espnClient, { realDbReady } from './espn-client.js';
@@ -1680,6 +1680,80 @@ function renderOwnerPrompt(league, mount, current = null) {
   mount.appendChild(box);
 }
 
+/**
+ * "Scan all rosters", shown only when the board is actually incomplete.
+ *
+ * An auction room renders one roster at a time, so the app can otherwise see
+ * only the team whose panel is open. The scan steps the room's own dropdown
+ * through the league to read the rest. It writes to the page being drafted in,
+ * which is why it is a button and not a timer, and why the wording says what
+ * it will do before it does it.
+ */
+function renderSweepControl(league, mount) {
+  if (!mount) return;
+  const existing = document.getElementById('roster-sweep-control');
+  if (existing) existing.remove();
+
+  // `selections`, the same field renderMissingPicksBanner counts. Reading
+  // `picks` here instead would have been permanently zero, so the control
+  // would have offered itself even with a complete board.
+  const picks = ((league.draftState || {}).selections) || [];
+  const madeOnEspn = league.picksMadeOnEspn;
+  // Only worth offering when we can see that we are missing something. If the
+  // room never told us how many picks it has made, saying "some may be
+  // missing" would be a guess dressed up as a warning.
+  if (typeof madeOnEspn !== 'number' || picks.length >= madeOnEspn) return;
+
+  const box = document.createElement('div');
+  box.id = 'roster-sweep-control';
+  box.className = 'empty-state';
+
+  const h = document.createElement('h3');
+  h.textContent = 'The other teams’ picks are not on this page';
+  box.appendChild(h);
+
+  const p = document.createElement('p');
+  p.textContent = `ESPN has made ${madeOnEspn} picks and ${picks.length} are `
+    + 'readable. An auction draft room shows one team’s roster at a time, so '
+    + 'the rest are not missing from the parser — they are absent from the '
+    + 'page. Scanning steps the room’s team dropdown through the league to '
+    + 'read each roster, then puts it back where it was. It changes what the '
+    + 'draft room is showing for a few seconds.';
+  box.appendChild(p);
+
+  const btn = document.createElement('button');
+  btn.className = 'btn-primary';
+  btn.textContent = 'Scan all rosters';
+  const status = document.createElement('p');
+  status.style.marginTop = '0.5rem';
+
+  btn.addEventListener('click', async () => {
+    btn.disabled = true;
+    status.textContent = 'Scanning… the draft room will cycle through each team.';
+    const res = await requestRosterSweep();
+    btn.disabled = false;
+    if (res && res.ok) {
+      status.textContent = `Read ${res.players} players across ${res.teams} teams. `
+        + 'This is a snapshot — picks made after it will not appear until '
+        + 'you scan again.';
+    } else {
+      // Say which failure it was. "Could not scan" covers a draft room that is
+      // not open and a dropdown that could not be found, and those need
+      // different things from the user.
+      const why = {
+        'no-draft-tab': 'No ESPN draft room tab is open.',
+        'no-team-dropdown': 'No team dropdown was found in the draft room.',
+        'no-extension': 'The extension bridge is not available on this page.',
+      }[res && res.reason] || `The draft room did not respond (${(res && res.reason) || 'unknown'}).`;
+      status.textContent = why;
+    }
+  });
+
+  box.appendChild(btn);
+  box.appendChild(status);
+  mount.appendChild(box);
+}
+
 // Render Team Roster View
 export function renderRosterPage(league = store.getActiveLeague()) {
   const myTeam = store.getMyTeam();
@@ -1707,8 +1781,10 @@ export function renderRosterPage(league = store.getActiveLeague()) {
   if (guessed && emptyRoster) {
     if (rosterGridEl) rosterGridEl.innerHTML = '';
     renderOwnerPrompt(league, rosterGridEl, myTeam);
+    renderSweepControl(league, rosterGridEl);
     return;
   }
+  renderSweepControl(league, document.getElementById('roster-health-analysis'));
 
   const db = league.playerDatabase;
   const rosterGrid = rosterGridEl;

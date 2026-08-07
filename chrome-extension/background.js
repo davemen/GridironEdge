@@ -118,6 +118,45 @@ chrome.runtime.onMessage.addListener((message, sender) => {
   return false;
 });
 
+/**
+ * Forward a "scan all rosters" request from the app page to the draft room.
+ *
+ * The app page cannot talk to a content script directly, and the content
+ * script is the only thing that can drive the roster dropdown. This is the
+ * only inbound route, and it is deliberately narrow: one action, only from our
+ * own page, only to a fantasy.espn.com draft tab.
+ */
+chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+  if (!message || message.action !== 'sweepRosters') return false;
+
+  const ownOrigin = chrome.runtime.getURL('').replace(/\/$/, '');
+  const origin = (sender && sender.origin)
+    || (sender && sender.url ? new URL(sender.url).origin : '');
+  if (origin !== ownOrigin) {
+    console.warn('[Gridiron Edge] Refused a sweep request from', origin || 'an unknown sender');
+    return false;
+  }
+
+  chrome.tabs.query({ url: 'https://fantasy.espn.com/*' }, (tabs) => {
+    const draft = (tabs || []).find((t) => t.url && /\/draft/.test(t.url));
+    if (!draft) {
+      sendResponse({ ok: false, reason: 'no-draft-tab' });
+      return;
+    }
+    chrome.tabs.sendMessage(draft.id, { action: 'sweepRosters' }, (res) => {
+      if (chrome.runtime.lastError) {
+        // The scraper is not in this tab: in Chrome it runs in the MAIN world
+        // and cannot receive messages, and there the React store makes the
+        // sweep unnecessary anyway.
+        sendResponse({ ok: false, reason: chrome.runtime.lastError.message });
+        return;
+      }
+      sendResponse(res || { ok: false, reason: 'no-response' });
+    });
+  });
+  return true; // the response is asynchronous
+});
+
 chrome.tabs.onUpdated.addListener((tabId, info, tab) => {
   if (info.status !== 'complete') return;
   if (!tab.url || !tab.url.startsWith('https://fantasy.espn.com/')) return;

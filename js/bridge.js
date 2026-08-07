@@ -162,6 +162,35 @@ export function connectPort(onDraft) {
  * and a fallback if the worker was asleep). The same draft arriving twice is
  * harmless — the import is keyed on content — and missing one is not.
  */
+/**
+ * Ask the draft room to read every team's roster.
+ *
+ * An auction renders one roster at a time, so the only way to see the whole
+ * board is to step the room's own dropdown through the league. That writes to
+ * the page the user is drafting in, so it never happens on a timer -- this is
+ * the explicit request, and it is the user who makes it.
+ *
+ * Resolves to { ok, teams, players } or { ok: false, reason }.
+ */
+export function requestRosterSweep() {
+  if (!hasExtensionBridge() || !chrome.runtime.sendMessage) {
+    return Promise.resolve({ ok: false, reason: 'no-extension' });
+  }
+  return new Promise((resolve) => {
+    try {
+      chrome.runtime.sendMessage({ action: 'sweepRosters' }, (res) => {
+        if (chrome.runtime.lastError) {
+          resolve({ ok: false, reason: chrome.runtime.lastError.message });
+          return;
+        }
+        resolve(res || { ok: false, reason: 'no-response' });
+      });
+    } catch (e) {
+      resolve({ ok: false, reason: e.message });
+    }
+  });
+}
+
 export function listenForDrafts(onDraft) {
   if (!hasExtensionBridge()) return pollHttp(onDraft);
   const stopPort = connectPort(onDraft);

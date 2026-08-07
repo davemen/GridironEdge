@@ -13,6 +13,13 @@
 
   let lastSyncKey = null;
 
+  // The result of the last "scan all rosters" sweep, and when it was taken.
+  // A snapshot, not a feed: it is correct as of sweptAt and goes stale with
+  // every pick after it, so the app is told the time rather than left to
+  // assume the board is current.
+  let sweptRosters = null;
+  let sweptAt = 0;
+
   function findCurrentNomination() {
     try {
       const card = document.querySelector('.pickArea [data-testid="player-selected"], .pickArea .player-selected, .pickArea');
@@ -675,6 +682,95 @@
     return [];
   }
 
+  /** The roster panel's team dropdown as an element, or null. */
+  function findTeamSelectEl(teams) {
+    if (!Array.isArray(teams) || teams.length < 2) return null;
+    const known = teams
+      .map((t) => String(t.teamName || '').trim().toLowerCase())
+      .filter(Boolean);
+    if (known.length < 2) return null;
+    try {
+      const selects = document.querySelectorAll('select');
+      for (const sel of selects) {
+        if (!sel || !sel.options || sel.options.length < 2) continue;
+        const opts = Array.prototype.map.call(sel.options,
+          (o) => String(o.text || '').trim());
+        const hits = opts.filter((o) => known.indexOf(o.toLowerCase()) !== -1);
+        if (hits.length >= 2 && hits.length >= Math.ceil(opts.length * 0.6)) return sel;
+      }
+    } catch (e) {
+      console.debug('[Gridiron Edge] read failed:', e && e.message);
+    }
+    return null;
+  }
+
+  /**
+   * Read every team's roster by stepping the dropdown through the league.
+   *
+   * An auction renders one roster at a time, so this is the only way to see
+   * the whole board without the Draft Summary tab. It is deliberately NOT part
+   * of the automatic scrape: it writes to the page you are drafting in, and
+   * doing that every few seconds would flicker the roster panel through eight
+   * teams continuously while you are trying to bid. It runs only when asked.
+   *
+   * The selection is restored in a finally block. Leaving somebody else's
+   * roster on screen mid-auction is worse than not running at all -- you would
+   * be reading the wrong team's needs while the clock is going.
+   *
+   * The <select> is React-controlled, so assigning .value is ignored: React
+   * tracks the previous value on the node and skips the change. The native
+   * setter has to be called directly before the event is dispatched.
+   */
+  async function sweepAllRosters(teams) {
+    const sel = findTeamSelectEl(teams);
+    if (!sel) return { ok: false, reason: 'no-team-dropdown' };
+
+    const proto = (typeof window !== 'undefined' && window.HTMLSelectElement)
+      ? window.HTMLSelectElement.prototype : null;
+    const desc = proto && Object.getOwnPropertyDescriptor(proto, 'value');
+    const nativeSet = desc && desc.set;
+
+    const originalIndex = sel.selectedIndex;
+    const signature = () => JSON.stringify(scrapeRosterPanel());
+    const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+    const byTeam = [];
+
+    try {
+      for (let i = 0; i < sel.options.length; i++) {
+        const name = String(sel.options[i].text || '').trim();
+        if (!name) continue;
+        const before = signature();
+
+        if (nativeSet) nativeSet.call(sel, sel.options[i].value);
+        else sel.selectedIndex = i;
+        sel.dispatchEvent(new Event('input', { bubbles: true }));
+        sel.dispatchEvent(new Event('change', { bubbles: true }));
+
+        // Wait for the panel to actually repaint. Two teams can legitimately
+        // hold identical rosters (both empty early on), so a signature that
+        // never changes is not an error -- hence the cap rather than a throw.
+        const deadline = Date.now() + 900;
+        let after = before;
+        do {
+          await sleep(60);
+          after = signature();
+        } while (after === before && Date.now() < deadline);
+
+        byTeam.push({ teamName: name, roster: JSON.parse(after) });
+      }
+    } finally {
+      if (nativeSet && sel.options[originalIndex]) {
+        nativeSet.call(sel, sel.options[originalIndex].value);
+      } else {
+        sel.selectedIndex = originalIndex;
+      }
+      sel.dispatchEvent(new Event('input', { bubbles: true }));
+      sel.dispatchEvent(new Event('change', { bubbles: true }));
+    }
+
+    return { ok: true, byTeam };
+  }
+
   function findTeamSelectName(teams) {
     if (!Array.isArray(teams) || teams.length < 2) return null;
     const known = teams
@@ -976,7 +1072,29 @@
         // results table covers every team and this covers one, and merging them
         // would double-count the overlap.
         let rosterPicks = [];
-        if (!finalPicks.length && rosterPanel.length && resolvedTeamId !== null) {
+        // A completed sweep covers every team, so it supersedes the single
+        // panel. The panel is still read for whichever team is selected now,
+        // because that one is live and the swept copy is a snapshot.
+        if (!finalPicks.length && sweptRosters && sweptRosters.length) {
+          const bySweptName = {};
+          sweptRosters.forEach((s) => { bySweptName[s.teamName] = s.roster; });
+          if (resolvedTeamId !== null) {
+            const mine = teams.find((t) => t.teamId === resolvedTeamId);
+            if (mine && rosterPanel.length) bySweptName[mine.teamName] = rosterPanel;
+          }
+          teams.forEach((t) => {
+            (bySweptName[t.teamName] || []).forEach((r) => {
+              rosterPicks.push({
+                overallPickNumber: null,
+                playerName: r.playerName,
+                playerPosition: null,
+                playerTeam: null,
+                drafterTeamId: t.teamId,
+                bidAmount: r.bidAmount,
+              });
+            });
+          });
+        } else if (!finalPicks.length && rosterPanel.length && resolvedTeamId !== null) {
           rosterPicks = rosterPanel.map((r) => ({
             // The room shows no pick number for a roster entry, and inventing a
             // sequence would put these in a draft order that never happened.
@@ -1005,9 +1123,11 @@
           // so the app must not present it as the state of the draft: the other
           // teams' picks are unknown, not absent. Those are different facts and
           // the interface has to be able to tell them apart.
-          coverage: (!finalPicks.length && rosterPicks.length)
-            ? { kind: 'own-roster-only', knownTeamId: resolvedTeamId }
-            : { kind: 'full-board' },
+          coverage: finalPicks.length
+            ? { kind: 'full-board' }
+            : (sweptRosters && sweptRosters.length
+              ? { kind: 'swept-rosters', sweptAt: sweptAt }
+              : { kind: 'own-roster-only', knownTeamId: resolvedTeamId }),
           currentNomination: currentNom
         };
       }
@@ -1140,6 +1260,44 @@
       } catch (e) {
         console.error('[Gridiron Edge] Sync failed:', e);
       }
+    });
+  }
+
+  /**
+   * "Scan all rosters", on request only.
+   *
+   * Never automatic. The sweep writes to the page you are drafting in, and
+   * running it on every update would flicker the roster panel through eight
+   * teams continuously while the bid clock is going.
+   *
+   * Only reachable where the script has extension APIs -- the isolated world,
+   * which is where Safari runs it and where the worker injects it as a
+   * fallback. In Chrome's MAIN world the React store is readable directly, so
+   * there is nothing here worth sweeping for.
+   */
+  if (typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.onMessage) {
+    chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
+      if (!msg || msg.action !== 'sweepRosters') return false;
+      const names = findLeagueTeamNames();
+      if (!names.length) {
+        sendResponse({ ok: false, reason: 'no-team-dropdown' });
+        return false;
+      }
+      const provisional = names.map((n, i) => ({ teamId: i + 1, teamName: n }));
+      sweepAllRosters(provisional).then((res) => {
+        if (!res.ok) { sendResponse(res); return; }
+        sweptRosters = res.byTeam;
+        sweptAt = Date.now();
+        const found = res.byTeam.reduce((n, t) => n + t.roster.length, 0);
+        // Push the result out through the ordinary path, so the payload is
+        // built the same way as any other update rather than by a second
+        // assembler that could disagree with it.
+        forceNext = true;
+        lastSyncKey = null;
+        runSoon();
+        sendResponse({ ok: true, teams: res.byTeam.length, players: found });
+      }).catch((e) => sendResponse({ ok: false, reason: e && e.message }));
+      return true; // the response is asynchronous
     });
   }
 
