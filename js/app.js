@@ -51,13 +51,21 @@ async function checkLocalSyncFile() {
       const data = await response.json();
       
       const picksCount = data.draftDetail?.picks?.length || 0;
-      const currentNom = data.currentNomination ? (typeof data.currentNomination === 'object' ? data.currentNomination.name : data.currentNomination) : '';
-      const stateKey = `${picksCount}_${currentNom}`;
+      const nomObj = typeof data.currentNomination === 'object' ? data.currentNomination : null;
+      const currentNom = nomObj ? nomObj.name : (data.currentNomination || '');
+      // The bid and every team's budget belong in this key. Keying on picks and
+      // player name alone means "same player, higher bid" looks identical, so
+      // the page stopped re-importing for the whole duration of the bidding --
+      // which is exactly when the advice needs to move. Same mistake the
+      // extension's sync loop had.
+      const nomBid = nomObj && nomObj.bid != null ? nomObj.bid : '';
+      const budgets = (data.teams || []).map((t) => t.faabRemaining).join(',');
+      const stateKey = `${picksCount}_${currentNom}_${nomBid}_${budgets}`;
 
       if (lastSyncFileTimestamp !== stateKey) {
         lastSyncFileTimestamp = stateKey;
-        console.log('Local sync file changed, importing league:', data.id);
-        const mapped = espnClient.importScrapedPayload(data);
+        console.log('Draft state changed, importing:', data.leagueName || data.leagueId);
+        const mapped = await espnClient.importScrapedPayload(data);
         
         // Automatically re-render if the user is on the Live Draft page
         const activeTabEl = document.querySelector('.nav-item.active');
@@ -335,7 +343,7 @@ function setupModals() {
   btnClosePaste.addEventListener('click', closePasteModal);
   btnCancelPaste.addEventListener('click', closePasteModal);
 
-  btnSubmitPaste.addEventListener('click', () => {
+  btnSubmitPaste.addEventListener('click', async () => {
     const jsonText = pasteTextArea.value.trim();
     if (!jsonText) {
       alert('Please paste valid JSON payload.');
@@ -343,7 +351,10 @@ function setupModals() {
     }
     try {
       showLoading('Importing JSON league structure...');
-      espnClient.importScrapedPayload(jsonText);
+      // Awaited: the import now waits for real projections, so without this the
+      // spinner would clear early and a failure would escape this try/catch as
+      // an unhandled rejection.
+      await espnClient.importScrapedPayload(jsonText);
       hideLoading();
       closePasteModal();
       modalBookmarklet.style.opacity = 0;

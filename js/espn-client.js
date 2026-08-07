@@ -56,7 +56,11 @@ class ESPNClient {
   /**
    * Import data scraped from the active browser session via bookmarklet.
    */
-  importScrapedPayload(jsonPayload) {
+  async importScrapedPayload(jsonPayload) {
+    // Projections load asynchronously while syncs arrive every two seconds, so
+    // the first import can otherwise land on mock data and persist made-up
+    // valuations into the store.
+    await realDbReady;
     try {
       const parsed = typeof jsonPayload === 'string' ? JSON.parse(jsonPayload) : jsonPayload;
       if (!parsed.isDOMScraped && (!parsed.teams || !parsed.settings)) {
