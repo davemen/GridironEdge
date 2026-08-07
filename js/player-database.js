@@ -144,15 +144,25 @@ export function findPlayer(db, name, position, team, bid) {
   if (position === 'D/ST' || DST_TAG.test(key)) {
     const nick = key.replace(DST_TAG_ALL, ' ').replace(/\s+/g, ' ').trim();
     if (nick) {
-      // "Houston Texans" can arrive as the nickname, the city, or both, so
-      // compare on any word rather than only the last one.
-      const words = new Set(nick.split(' ').filter(Boolean));
-      const hit = all.filter((p) => {
+      // "Houston Texans" can arrive as the nickname, the city, or both. Matching
+      // on ANY shared word looks like it handles that but does not: "new
+      // england" then collides with New Orleans and both New York clubs on the
+      // word "new", and resolves to nothing. Every word has to be accounted for.
+      const words = nick.split(' ').filter(Boolean);
+      const covers = (a, b) => a.length && a.every((w) => b.includes(w));
+      let hit = all.filter((p) => {
         if (p.position !== 'D/ST') return false;
         if (p.key === nick) return true;
         const pw = p.key.split(' ');
-        return pw.some((w) => words.has(w));
+        return covers(words, pw) || covers(pw, words);
       });
+      // "New York" and "Los Angeles" name two clubs each and are genuinely
+      // ambiguous; the NFL abbreviation on the draft row settles them.
+      if (hit.length > 1 && team) {
+        const t = String(team).toUpperCase().trim();
+        const byTeam = hit.filter((p) => String(p.team || '').toUpperCase() === t);
+        if (byTeam.length === 1) return byTeam[0];
+      }
       if (hit.length === 1) return hit[0];
     }
   }

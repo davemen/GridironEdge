@@ -115,6 +115,33 @@ console.log('\nteam defenses');
   ['Texans D/ST', 'Houston Texans D/ST', 'Houston Texans', 'Texans DST'].forEach((n) => {
     check(`resolves "${n}"`, hit(n, 'D/ST')?.name === 'Houston Texans');
   });
+  // Every club, in every spelling a draft room uses. Matching on any shared
+  // word passed the Houston case and quietly broke four others: "new england"
+  // collides with New Orleans and both New York clubs on the word "new", and
+  // resolved to nothing at all -- so those defenses could not be drafted.
+  const dsts = Object.values(db).filter((p) => p.position === 'D/ST');
+  let wrong = 0, ambiguous = 0;
+  dsts.forEach((d) => {
+    const nick = d.name.split(' ').pop();
+    const city = d.name.split(' ').slice(0, -1).join(' ');
+    [d.name, `${d.name} D/ST`, nick, `${nick} D/ST`, city, `${city} D/ST`].forEach((form) => {
+      const got = hit(form, 'D/ST');
+      if (!got) ambiguous++;
+      else if (got.name !== d.name) wrong++;
+    });
+  });
+  check('no defense ever resolves to the wrong club', wrong === 0, `${wrong} wrong`);
+  // Only the two-club cities may come back unresolved, and only by city alone:
+  // "New York" is Giants or Jets, "Los Angeles" is Rams or Chargers.
+  check('only genuinely ambiguous city names go unresolved', ambiguous === 8,
+    `${ambiguous} unresolved of ${dsts.length * 6}`);
+  check('the NFL abbreviation settles New York',
+    hit('New York', 'D/ST', 'NYG')?.name === 'New York Giants'
+      && hit('New York', 'D/ST', 'NYJ')?.name === 'New York Jets');
+  check('and Los Angeles',
+    hit('Los Angeles', 'D/ST', 'LAR')?.name === 'Los Angeles Rams'
+      && hit('Los Angeles', 'D/ST', 'LAC')?.name === 'Los Angeles Chargers');
+
   // The tag regex must not be stateful: a /g regex carries lastIndex between
   // .test() calls and would match on one lookup and miss on the next.
   const repeats = [0, 1, 2, 3].map(() => hit('Texans D/ST', 'D/ST')?.name);
