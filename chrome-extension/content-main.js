@@ -600,8 +600,43 @@
     return null;
   }
 
-  function checkAndSync() {
+  /**
+   * A few characters that change when the room does.
+   *
+   * The full scan walks every div in the document reading innerText, which
+   * forces a synchronous layout. That was tolerable on a two-second timer; now
+   * that a MutationObserver can call this eight times a second it is not. This
+   * reads three small things -- the live bid, how many picks exist, and the
+   * page's own progress counter -- and lets an unchanged room cost almost
+   * nothing. textContent, not innerText, because innerText is the part that
+   * forces layout.
+   */
+  function cheapProbe() {
     try {
+      const bidEl = document.querySelector('.current-amount, [data-testid="bidding-form"]');
+      const bid = bidEl ? (bidEl.textContent || '').trim() : '';
+      const nomEl = document.querySelector('.pickArea, [class*="pickArea" i]');
+      const nom = nomEl ? (nomEl.textContent || '').trim().slice(0, 120) : '';
+      const counter = (document.querySelector('[class*="pickTimer" i], [class*="draftStatus" i]')
+        || {}).textContent || '';
+      return `${bid}|${nom}|${counter.trim().slice(0, 40)}`;
+    } catch (e) {
+      // If the probe cannot run, fall through to the full scan rather than
+      // silently deciding nothing changed.
+      return null;
+    }
+  }
+  let lastProbe = null;
+
+  function checkAndSync(force) {
+    try {
+      // Cheap out before the expensive scan. The probe is deliberately allowed
+      // to be wrong in the safe direction: a change it misses is caught by the
+      // safety-net interval, which passes force.
+      const probe = cheapProbe();
+      if (!force && probe !== null && probe === lastProbe) return;
+      lastProbe = probe;
+
       let data = null;
       const urlParams = new URLSearchParams(window.location.search);
       let leagueId = urlParams.get('leagueId') || urlParams.get('leagueid') || 'scraped-draft';
@@ -811,6 +846,10 @@
         }
       } catch (e) { /* the counter is a nicety, not a requirement */ }
 
+      // When this was read. The app used to get staleness from the sync file's
+      // mtime; with no server it has to travel with the payload.
+      data.scrapedAt = Date.now();
+
       const picksCount = data.draftDetail.picks.length;
       const nomName = currentNom ? currentNom.name : '';
       // The bid belongs in the key. Without it the loop treats "same player,
@@ -835,5 +874,64 @@
   }
 
   // Poll the page DOM for live changes every 2 seconds
-  setInterval(checkAndSync, 2000);
+  /**
+   * React to the room, do not wait for a timer.
+   *
+   * A live auction moves every second: a bid ticks, someone nominates, a budget
+   * drops. On a fixed two-second poll a change landing just after a tick waited
+   * almost two seconds to reach the app — an eternity when the clock on screen
+   * is counting down from ten.
+   *
+   * A MutationObserver fires as ESPN repaints, so a bid reaches the advisory
+   * panel in tens of milliseconds. It is coalesced on an animation frame, since
+   * one React render can produce dozens of mutations, and rate-limited so a
+   * pathological repaint loop cannot spin the scraper.
+   */
+  const MIN_GAP_MS = 120;          // never scrape more than ~8x a second
+  const SAFETY_NET_MS = 3000;      // in case the observer misses a change
+  let lastRun = 0;
+  let queued = false;
+  let forceNext = true;      // the first run always does the full scan
+
+  // rAF where it exists, a timer where it does not -- the scraper is also loaded
+  // headlessly by the test suite, and a missing global should not stop it.
+  const nextFrame = typeof requestAnimationFrame === 'function'
+    ? requestAnimationFrame
+    : (fn) => setTimeout(fn, 16);
+
+  function runSoon() {
+    if (queued) return;
+    queued = true;
+    nextFrame(() => {
+      queued = false;
+      const since = Date.now() - lastRun;
+      if (since < MIN_GAP_MS) {
+        setTimeout(runSoon, MIN_GAP_MS - since);
+        return;
+      }
+      lastRun = Date.now();
+      try {
+        checkAndSync(forceNext);
+        forceNext = false;
+      } catch (e) {
+        console.error('[Gridiron Edge] Sync failed:', e);
+      }
+    });
+  }
+
+  try {
+    const observer = new MutationObserver(runSoon);
+    observer.observe(document.body, {
+      childList: true, subtree: true, characterData: true,
+    });
+  } catch (e) {
+    console.warn('[Gridiron Edge] Live observation unavailable, '
+      + 'falling back to polling only:', e.message);
+  }
+
+  // The observer catches everything the page repaints; this catches the rest --
+  // a value that changed without a DOM mutation, or an observer that was
+  // detached by a page navigation.
+  setInterval(() => { forceNext = true; runSoon(); }, SAFETY_NET_MS);
+  runSoon();
 })();

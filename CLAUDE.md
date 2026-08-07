@@ -9,11 +9,14 @@ Plain ES modules, loaded directly by the browser. There is a `package.json`, but
 only for test scripts — there are **no dependencies**, no bundler, no transpiler.
 Do not add one without a reason that survives being said out loud.
 
-## `node --check` does not work here
+## `npm test` is the gate, not `node --check`
 
-On a file containing `import`, `node --check` treats it as CommonJS, stops at the
-first import, and **exits 0** — it will happily pass a file containing
-`const a = ;`. A broken build shipped exactly this way.
+`node --check` used to be actively dangerous here: with no `package.json` it
+treated modules as CommonJS, stopped at the first `import`, and **exited 0** on a
+file containing `const a = ;`. A broken build shipped exactly that way. The
+`package.json` added later declares `"type": "module"`, so on `js/` it is now
+correct — but it still resolves no imports, boots nothing, and says nothing about
+the extension's classic scripts.
 
 ```bash
 npm test                     # the real gate
@@ -49,7 +52,8 @@ markup, or `textContent` where the value is plain text. Never build an inline
 
 ## Comments carry the *why*
 
-Engine modules run 20–35% comment density and that is deliberate. Explain the
+Engine modules are heavily commented and that is deliberate. `simulator.js`,
+`lineup-optimizer.js` and `trade-generator.js` are the outstanding exceptions. Explain the
 decision and the failure it prevents, not the mechanics:
 
 ```js
@@ -74,6 +78,13 @@ rules. Before copying a block, put it in a module:
 - `js/engine/lineup-rules.js` — starting slots, flex, playoff shape
 - `js/player-database.js` — `playerKey` is the **only** name normalizer
 - `js/engine/roster-manager.js` — `freeAgentPool` is the only free-agent pool
+- `js/bridge.js` — the only way draft data enters the app
+
+## No server, ever
+
+The app is an extension page. Data arrives by port and `chrome.storage`, never
+over HTTP from something the user has to run. If you find yourself adding a
+`fetch('http://localhost...')`, that is the wrong shape.
 
 ## Don't swallow errors
 

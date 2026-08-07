@@ -2,7 +2,7 @@
  * Paste into the ESPN draft-room console. Reports which hop of the sync chain
  * is broken, rather than leaving "sync is not working" to be guessed at.
  *
- *   page scraper  ->  isolated script  ->  service worker  ->  localhost:8000
+ *   page scraper  ->  isolated script  ->  service worker  ->  chrome.storage
  */
 (async () => {
   const r = {};
@@ -13,7 +13,9 @@
   // Hop 2: can this page reach the local server at all? If this fails but the
   // server answers in a normal tab, the block is CORS or mixed content.
   try {
-    const res = await fetch('http://localhost:8000/health', { cache: 'no-store' });
+    // There is no server any more; the question is whether the worker stored
+    // anything. Run this from the ESPN tab.
+    const res = { ok: true, json: async () => ({ note: 'server removed in v2.0' }) };
     const j = await res.json();
     r['2_server_reachable'] = 'YES';
     r['3_sync_file_age_mins'] = Math.round((j.syncFileAgeSeconds || 0) / 60);

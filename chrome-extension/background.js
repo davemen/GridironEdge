@@ -1,35 +1,101 @@
 /**
- * Service worker: the only thing that talks to the local server.
+ * Service worker: the only thing that stores what the draft-room scraper finds.
  *
- * It used to forward whatever arrived, from wherever it arrived, straight to
- * disk -- `sender` was never inspected, so any extension page or injected script
- * could drive it. A message now has to come from a tab on the ESPN draft site.
+ * It used to POST every scrape to a local Python server, which wrote a file the
+ * app re-fetched every three seconds. That put a listening socket, a CORS
+ * policy and a write endpoint between two halves of the same extension. Now it
+ * writes to chrome.storage.local, and the app page — which ships in this same
+ * package — is woken by chrome.storage.onChanged within a millisecond or two.
+ *
+ * No server, no port, nothing for a user to install or run.
  */
-const TRUSTED_SENDER_PREFIX = 'https://fantasy.espn.com/';
-const SYNC_URL = 'http://localhost:8000/sync';
+const TRUSTED_ORIGIN = 'https://fantasy.espn.com';
+const STORAGE_KEY = 'gridironDraft';
+
+/**
+ * Open app pages, kept as live ports.
+ *
+ * A draft moves every second — a bid ticks, someone nominates — and waiting for
+ * a storage round-trip on every one of those is latency nobody needs to pay.
+ * Ports deliver in well under a millisecond, so the page repaints essentially as
+ * the scraper sees the change. chrome.storage is still written, but as the
+ * durable snapshot a newly-opened page reads, not as the delivery mechanism.
+ */
+const appPorts = new Set();
+
+chrome.runtime.onConnect.addListener((port) => {
+  if (port.name !== 'gridiron-app') return;
+  appPorts.add(port);
+  port.onDisconnect.addListener(() => appPorts.delete(port));
+});
+
+function broadcast(message) {
+  for (const port of appPorts) {
+    try {
+      port.postMessage(message);
+    } catch (e) {
+      // The page went away between the check and the send.
+      appPorts.delete(port);
+    }
+  }
+}
+
+/**
+ * Enough shape to reject anything that is not a scrape result. The content
+ * script checks this too; a service worker that trusts its callers is one
+ * bypass away from writing whatever it is handed.
+ */
+function looksLikeAScrape(data) {
+  if (!data || typeof data !== 'object' || Array.isArray(data)) return false;
+  if (typeof data.leagueId !== 'string' && typeof data.leagueId !== 'number') return false;
+  if (!Array.isArray(data.teams) || data.teams.length === 0) return false;
+  const picks = data.draftDetail && data.draftDetail.picks;
+  return picks === undefined || Array.isArray(picks);
+}
 
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
-  if (message && message.action === 'sync') {
-    const from = (sender && sender.url) || '';
-    if (!from.startsWith(TRUSTED_SENDER_PREFIX)) {
-      console.warn('[Gridiron Sync Service Worker] Refused a sync from', from || 'an unknown sender');
-      return true;
-    }
-    fetch(SYNC_URL, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(message.data)
-    })
-    .then(res => {
-      if (res.ok) {
-        console.log("[Gridiron Sync Service Worker] Sync successful");
-      } else {
-        console.error("[Gridiron Sync Service Worker] Sync server returned status:", res.status);
-      }
-    })
-    .catch(err => {
-      console.warn("[Gridiron Sync Service Worker] Sync server offline:", err.message);
-    });
+  if (!message || message.action !== 'sync') return false;
+
+  // sender.origin is the field Chrome guarantees for this; sender.url can be
+  // absent for some contexts and was the weaker check this used before.
+  const origin = (sender && sender.origin)
+    || (sender && sender.url ? new URL(sender.url).origin : '');
+  // ESPN's draft room, or our own popup. Anything else is refused: this worker
+  // used to forward whatever it was handed, from wherever.
+  const ownOrigin = `chrome-extension://${chrome.runtime.id}`;
+  if (origin !== TRUSTED_ORIGIN && origin !== ownOrigin) {
+    console.warn('[Gridiron Edge] Refused a sync from', origin || 'an unknown sender');
+    return false;
   }
-  return true;
+  if (!looksLikeAScrape(message.data)) {
+    console.warn('[Gridiron Edge] Refused a payload that is not a league.');
+    return false;
+  }
+
+  // Deliver first, persist second. The open page should not wait on a disk
+  // write to show a bid that just changed.
+  broadcast({ type: 'draft', data: message.data });
+
+  chrome.storage.local.set({ [STORAGE_KEY]: message.data }, () => {
+    if (chrome.runtime.lastError) {
+      console.error('[Gridiron Edge] Could not store the draft:',
+        chrome.runtime.lastError.message);
+      sendResponse({ ok: false });
+      return;
+    }
+    sendResponse({ ok: true });
+  });
+  return true;    // keep the channel open for the async sendResponse
+});
+
+// Clicking the toolbar icon opens the app itself, reusing the tab if it is
+// already open so a live draft does not end up with six copies of the page.
+chrome.action.onClicked.addListener(async () => {
+  const url = chrome.runtime.getURL('index.html');
+  const open = await chrome.tabs.query({ url });
+  if (open.length) {
+    await chrome.tabs.update(open[0].id, { active: true });
+    return;
+  }
+  await chrome.tabs.create({ url });
 });

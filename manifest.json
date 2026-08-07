@@ -1,19 +1,19 @@
 {
   "manifest_version": 3,
-  "name": "Gridiron Edge ESPN Sync",
-  "version": "1.2",
-  "description": "Scrapes and synchronizes your active ESPN fantasy league roster and standings with Gridiron Edge.",
+  "name": "Gridiron Edge",
+  "version": "2.0",
+  "description": "Live auction and draft assistant for ESPN fantasy football. Reads your draft room and prices every bid against your roster.",
   "permissions": [
     "activeTab",
     "scripting",
-    "clipboardWrite"
+    "storage",
+    "tabs"
   ],
   "host_permissions": [
-    "https://fantasy.espn.com/*",
-    "http://localhost:8000/*"
+    "https://fantasy.espn.com/*"
   ],
   "background": {
-    "service_worker": "background.js"
+    "service_worker": "chrome-extension/background.js"
   },
   "content_scripts": [
     {
@@ -22,7 +22,7 @@
         "https://fantasy.espn.com/*/draft/draftroom*"
       ],
       "js": [
-        "content-isolated.js"
+        "chrome-extension/content-isolated.js"
       ],
       "run_at": "document_idle",
       "all_frames": false
@@ -33,7 +33,7 @@
         "https://fantasy.espn.com/*/draft/draftroom*"
       ],
       "js": [
-        "content-main.js"
+        "chrome-extension/content-main.js"
       ],
       "run_at": "document_idle",
       "all_frames": false,
@@ -41,6 +41,16 @@
     }
   ],
   "action": {
-    "default_popup": "popup.html"
-  }
+    "default_title": "Open Gridiron Edge"
+  },
+  "web_accessible_resources": [
+    {
+      "resources": [
+        "index.html"
+      ],
+      "matches": [
+        "https://fantasy.espn.com/*"
+      ]
+    }
+  ]
 }

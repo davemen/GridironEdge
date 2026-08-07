@@ -518,25 +518,22 @@ document.addEventListener('DOMContentLoaded', async () => {
           if (!data.settings.leagueId) data.settings.leagueId = queryLeagueId;
         }
 
-        setStatus('Sending to local server...');
+        setStatus('Saving...');
 
-        try {
-          // Attempt local server POST sync
-          const response = await fetch('http://localhost:8000/sync', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(data)
+        // Hand it to the service worker, which stores it and pushes it to any
+        // open app page. This used to POST to a local web server the user had to
+        // be running; now nothing has to be running at all.
+        const stored = await new Promise((resolve) => {
+          chrome.runtime.sendMessage({ action: 'sync', data }, (reply) => {
+            if (chrome.runtime.lastError) { resolve(false); return; }
+            resolve(Boolean(reply && reply.ok));
           });
+        });
 
-          if (response.ok) {
-            setStatus('Success! Synced with Gridiron Edge.', '#00e676');
-          } else {
-            throw new Error(`Server returned status: ${response.status}`);
-          }
-        } catch (serverErr) {
-          // Fallback: Copy to clipboard
-          await navigator.clipboard.writeText(JSON.stringify(data));
-          setStatus('Copied to clipboard! (Local server offline)', '#00e5ff');
+        if (stored) {
+          setStatus('Synced. Open Gridiron Edge to see it.', '#00e676');
+        } else {
+          setStatus('Could not store the league. Reload the extension and retry.', '#ff1744');
         }
       } catch (err) {
         setStatus('Error: ' + err.message, '#ff1744');

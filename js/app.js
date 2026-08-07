@@ -3,6 +3,7 @@
  */
 
 import store from './store.js';
+import { listenForDrafts, describeSource, readLatest } from './bridge.js';
 import { esc, attr, num, int } from './escape.js';
 import { findPlayer, playerKey, draftedNameKey } from './player-database.js';
 import espnClient, { realDbReady } from './espn-client.js';
@@ -48,38 +49,29 @@ let weeklyLineupStrategy = 'auto';
 
 let lastSyncFileTimestamp = null;
 
-// Check for a local sync file saved by server.py
-async function checkLocalSyncFile() {
-  try {
-    const response = await fetch('/imported_league.json?cb=' + Date.now());
-    if (response.ok) {
-      const data = await response.json();
-      
-      const picksCount = data.draftDetail?.picks?.length || 0;
-      const nomObj = typeof data.currentNomination === 'object' ? data.currentNomination : null;
-      const currentNom = nomObj ? nomObj.name : (data.currentNomination || '');
-      // The bid and every team's budget belong in this key. Keying on picks and
-      // player name alone means "same player, higher bid" looks identical, so
-      // the page stopped re-importing for the whole duration of the bidding --
-      // which is exactly when the advice needs to move. Same mistake the
-      // extension's sync loop had.
-      const nomBid = nomObj && nomObj.bid != null ? nomObj.bid : '';
-      const budgets = (data.teams || []).map((t) => t.faabRemaining).join(',');
-      const stateKey = `${picksCount}_${currentNom}_${nomBid}_${budgets}`;
-
-      if (lastSyncFileTimestamp !== stateKey) {
-        lastSyncFileTimestamp = stateKey;
-        console.log('Draft state changed, importing:', data.leagueName || data.leagueId);
-        // The store subscriber renders whatever tab is active, so there is
-        // nothing to do here. Calling renderDraftPage as well was the third of
-        // three renders per sync.
-        await espnClient.importScrapedPayload(data);
-      }
+/**
+ * Take draft state from wherever it comes.
+ *
+ * This used to poll a local web server every three seconds for a file the
+ * extension had POSTed. The app now ships inside the extension, so the two
+ * halves talk directly: the service worker pushes down a live port the moment
+ * the scraper sees a change, with chrome.storage as the durable snapshot behind
+ * it. There is no server, no port to open and nothing for a user to run.
+ */
+function startDraftSync() {
+  return listenForDrafts(async (data) => {
+    try {
+      await espnClient.importScrapedPayload(data);
+      // The store subscriber renders whatever tab is active.
+    } catch (e) {
+      // A malformed payload costs one update, not the session -- but it is not
+      // silent, because "the app stopped updating" with no console output is
+      // the hardest failure in this codebase to diagnose.
+      console.error('[Gridiron Edge] Could not import draft state:', e.message);
     }
-  } catch (e) {
-    // Silent fail if local sync file is missing
-  }
+  });
 }
+
 
 // Initialize Application
 document.addEventListener('DOMContentLoaded', () => {
@@ -98,11 +90,8 @@ document.addEventListener('DOMContentLoaded', () => {
   // stale store heals itself instead of waiting for the next live sync.
   realDbReady.then((db) => refreshStoredDatabase(db));
 
-  // Check for auto local sync file first
-  checkLocalSyncFile();
-
-  // Start polling every 3 seconds for live dashboard updates
-  setInterval(checkLocalSyncFile, 3000);
+  // Live draft data, pushed rather than polled.
+  startDraftSync();
 
   // Subscribe to store updates
   store.subscribe((state) => {
@@ -1081,51 +1070,64 @@ export function renderHomePage(league = store.getActiveLeague()) {
  * because the states below look identical from the draft screen and only one of
  * them means the advice on it is live.
  */
+/**
+ * Is live draft data actually reaching this page?
+ *
+ * The three states below look identical from the draft screen, and only one of
+ * them means the advice on it is current. This used to ask a local server for
+ * its health; now it asks the bridge, because the server is gone.
+ */
 async function checkDraftReadiness() {
-  const onLocalhost = ['localhost', '127.0.0.1'].includes(location.hostname);
-  if (!onLocalhost) {
-    return { ok: false, kind: 'not-local',
-      message: 'This page is not served from your machine, so the ESPN extension '
-        + 'has nowhere to send draft data. Live sync only works on '
-        + 'http://localhost:8000.' };
+  const source = describeSource();
+
+  if (source.kind !== 'extension') {
+    return { ok: false, kind: 'no-extension',
+      message: 'This page is not running as part of the extension, so nothing can '
+        + 'push draft data to it. Open Gridiron Edge from the toolbar button.' };
   }
-  try {
-    const res = await fetch('/health?cb=' + Date.now(), { cache: 'no-store' });
-    if (!res.ok) throw new Error('status ' + res.status);
-    const h = await res.json();
-    if (!h.syncFileExists) {
-      return { ok: false, kind: 'no-sync',
-        message: 'Server is running, but the extension has never synced. Open your '
-          + 'ESPN draft room and confirm the extension is loaded there.' };
-    }
-    if (h.syncFileAgeSeconds > 120) {
-      const mins = Math.round(h.syncFileAgeSeconds / 60);
-      return { ok: false, kind: 'stale',
-        message: `Server is running, but the last sync was ${mins} minutes ago. The `
-          + 'draft room may be closed, or Chrome may be running an old copy of the '
-          + 'extension \u2014 check window.__GRIDIRON_EDGE_VERSION__ in its console.' };
-    }
-    return { ok: true, kind: 'live',
-      message: `last sync ${Math.round(h.syncFileAgeSeconds)}s ago` };
-  } catch (e) {
-    return { ok: false, kind: 'down',
-      message: 'The local sync server is not running. Start it, then reload this page.' };
+
+  const latest = await readLatest();
+  if (!latest) {
+    return { ok: false, kind: 'no-sync',
+      message: 'The extension is loaded, but it has never seen a draft room. Open '
+        + 'your ESPN draft and it will appear here within a second.' };
   }
+
+  const seenAt = Number(latest.scrapedAt) || 0;
+  const ageSeconds = seenAt ? (Date.now() - seenAt) / 1000 : null;
+  if (ageSeconds !== null && ageSeconds > 120) {
+    const mins = Math.round(ageSeconds / 60);
+    return { ok: false, kind: 'stale',
+      message: `The last update was ${mins} minutes ago. The draft room may be `
+        + 'closed, or Chrome may be running a cached copy of the extension \u2014 check '
+        + 'window.__GRIDIRON_EDGE_VERSION__ in the ESPN tab\'s console.' };
+  }
+
+  return { ok: true, kind: 'live',
+    message: ageSeconds === null ? 'connected'
+      : `last update ${Math.max(0, Math.round(ageSeconds))}s ago` };
 }
 
 function renderDraftReadiness(state) {
   const host = document.getElementById('draft-readiness');
   if (!host) return;
+
   if (state.ok) {
     host.innerHTML = `
       <div style="padding:0.5rem 0.85rem; border-radius:6px; margin-bottom:0.75rem;
                   background:rgba(22,199,132,0.10); border-left:3px solid #16c784;
                   font-size:0.82rem; color:var(--text-secondary);">
-        <strong style="color:#16c784;">DRAFT SYNC LIVE</strong> \u2014 ${state.message}
+        <strong style="color:#16c784;">DRAFT SYNC LIVE</strong> \u2014 ${esc(state.message)}
       </div>`;
     return;
   }
-  const cmd = 'cd ~/Documents/Projects/GridironEdge && python3 server.py';
+
+  // No terminal command to offer any more: there is no server to start. What is
+  // left is either "open the app from the toolbar" or "open your draft room".
+  const nextStep = state.kind === 'no-extension'
+    ? 'Click the Gridiron Edge icon in the Chrome toolbar to open the app properly.'
+    : 'Open your ESPN draft room in another tab. Data appears here within a second.';
+
   host.innerHTML = `
     <div style="padding:0.85rem 1rem; border-radius:6px; margin-bottom:1rem;
                 background:rgba(255,82,82,0.10); border:1px solid rgba(255,82,82,0.45);">
@@ -1134,30 +1136,12 @@ function renderDraftReadiness(state) {
         DRAFT SYNC NOT LIVE \u2014 recommendations are running on stale or mock data
       </div>
       <div style="font-size:0.85rem; color:var(--text-secondary); line-height:1.45;">
-        ${state.message}
+        ${esc(state.message)}
       </div>
-      ${(state.kind === 'down' || state.kind === 'not-local') ? `
-        <div style="display:flex; align-items:center; gap:0.5rem; margin-top:0.6rem;">
-          <code style="flex:1; padding:0.4rem 0.6rem; border-radius:4px; font-size:0.78rem;
-                       background:rgba(0,0,0,0.3); color:var(--text-primary);
-                       overflow-x:auto; white-space:nowrap;">${cmd}</code>
-          <button class="btn-secondary" id="btn-copy-server-cmd"
-                  style="padding:0.35rem 0.7rem; font-size:0.78rem; white-space:nowrap;">
-            Copy command
-          </button>
-        </div>` : ''}
+      <div style="font-size:0.85rem; color:var(--text-primary); margin-top:0.5rem;">
+        ${esc(nextStep)}
+      </div>
     </div>`;
-  const btn = document.getElementById('btn-copy-server-cmd');
-  if (btn) {
-    btn.onclick = async () => {
-      try {
-        await navigator.clipboard.writeText(cmd);
-        btn.textContent = 'Copied \u2014 paste in Terminal';
-      } catch (e) {
-        btn.textContent = 'Copy failed \u2014 select it manually';
-      }
-    };
-  }
 }
 
 // Render Live Draft Command Center
