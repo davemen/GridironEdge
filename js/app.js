@@ -35,6 +35,16 @@ const views = {
   settings: document.getElementById('view-settings')
 };
 
+/**
+ * How deep the auction board is priced, and how much of it the panel shows.
+ *
+ * One number, because the limit is part of the watchlist cache key: asking for
+ * 60 in the table and 6 in the panel is two keys, and so two full
+ * recomputations of the most expensive call on the page per render.
+ */
+const AUCTION_BOARD_LIMIT = 60;
+const AUCTION_WATCHLIST_SHOWN = 6;
+
 const navBar = document.getElementById('app-nav');
 const syncIndicator = document.getElementById('sync-indicator');
 const alertRibbon = document.getElementById('urgent-alert-ribbon');
@@ -1308,12 +1318,14 @@ export function renderDraftPage(league = store.getActiveLeague()) {
   // Draft recommended card contents
   const isAuction = league.draftState.draftType === 'auction';
 
+  // The recommendation panel is the only part of this page that differs by
+  // draft type. The players table below is a searchable board of who is left
+  // and is wanted in both -- it used to be skipped entirely in an auction,
+  // because this branch returned before reaching it, so the table kept
+  // whichever rows a previous snake render had left behind.
   if (isAuction) {
     renderAuctionBoard(league, db, rec);
-    return;
-  }
-
-  {
+  } else {
     recPanel.innerHTML = `
       <h3 style="color:var(--accent-cyan); font-size: 1.3rem; margin-bottom: 0.5rem; font-family:var(--font-family-title);">Draft ${esc(rec.primaryPick.name)} now.</h3>
       <div style="font-size: 0.95rem; color: var(--text-primary); display:flex; flex-direction:column; gap:0.4rem; margin-bottom: 1rem;">
@@ -1393,16 +1405,23 @@ export function renderDraftPage(league = store.getActiveLeague()) {
   // watchlist -- which is already computed, already cached, and already ranked
   // by the same model -- supplies the prices it covers. Anything outside it
   // shows a dash rather than a number from a formula known to be wrong.
+  //
+  // A dollar value has no meaning in a snake draft, so the column is hidden
+  // there rather than filled with a column of dashes.
   const auctionPrices = new Map();
-  if (league.draftState?.draftType === 'auction') {
+  if (isAuction) {
     try {
-      targetBoard(league, 60).forEach((t) => {
+      // Same limit the auction panel asks for, so both read one cached board
+      // instead of evicting each other on every render.
+      targetBoard(league, AUCTION_BOARD_LIMIT).forEach((t) => {
         if (t.player && typeof t.maxBid === 'number') auctionPrices.set(t.player.id, t.maxBid);
       });
     } catch (e) {
       console.warn('[Gridiron Edge] Could not price the draft board:', e.message);
     }
   }
+  const targetCol = document.getElementById('draft-target-value-col');
+  if (targetCol) targetCol.style.display = isAuction ? '' : 'none';
 
   list.forEach(p => {
     const row = document.createElement('tr');
@@ -1436,21 +1455,29 @@ export function renderDraftPage(league = store.getActiveLeague()) {
       <td><strong>${esc(p.name)}</strong></td>
       <td><span class="badge-solid badge-cyan">${esc(p.position)}</span></td>
       <td>${esc(p.team)}</td>
-      <td><span style="display:inline-flex; align-items:center;">${p.projectedPoints.toFixed(1)}${generateSparkline(p.matchProjs)}</span></td>
-      <td>${p.adp.toFixed(1)}</td>
-      <td><strong style="color:var(--accent-green); font-weight:700;">${typeof targetBid === 'number' ? `$${targetBid}` : '—'}</strong></td>
-      <td><span class="badge-solid ${avBadge}">${avPct}%</span></td>
+      <td><span style="display:inline-flex; align-items:center;">${num(p.projectedPoints)}${generateSparkline(p.matchProjs)}</span></td>
+      <td>${num(p.adp)}</td>
+      <td${isAuction ? '' : ' style="display:none;"'}><strong style="color:var(--accent-green); font-weight:700;">${typeof targetBid === 'number' ? `$${int(targetBid)}` : '—'}</strong></td>
+      <td><span class="badge-solid ${avBadge}">${int(avPct)}%</span></td>
       <td>
-        <button class="btn-primary" style="padding:0.25rem 0.5rem; font-size:0.75rem;" id="draft-btn-${p.id}">Draft</button>
+        <button class="btn-primary js-draft-row" style="padding:0.25rem 0.5rem; font-size:0.75rem;"
+                data-player-id="${attr(p.id)}">Draft</button>
       </td>
     `;
     tableBody.appendChild(row);
-
-    // Bind draft button click
-    document.getElementById(`draft-btn-${p.id}`).onclick = () => {
-      store.recordDraftPick(currentPick, p.id);
-    };
   });
+
+  // One listener on the body, not one per row. This was 499 getElementById
+  // calls immediately after appending the node each was looking for -- and the
+  // id it looked up was built by interpolating the player id straight into an
+  // attribute, so a scraped name that resolved to nothing carried whatever the
+  // room called it into the markup.
+  tableBody.onclick = (ev) => {
+    const btn = ev.target.closest('.js-draft-row');
+    if (!btn) return;
+    const id = btn.getAttribute('data-player-id');
+    if (id) store.recordDraftPick(currentPick, id);
+  };
 
   if (list.length === 0) {
     tableBody.innerHTML = `<tr><td colspan="8" class="empty-state">No matching available players.</td></tr>`;
@@ -1620,9 +1647,14 @@ function renderAuctionBoard(league, db, rec) {
     league.draftState.currentNominationId);
 
   // Targets worth planning around, whether or not one is on the block.
+  //
+  // Asked for at the table's limit and cut down here, not asked for at 6. The
+  // board is one sorted list, so the first six of sixty are the same six --
+  // but the limit is part of the cache key, so two limits meant two full
+  // recomputations of the most expensive call on the page, every render.
   let watchlist = [];
   try {
-    watchlist = targetBoard(league, 6);
+    watchlist = targetBoard(league, AUCTION_BOARD_LIMIT).slice(0, AUCTION_WATCHLIST_SHOWN);
   } catch (e) {
     console.error('Auction target board failed:', e);
   }

@@ -198,6 +198,40 @@ for (const scenario of [
   check('Championship Outlook has a figure', /\d/.test(champ), `got "${champ}"`);
 }
 
+console.log('\nthe board of who is left renders in both draft types');
+{
+  // renderDraftPage used to return as soon as it had drawn the auction panel,
+  // so the players table below it was never filled in an auction -- it kept
+  // whatever a previous snake render had left, or stayed empty. The pricing
+  // block was guarded on draftType === 'auction' AND sat after that return, so
+  // it could not run at all: the Target Value column was an em dash in every
+  // row of every render, which reads exactly like "we have no price for him".
+  const tbody = getEl('draft-player-table-body');
+  const header = getEl('draft-target-value-col');
+
+  const auction = buildLeague({ picks: 12, draftType: 'auction' });
+  load(auction);
+  app.renderDraftPage(auction);
+  const auctionRows = tbody.children.length;
+  check('an auction fills the players table', auctionRows > 0, `${auctionRows} rows`);
+  const priced = tbody.children.filter((r) => /\$\d/.test(r._text || '')).length;
+  check('and prices the rows the watchlist covers', priced > 0,
+    `0 of ${auctionRows} rows carry a price -- the column is dead again`);
+  check('the Target Value column is shown in an auction', header.style.display === '');
+
+  const snake = buildLeague({ picks: 6, draftType: 'snake' });
+  load(snake);
+  app.renderDraftPage(snake);
+  check('a snake draft fills the players table', tbody.children.length > 0,
+    `${tbody.children.length} rows`);
+  // A dollar ceiling has no meaning without an auction, and a column of dashes
+  // reads as missing data rather than as a column that does not apply.
+  check('and hides the Target Value column', header.style.display === 'none',
+    `display is "${header.style.display}"`);
+  const snakePriced = tbody.children.filter((r) => /\$\d/.test(r._text || '')).length;
+  check('and shows no dollar figure anywhere', snakePriced === 0, `${snakePriced} rows priced`);
+}
+
 console.log('\nan auction the app can only partly see');
 {
   // ESPN reports more picks than were read: an auction room renders one team's
