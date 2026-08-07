@@ -27,7 +27,10 @@
  * decisions being made from stale or invented signals.
  */
 
-const ESPN_NEWS = 'https://site.api.espn.com/apis/site/v2/sports/football/nfl/news';
+// The default page size is 6, which in a quiet week yields nothing actionable
+// at all. Asking for 50 is the difference between an empty panel and a usable
+// one.
+const ESPN_NEWS = 'https://site.api.espn.com/apis/site/v2/sports/football/nfl/news?limit=50';
 const SLEEPER_TREND = 'https://api.sleeper.app/v1/players/nfl/trending';
 const SLEEPER_PLAYERS = 'https://api.sleeper.app/v1/players/nfl';
 
@@ -111,13 +114,16 @@ async function getJSON(url, timeoutMs = 8000) {
  * ESPN tags each article with categories that name the players involved, which
  * is what makes the mapping reliable rather than a fuzzy text search.
  */
-export async function fetchLeagueNews() {
+export async function fetchLeagueNews({ classifiedOnly = true } = {}) {
   const data = await getJSON(ESPN_NEWS);
   const items = [];
   (data.articles || []).forEach((a) => {
     const text = `${a.headline || ''}. ${a.description || ''}`;
     const type = classifyHeadline(text);
-    if (!type) return;
+    // The engine only acts on classified events, but the reading panel wants
+    // everything -- most of the feed in a quiet week is camp reports and
+    // analysis, which is worth seeing even though it moves no valuation.
+    if (classifiedOnly && !type) return;
     const players = [];
     let team = null;
     (a.categories || []).forEach((c) => {

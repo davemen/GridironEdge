@@ -9,7 +9,8 @@ import { recommendBid, targetBoard, buildLeagueState } from './engine/auction-ad
 import { optimizeLineup } from './engine/lineup-optimizer.js';
 import { recommendLineupStrategy } from './engine/bracket-strategy.js';
 import { evaluateWaivers, getWaiverRecommendations, CATEGORY, ACTION } from './engine/roster-manager.js';
-import { refreshNews } from './engine/news-monitor.js';
+import { refreshNews, fetchLeagueNews, normalizeName, EVENT_IMPACT }
+  from './engine/news-monitor.js';
 import { generateTradeProposals } from './engine/trade-generator.js';
 import { runSeasonSimulation } from './engine/simulator.js';
 
@@ -1980,93 +1981,71 @@ function renderAlertsPage(league = store.getActiveLeague()) {
 async function fetchLiveBreakingNews(rosterNames = []) {
   const newsContainer = document.getElementById('news-list-container');
   const indicator = document.getElementById('news-refresh-indicator');
-  
   if (!newsContainer) return;
 
   indicator.innerHTML = 'Syncing...';
   indicator.style.background = 'var(--accent-cyan-glow)';
-  
+
   try {
-    const response = await fetch('https://www.reddit.com/r/fantasyfootball/new.json?limit=15');
-    if (!response.ok) throw new Error(`HTTP Error ${response.status}`);
-    const res = await response.json();
-    
-    const posts = res.data?.children || [];
-    if (posts.length === 0) {
-      newsContainer.innerHTML = '<div class="empty-state">No recent news found.</div>';
+    // Everything, not just transactional events -- a panel that says
+    // "no news" while fifty articles exist is worse than useless.
+    const items = await fetchLeagueNews({ classifiedOnly: false });
+    const owned = new Set(rosterNames.map((n) => normalizeName(n)));
+
+    if (!items.length) {
+      newsContainer.innerHTML =
+        '<div class="empty-state">The ESPN feed returned nothing right now.</div>';
+      indicator.innerHTML = 'Live Feed';
+      indicator.style.background = '';
       return;
     }
 
-    newsContainer.innerHTML = '';
+    // Anything touching a player you own goes first. A chronological feed makes
+    // you hunt for the one line that matters.
+    const scored = items.map((it) => ({
+      item: it,
+      mine: (it.players || []).some((n) => owned.has(normalizeName(n))),
+    }));
+    // Your players first, then anything that moves a valuation, then the rest.
+    scored.sort((a, b) => (b.mine - a.mine)
+      || ((b.item.type ? 1 : 0) - (a.item.type ? 1 : 0)));
 
-    posts.forEach(post => {
-      const pData = post.data;
-      const title = pData.title;
-      const url = `https://www.reddit.com${pData.permalink}`;
-      
-      // Calculate human-friendly time difference
-      const createdMs = pData.created_utc * 1000;
-      const diffMin = Math.max(1, Math.round((Date.now() - createdMs) / 60000));
-      let timeText = `${diffMin}m ago`;
-      if (diffMin >= 60) {
-        const diffHr = Math.round(diffMin / 60);
-        timeText = `${diffHr}h ago`;
-      }
-      
-      // Match against roster names
-      let isRosterMatch = false;
-      let matchedName = '';
-      
-      rosterNames.forEach(name => {
-        const nameParts = name.split(' ');
-        const lastName = nameParts[nameParts.length - 1];
-        if (lastName.length > 3 && title.toLowerCase().includes(lastName.toLowerCase())) {
-          isRosterMatch = true;
-          matchedName = name;
-        }
-      });
+    const tone = {
+      injury_out: '#ff5252', suspension: '#ff5252', demotion: '#ffb020',
+      injury_risk: '#ffb020', trade: '#38bdf8', promotion: '#16c784',
+      returning: '#16c784',
+    };
 
-      const item = document.createElement('div');
-      item.style.padding = '0.75rem';
-      item.style.borderRadius = '6px';
-      item.style.transition = 'background 0.2s ease';
-      
-      if (isRosterMatch) {
-        item.style.background = 'var(--accent-red-glow)';
-        item.style.border = '1px solid rgba(255, 23, 68, 0.2)';
-        item.innerHTML = `
-          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:0.25rem;">
-            <strong style="color:#ff1744; font-size:0.75rem; text-transform:uppercase; letter-spacing:0.5px;">🚨 Roster Alert: ${matchedName}</strong>
-            <span style="font-size:0.7rem; color:var(--text-secondary);">${timeText}</span>
+    newsContainer.innerHTML = scored.slice(0, 20).map(({ item, mine }) => {
+      const label = (EVENT_IMPACT[item.type] || {}).label || item.type || 'news';
+      const when = item.published
+        ? new Date(item.published).toLocaleString([], { month: 'short', day: 'numeric',
+                                                       hour: 'numeric', minute: '2-digit' })
+        : '';
+      return `
+        <div class="recommendation-item" style="border-left:3px solid ${tone[item.type] || '#8a94a6'};
+             ${mine ? 'background:rgba(255,82,82,0.07);' : ''}">
+          <div style="display:flex; gap:0.6rem; align-items:baseline; flex-wrap:wrap;">
+            <span style="font-size:0.68rem; font-weight:800; letter-spacing:0.5px;
+                         text-transform:uppercase; color:${tone[item.type] || '#8a94a6'};">
+              ${label}</span>
+            ${mine ? '<span style="font-size:0.68rem; font-weight:800; color:#ff5252;">ON YOUR ROSTER</span>' : ''}
+            <span style="margin-left:auto; font-size:0.7rem; color:var(--text-secondary);">${when}</span>
           </div>
-          <div style="font-size:0.85rem; line-height:1.4;">
-            <a href="${url}" target="_blank" style="color:var(--text-main); text-decoration:none; font-weight:600; border-bottom:1px dashed rgba(255,255,255,0.2);">${title}</a>
-          </div>
-        `;
-      } else {
-        item.style.background = 'var(--bg-surface)';
-        item.style.border = '1px solid var(--border-color)';
-        item.innerHTML = `
-          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:0.25rem; font-size:0.7rem; color:var(--text-secondary);">
-            <span>Practice / News Report</span>
-            <span>${timeText}</span>
-          </div>
-          <div style="font-size:0.85rem; line-height:1.4;">
-            <a href="${url}" target="_blank" style="color:var(--text-secondary); text-decoration:none;">${title}</a>
-          </div>
-        `;
-      }
-      
-      newsContainer.appendChild(item);
-    });
+          <div style="font-size:0.9rem; margin-top:0.25rem;">${item.headline}</div>
+          ${item.players && item.players.length ? `
+            <div style="font-size:0.75rem; color:var(--text-secondary); margin-top:0.2rem;">
+              ${item.players.slice(0, 3).join(' · ')}</div>` : ''}
+        </div>`;
+    }).join('');
 
     indicator.innerHTML = 'Live Feed';
     indicator.style.background = '';
   } catch (err) {
-    console.error("Failed to fetch breaking news:", err);
-    newsContainer.innerHTML = `<div class="empty-state" style="color:#ff1744;">Offline: Failed to load news feed.</div>`;
+    console.error('News feed failed:', err);
+    newsContainer.innerHTML = `<div class="empty-state" style="color:#ff1744;">
+      Could not reach the ESPN news feed. ${err.message}</div>`;
     indicator.innerHTML = 'Offline';
-    indicator.style.background = 'var(--accent-red-glow)';
   }
 }
 
