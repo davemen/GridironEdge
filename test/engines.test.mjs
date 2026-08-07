@@ -186,5 +186,37 @@ console.log('\nthe trade generator survives a roster it cannot trade from');
   }
 }
 
+console.log('\npartial coverage is not treated as a complete board');
+{
+  // An auction room renders ONE team's roster, so a scrape often resolves only
+  // the user's own. The scraper has always said so in a `coverage` field and
+  // nothing read it, so the engines were handed that as a full draft: every
+  // rival's slotsLeft was their entire roster, because their picks are unknown
+  // rather than absent, and the league looked as though it had far more left to
+  // buy than it did. Inflation was pushed to the floor on a fiction.
+  const { marketInflation, buildLeagueState } =
+    await import(join(ROOT, 'js/engine/auction-advisor.js'));
+
+  const partial = leagueWith(0);
+  partial.teams.forEach((t, i) => { if (i > 0) t.roster = []; });
+  partial.coverage = { kind: 'own-roster-only', knownTeamId: 1 };
+
+  const full = leagueWith(0);
+  full.teams.forEach((t, i) => { if (i > 0) t.roster = []; });
+  full.coverage = { kind: 'full-board' };
+
+  const pState = buildLeagueState(partial);
+  const fState = buildLeagueState(full);
+  check('coverage reaches the league state',
+    pState.coverageKind === 'own-roster-only', pState.coverageKind);
+
+  const pInfl = marketInflation(pState, 400);
+  const fInfl = marketInflation(fState, 400);
+  check('an own-roster-only scrape reports neutral inflation rather than a guess',
+    pInfl === 1.0, String(pInfl));
+  check('and a full board still computes a real one',
+    fInfl !== 1.0 || fState.slotsLeft <= 0, String(fInfl));
+}
+
 console.log(`\n${passed} passed, ${failed} failed`);
 if (failed) process.exit(1);

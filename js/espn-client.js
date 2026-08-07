@@ -420,6 +420,17 @@ class ESPNClient {
       // players somebody already owns.
       picksMadeOnEspn: typeof espnData.picksMadeOnEspn === 'number'
         ? espnData.picksMadeOnEspn : undefined,
+      // How much of the board this payload actually covers.
+      //
+      // The scraper has always reported it and nothing read it, so a scrape
+      // that resolved only the user's own roster -- the normal state of an
+      // auction room, which renders one roster at a time -- was handed to the
+      // engines as though it were a complete draft. Market inflation and every
+      // opponent budget were then computed over teams whose rosters are empty
+      // because they are unknown, not because they are empty. Those are
+      // different facts and the interface has to be able to tell them apart.
+      coverage: (espnData.coverage && espnData.coverage.kind)
+        ? espnData.coverage : { kind: 'full-board' },
       leagueSize: teams.length || 8,
       // Null, not 1. Defaulting to the first team is a guess wearing the
       // clothes of a fact: it silently shows you somebody else's roster, and

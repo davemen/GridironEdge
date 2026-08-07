@@ -117,6 +117,8 @@ export function buildLeagueState(league, parById = null) {
     me: byId.get(league.myTeamId) || null,
     leagueSize: league.leagueSize || teams.length,
     moneyLeft: teams.reduce((a, t) => a + t.budget, 0),
+    // Carried so the market model can decline to answer. See marketInflation.
+    coverageKind: (league.coverage && league.coverage.kind) || 'full-board',
     slotsLeft: teams.reduce((a, t) => a + t.spotsLeft, 0),
   };
 }
@@ -210,6 +212,13 @@ export function pointsPerDollar(available, state, budget = 200) {
  * coming. This is the single number that makes a static value chart wrong.
  */
 export function marketInflation(state, remainingPar) {
+  // With only our own roster visible, every rival's slotsLeft is their FULL
+  // roster -- because their picks are unknown, not absent -- so the league
+  // looks as though it has far more to buy than it does and inflation is
+  // pushed toward the floor. An auction room renders one roster at a time, so
+  // this is that room's normal state, not an edge case. Neutral is the honest
+  // answer: it says "no view on the market" rather than asserting a cheap one.
+  if (state.coverageKind === 'own-roster-only') return 1.0;
   if (state.slotsLeft <= 0) return 1.0;
   const spendable = state.moneyLeft - state.slotsLeft;
   const par = Math.max(1, remainingPar - state.slotsLeft);
