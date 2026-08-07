@@ -3,7 +3,7 @@
  */
 
 import store from './store.js';
-import { findPlayer } from './player-database.js';
+import { findPlayer, playerKey, draftedNameKey } from './player-database.js';
 import espnClient, { realDbReady } from './espn-client.js';
 import { getDraftRecommendations, calculateAuctionBid } from './engine/draft-assistant.js';
 import { recommendBid, targetBoard, buildLeagueState } from './engine/auction-advisor.js';
@@ -430,12 +430,25 @@ function setupModals() {
 
 /** Players nobody has drafted and nobody owns. */
 function freeAgentsIn(league) {
+  const db = league.playerDatabase || {};
   const taken = new Set();
   (league.teams || []).forEach(t => (t.roster || []).forEach(id => taken.add(String(id))));
   ((league.draftState || {}).selections || []).forEach(s => {
     if (s && s.playerId) taken.add(String(s.playerId));
   });
-  return Object.values(league.playerDatabase || {}).filter(p => !taken.has(String(p.id)));
+  // Bar the names too. A pick stored as an unmatched stub leaves the real
+  // player looking free, which is how an owned player came back as a target.
+  const takenNames = new Set();
+  Object.values(db).forEach(p => {
+    if (taken.has(String(p.id)) && p.name) takenNames.add(draftedNameKey(p.name));
+  });
+  ((league.draftState || {}).selections || []).forEach(s => {
+    const rec = s && s.playerId ? db[s.playerId] : null;
+    if (rec && rec.name) takenNames.add(draftedNameKey(rec.name));
+  });
+  return Object.values(db).filter(
+    p => !taken.has(String(p.id)) && !takenNames.has(draftedNameKey(p.name))
+  );
 }
 
 /**

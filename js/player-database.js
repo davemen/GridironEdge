@@ -54,6 +54,22 @@ export function playerKey(name) {
     .trim();
 }
 
+/**
+ * The key to bar a drafted player under.
+ *
+ * A draft row often carries a status tag -- "Terry McLaurin Q", "Mike Evans O",
+ * "... IR" -- and if that pick is stored under its own name, barring on the raw
+ * key leaves the real player looking free. Strip the tag so both spellings land
+ * on one key.
+ */
+const STATUS_TAG = /\s+(q|o|d|p|ir|out|sspd|susp|dtd|na)$/;
+export function draftedNameKey(name) {
+  let k = playerKey(name);
+  let prev;
+  do { prev = k; k = k.replace(STATUS_TAG, ''); } while (k !== prev);
+  return k;
+}
+
 let cache = null;
 
 /**

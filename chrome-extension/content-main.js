@@ -5,7 +5,7 @@
   // Version marker: lets a console check confirm whether Chrome is running the
   // current content script or a cached older one, which is the first thing to
   // rule out when a fix appears to have had no effect.
-  try { window.__GRIDIRON_EDGE_VERSION__ = '2026.08.07-dedupe2'; } catch (e) {}
+  try { window.__GRIDIRON_EDGE_VERSION__ = '2026.08.07-rejects'; } catch (e) {}
   console.log("[Gridiron Edge Sync] Main world script initialized (" + window.__GRIDIRON_EDGE_VERSION__ + ").");
 
   let lastSyncKey = null;
@@ -172,8 +172,16 @@
       // the real picks being lost, which is how two defenses went missing for
       // three attempts running. Keep the ones that looked like a pick.
       const rejected = [];
+      // Record every rejection that looked like it could have been a pick, not
+      // only the defenses. Filtering to defenses made a dropped receiver
+      // invisible, which is the same blindness that cost three rounds on D/ST.
       const note = (why, text) => {
-        if (rejected.length < 40 && /d\/?st|dst/i.test(text)) rejected.push({ why, text: text.slice(0, 120) });
+        if (rejected.length >= 60) return;
+        // A row with a position token or a club name had a real chance of being
+        // a pick; page furniture did not.
+        if (/\b(QB|RB|WR|TE|K|D\/?ST|FLEX)\b/i.test(text)) {
+          rejected.push({ why, text: text.replace(/\n/g, ' | ').slice(0, 140) });
+        }
       };
 
       elements.forEach(el => {
@@ -751,11 +759,11 @@
           console.log('MY PICKS:', mine.map(function (p) { return p.playerName; }).join(', ') || '(none)');
           var rej = window.__GRIDIRON_EDGE_REJECTED__ || [];
           if (rej.length) {
-            console.log('%c ROWS DROPPED THAT MENTIONED A DEFENSE ',
+            console.log('%c ROWS DROPPED THAT LOOKED LIKE PICKS ',
               'background:#f59e0b;color:#000;font-weight:bold');
             console.table(rej);
           } else {
-            console.log('No defense-looking rows were dropped.');
+            console.log('No pick-looking rows were dropped.');
           }
           return d;
         };

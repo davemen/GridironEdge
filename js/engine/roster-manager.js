@@ -59,6 +59,8 @@ const INJURY = {
   IR:           { play: 0.00, weeksOut: 4 },
 };
 
+import { playerKey, draftedNameKey } from '../player-database.js';
+
 const num = (v, d = 0) => (typeof v === 'number' && isFinite(v) ? v : d);
 const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
 
@@ -500,7 +502,23 @@ function freeAgentPool(league, db) {
   // claiming Josh Allen while Josh Allen was already drafted.
   ((league.draftState && league.draftState.selections) || [])
     .forEach((s) => { if (s && s.playerId) owned.add(String(s.playerId)); });
-  return Object.values(db).filter((p) => !owned.has(p.id));
+
+  // Also bar the NAMES that were drafted. A pick that could not be matched to a
+  // record is stored as a stub under its own id, which leaves the real player
+  // sitting in the pool looking free -- so the app recommends claiming someone
+  // another manager already owns. Matching on the name closes that gap whatever
+  // the id says.
+  const ownedNames = new Set();
+  const addName = (n) => { const k = draftedNameKey(n); if (k) ownedNames.add(k); };
+  Object.values(db).forEach((p) => { if (owned.has(String(p.id)) && p.name) addName(p.name); });
+  ((league.draftState && league.draftState.selections) || []).forEach((s) => {
+    const rec = s && s.playerId ? db[s.playerId] : null;
+    if (rec && rec.name) addName(rec.name);
+  });
+
+  return Object.values(db).filter(
+    (p) => !owned.has(String(p.id)) && !ownedNames.has(draftedNameKey(p.name))
+  );
 }
 
 function bestAtPosition(pool, position, roster, phase) {
