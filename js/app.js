@@ -69,13 +69,10 @@ async function checkLocalSyncFile() {
       if (lastSyncFileTimestamp !== stateKey) {
         lastSyncFileTimestamp = stateKey;
         console.log('Draft state changed, importing:', data.leagueName || data.leagueId);
-        const mapped = await espnClient.importScrapedPayload(data);
-        
-        // Automatically re-render if the user is on the Live Draft page
-        const activeTabEl = document.querySelector('.nav-item.active');
-        if (activeTabEl && activeTabEl.getAttribute('data-tab') === 'draft') {
-          renderDraftPage(mapped);
-        }
+        // The store subscriber renders whatever tab is active, so there is
+        // nothing to do here. Calling renderDraftPage as well was the third of
+        // three renders per sync.
+        await espnClient.importScrapedPayload(data);
       }
     }
   } catch (e) {

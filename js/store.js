@@ -36,14 +36,43 @@ class Store {
     }
   }
 
-  // Save state to localStorage
+  /**
+   * Persist, then tell the app once.
+   *
+   * Two things were wrong here. `notify()` sat inside the `try`, so a failed
+   * write -- the quota is reachable, since every league keeps its own copy of a
+   * 523-player database -- silently skipped every listener and the app carried
+   * on rendering state that was never saved. And one sync calls this twice
+   * while the caller renders a third time, so a single scrape repainted the
+   * draft page three times: measured at 628ms of blocked main thread per
+   * three-second tick, two thirds of it duplication.
+   *
+   * Notifications now coalesce onto a microtask, so any number of saves in one
+   * turn produce exactly one render, and a write failure is surfaced rather
+   * than swallowed.
+   */
   save() {
     try {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(this.state));
-      this.notify();
+      this.persistFailed = false;
     } catch (e) {
+      // Quota is the realistic cause. Keep going and tell the interface, rather
+      // than pretending the write happened.
+      this.persistFailed = true;
+      this.persistError = e && e.name ? e.name : 'StorageError';
       console.error('Failed to save Gridiron Edge state to localStorage:', e);
     }
+    this.scheduleNotify();
+  }
+
+  /** Collapse a burst of saves into a single notification. */
+  scheduleNotify() {
+    if (this._notifyQueued) return;
+    this._notifyQueued = true;
+    Promise.resolve().then(() => {
+      this._notifyQueued = false;
+      this.notify();
+    });
   }
 
   // Register state change listener

@@ -144,7 +144,9 @@ class ESPNClient {
         store.state.currentLeagueId = previous;
         store.state.competingLeagueId = mapped.leagueId;
       }
-      store.save();
+      // saveLeague already persisted and queued a notification; a second save()
+      // here bought nothing but another full render of the draft page.
+      store.scheduleNotify();
       return mapped;
     } catch (e) {
       console.error('Failed to import scraped payload:', e);
