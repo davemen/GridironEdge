@@ -973,11 +973,11 @@ export function renderHomePage(league = store.getActiveLeague()) {
   const sched = Array.isArray(league.schedule) ? league.schedule : [];
   const myGames = sched.filter(m => m.team1Id === league.myTeamId || m.team2Id === league.myTeamId);
   // The next game that has not been played, else the last one.
-  const week5Match = myGames.find(m => !m.played) || myGames[myGames.length - 1] || null;
+  const nextFixture = myGames.find(m => !m.played) || myGames[myGames.length - 1] || null;
   const weekLabel = document.querySelector('.current-week-num');
-  if (weekLabel) weekLabel.textContent = week5Match ? ` (Week ${week5Match.week})` : '';
+  if (weekLabel) weekLabel.textContent = nextFixture ? ` (Week ${nextFixture.week})` : '';
 
-  if (!week5Match) {
+  if (!nextFixture) {
     // Empty, and said so. There is no fixture, so there is no matchup -- and a
     // head-to-head card filled with something else is the fake data this was
     // meant to remove. The real preseason read lives on the standings and the
@@ -992,10 +992,10 @@ export function renderHomePage(league = store.getActiveLeague()) {
       + 'projections and the floor-versus-ceiling call for the week. Until then, '
       + 'roster strength and championship odds are on the Championship Plan tab.';
   } else {
-    const isTeam1 = week5Match.team1Id === league.myTeamId;
-    const myProj = isTeam1 ? week5Match.team1Proj : week5Match.team2Proj;
-    const oppProj = isTeam1 ? week5Match.team2Proj : week5Match.team1Proj;
-    const oppId = isTeam1 ? week5Match.team2Id : week5Match.team1Id;
+    const isTeam1 = nextFixture.team1Id === league.myTeamId;
+    const myProj = isTeam1 ? nextFixture.team1Proj : nextFixture.team2Proj;
+    const oppProj = isTeam1 ? nextFixture.team2Proj : nextFixture.team1Proj;
+    const oppId = isTeam1 ? nextFixture.team2Id : nextFixture.team1Id;
     const oppTeam = league.teams.find(t => t.teamId === oppId);
 
     document.getElementById('match-my-name').innerHTML = myTeam?.teamName || 'My Team';
@@ -1191,7 +1191,11 @@ export function renderDraftPage(league = store.getActiveLeague()) {
     if (league.draftState.draftType === 'snake' && round % 2 === 0) {
       teamIndex = league.leagueSize - 1 - relPick;
     }
-    const teamId = league.draftState.draftOrder[teamIndex];
+    // A DOM-scraped auction league has no draftOrder at all -- espn-client only
+    // sets it on the API path -- so this threw for every snake render against a
+    // scraped league, right after the container had been cleared.
+    const order = league.draftState.draftOrder || [];
+    const teamId = order[teamIndex];
     const team = league.teams.find(t => t.teamId === teamId);
 
     const isCurrent = p === currentPick;
@@ -2482,10 +2486,10 @@ function renderPreseasonOutlook(league, runs = 3000) {
 export function renderChampionshipPage(league = store.getActiveLeague()) {
   if (!league) return;
 
-  // The three headline percentages ship as literal numbers in the markup, and
-  // nothing overwrites them until the simulation is run. On a league imported
-  // from a draft room the simulation has no schedule to run against, so those
-  // invented figures sat on screen looking like a real forecast.
+  // The three headline percentages ship empty and renderPreseasonOutlook is the
+  // only writer when there is no schedule. They used to ship as literal numbers
+  // that nothing overwrote until the simulation ran, so on a draft-room import
+  // they sat on screen looking like a real forecast.
   const sched = Array.isArray(league.schedule) ? league.schedule : [];
   if (!sched.length) renderPreseasonOutlook(league);
 

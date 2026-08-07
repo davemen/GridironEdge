@@ -70,6 +70,25 @@ console.log('\nevery module parses as an ES module');
   check('the syntax check rejects broken source', rejected);
 }
 
+console.log('\nevery extension script parses too');
+{
+  // The extension was never parsed by anything in this suite, so every scraper
+  // change shipped unchecked -- including one that called .add() on a Map and
+  // silently killed all pick parsing. These are classic scripts, not modules, so
+  // they are checked in place rather than through the module scratch copy.
+  const extFiles = walk(join(ROOT, 'chrome-extension'));
+  check('found the extension scripts', extFiles.length >= 4, `${extFiles.length} found`);
+  const broken = [];
+  extFiles.forEach((f) => {
+    try {
+      execFileSync(process.execPath, ['--check', f], { stdio: 'pipe' });
+    } catch (e) {
+      broken.push(relative(ROOT, f));
+    }
+  });
+  check('no extension script has a syntax error', broken.length === 0, broken.join(', '));
+}
+
 console.log('\nthe app boots');
 {
   // Loading the real module graph catches a bad import path or anything that

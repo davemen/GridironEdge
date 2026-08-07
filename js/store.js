@@ -25,10 +25,18 @@ class Store {
   load() {
     try {
       const data = localStorage.getItem(STORAGE_KEY);
-      if (data) {
-        this.state = JSON.parse(data);
-      } else {
-        this.state = { ...defaultState };
+      // Merge over the defaults rather than replacing them. A stored state from
+      // an older schema is valid JSON, so the catch below never fires -- but it
+      // may have no `leagues` key at all, and getActiveLeague() then threw
+      // reading a property of undefined. Every collection gets a floor.
+      const parsed = data ? JSON.parse(data) : {};
+      this.state = { ...defaultState, ...(parsed && typeof parsed === 'object' ? parsed : {}) };
+      if (!this.state.leagues || typeof this.state.leagues !== 'object') this.state.leagues = {};
+      if (!this.state.playerDatabase || typeof this.state.playerDatabase !== 'object') {
+        this.state.playerDatabase = {};
+      }
+      if (this.state.currentLeagueId && !this.state.leagues[this.state.currentLeagueId]) {
+        this.state.currentLeagueId = null;
       }
     } catch (e) {
       console.error('Failed to load Gridiron Edge state from localStorage:', e);

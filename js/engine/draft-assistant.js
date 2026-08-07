@@ -49,7 +49,9 @@ export function getDraftRecommendations(league) {
   };
 
   // Identify next user pick overall index
-  const draftOrder = draftState.draftOrder;
+  // Degrade rather than throw: a scraped league carries no draft order, and a
+  // recommendation engine that crashes takes the whole page with it.
+  const draftOrder = draftState.draftOrder || league.teams.map((t) => t.teamId);
   const userOrderIdx = draftOrder.indexOf(league.myTeamId);
   const roundIdx = Math.floor((currentPick - 1) / league.leagueSize);
   const isEvenRound = (roundIdx + 1) % 2 === 0;

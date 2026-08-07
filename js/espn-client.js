@@ -28,6 +28,28 @@ export const realDbReady = loadProjections().then((proj) => {
  * nomination, which is why it survived — and it compared raw lowercased names
  * where the working copy correctly used findPlayer. One function, called twice.
  */
+function unresolvedPlayer(name, position, team) {
+  const pos = position || 'RB';
+  console.warn('[Gridiron Edge] "' + name + '" is not in the projection set; '
+    + 'valuing him at replacement level rather than guessing.');
+  return {
+    id: `MOCK_${playerKey(name).replace(/\s+/g, '_') || 'unknown'}`,
+    // A record without a match key breaks every later lookup.
+    key: playerKey(name),
+    name,
+    position: pos,
+    team: team || 'FA',
+    // Replacement level, not a mid-range guess -- an invented projection flows
+    // straight into a bid ceiling.
+    projectedPoints: pos === 'QB' ? 9.0 : (pos === 'RB' || pos === 'WR' ? 4.5 : 3.0),
+    isUnknownPlayer: true,
+    volatility: 4.0,
+    injuryStatus: 'Healthy',
+    byeWeek: 6,
+    adp: 150.0,
+  };
+}
+
 function resolveNomination(db, nomination) {
   const name = typeof nomination === 'object' ? nomination.name : nomination;
   if (!name) return null;
@@ -37,23 +59,7 @@ function resolveNomination(db, nomination) {
   const found = findPlayer(db, name, position, team);
   if (found) return found;
 
-  console.warn('[Gridiron Edge] "' + name + '" is not in the projection set; '
-    + 'valuing him at replacement level rather than guessing.');
-  return {
-    id: `MOCK_${playerKey(name).replace(/\s+/g, '_') || 'unknown'}`,
-    key: playerKey(name),
-    name,
-    position,
-    team,
-    // Unknown players get replacement level, not a mid-range guess -- an
-    // invented projection would flow straight into a bid ceiling.
-    projectedPoints: position === 'QB' ? 9.0 : (position === 'RB' ? 4.5 : (position === 'WR' ? 4.5 : 3.0)),
-    isUnknownPlayer: true,
-    volatility: 4.0,
-    injuryStatus: 'Healthy',
-    byeWeek: 6,
-    adp: 120.0,
-  };
+  return unresolvedPlayer(name, position, team);
 }
 
 class ESPNClient {
@@ -282,24 +288,12 @@ class ESPNClient {
                                  typeof p.bidAmount === 'number' ? p.bidAmount : undefined);
 
         if (!match) {
-          console.warn('[Gridiron Edge] Drafted player "' + p.playerName + '" ('
-            + (p.playerPosition || '?') + ') is not in the projection set.');
-          // Dynamic mock player
-          const mockId = `MOCK_${p.playerName.replace(/\s+/g, '_')}`;
-          match = {
-            id: mockId,
-            // A record without a match key breaks every later lookup.
-            key: playerKey(p.playerName),
-            name: p.playerName,
-            position: p.playerPosition || 'RB',
-            team: p.playerTeam || 'FA',
-            projectedPoints: 10.0,
-            volatility: 4.0,
-            injuryStatus: 'Healthy',
-            byeWeek: 6,
-            adp: 150.0
-          };
-          db[mockId] = match;
+          // Same construction as a nomination we cannot place. This used to
+          // invent projectedPoints: 10.0 -- a mid-range guess for a player we
+          // know nothing about, which then flowed into every ceiling and every
+          // roster ranking as though it were measured.
+          match = unresolvedPlayer(p.playerName, p.playerPosition, p.playerTeam);
+          db[match.id] = match;
         }
 
         if (match) {

@@ -5,7 +5,10 @@
   // Version marker: lets a console check confirm whether Chrome is running the
   // current content script or a cached older one, which is the first thing to
   // rule out when a fix appears to have had no effect.
-  try { window.__GRIDIRON_EDGE_VERSION__ = '2026.08.07-rejects'; } catch (e) {}
+  try { window.__GRIDIRON_EDGE_VERSION__ = '2026.08.07-rejects'; } catch (e) {
+          // Best effort: this reads the page and the page is not ours.
+          console.debug('[Gridiron Edge] read failed:', e && e.message);
+        }
   console.log("[Gridiron Edge Sync] Main world script initialized (" + window.__GRIDIRON_EDGE_VERSION__ + ").");
 
   let lastSyncKey = null;
@@ -116,7 +119,10 @@
           return { name, team, position, bid, maxAffordable };
         }
       }
-    } catch (e) {}
+    } catch (e) {
+          // Best effort: this reads the page and the page is not ours.
+          console.debug('[Gridiron Edge] read failed:', e && e.message);
+        }
     return null;
   }
 
@@ -166,7 +172,7 @@
       // "Broncos D/ST / DEN / D/ST" row has no pick number and no drafter. Seen
       // first, it won, and the real row carrying "Mac's Marauders" was thrown
       // away as its duplicate -- so the pick existed but belonged to nobody.
-      const seenPicks = new Map();
+      const bestRowForPlayer = new Map();
       // Why each row was thrown away. Rows are dropped silently by design --
       // most of what this selector returns is not a pick -- but that also hides
       // the real picks being lost, which is how two defenses went missing for
@@ -314,13 +320,13 @@
           const score = (pick !== -1 ? 2 : 0)
             + (drafterParts.length ? 2 : 0)
             + (bidAmount !== null ? 1 : 0);
-          const prior = seenPicks.get(ident);
+          const prior = bestRowForPlayer.get(ident);
           if (prior) {
             if (score <= prior.score) { note('duplicate of ' + playerName, text); return; }
             note('replaced a poorer row for ' + playerName, text);
             selections[prior.index] = null;      // compacted below
           }
-          seenPicks.set(ident, { index: selections.length, score });
+          bestRowForPlayer.set(ident, { index: selections.length, score });
           selections.push({
             overallPickNumber: pick === -1 ? selections.length + 1 : pick,
             playerName,
@@ -350,7 +356,10 @@
       // Returning null in silence is how a TypeError on the very first row
       // became "102 picks made, 0 were read" with nothing at all to go on.
       console.error('[Gridiron Edge] Draft scrape failed:', e);
-      try { window.__GRIDIRON_EDGE_SCRAPE_ERROR__ = String((e && e.stack) || e); } catch (_) {}
+      try { window.__GRIDIRON_EDGE_SCRAPE_ERROR__ = String((e && e.stack) || e); } catch (_) {
+          // Best effort: this reads the page and the page is not ours.
+          console.debug('[Gridiron Edge] read failed:', _ && _.message);
+        }
     }
     return null;
   }
@@ -371,9 +380,15 @@
         try {
           const val = obj[k];
           if (isReduxStore(val)) return val;
-        } catch (e) {}
+        } catch (e) {
+          // Best effort: this reads the page and the page is not ours.
+          console.debug('[Gridiron Edge] read failed:', e && e.message);
+        }
       }
-    } catch (e) {}
+    } catch (e) {
+          // Best effort: this reads the page and the page is not ours.
+          console.debug('[Gridiron Edge] read failed:', e && e.message);
+        }
     return null;
   }
 
@@ -390,7 +405,10 @@
               return val;
             }
           }
-        } catch (e) {}
+        } catch (e) {
+          // Best effort: this reads the page and the page is not ours.
+          console.debug('[Gridiron Edge] read failed:', e && e.message);
+        }
       }
     }
 
@@ -440,7 +458,10 @@
           const result = findDataInState(val, depth + 1, visited);
           if (result) return result;
         }
-      } catch (e) {}
+      } catch (e) {
+          // Best effort: this reads the page and the page is not ours.
+          console.debug('[Gridiron Edge] read failed:', e && e.message);
+        }
     }
     return null;
   }
@@ -489,7 +510,10 @@
           }
         }
       });
-    } catch (e) {}
+    } catch (e) {
+          // Best effort: this reads the page and the page is not ours.
+          console.debug('[Gridiron Edge] read failed:', e && e.message);
+        }
     return teams;
   }
 
@@ -540,7 +564,10 @@
           }
         }
       }
-    } catch (e) {}
+    } catch (e) {
+          // Best effort: this reads the page and the page is not ours.
+          console.debug('[Gridiron Edge] read failed:', e && e.message);
+        }
     return null;
   }
 
@@ -566,7 +593,10 @@
           }
         }
       }
-    } catch (e) {}
+    } catch (e) {
+          // Best effort: this reads the page and the page is not ours.
+          console.debug('[Gridiron Edge] read failed:', e && e.message);
+        }
     return null;
   }
 

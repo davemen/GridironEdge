@@ -87,7 +87,8 @@ function check(name, cond, detail = '') {
 }
 
 /** A league shaped the way a live auction draft produces one. */
-function buildLeague({ picks = 3, unattributed = 0 } = {}) {
+function buildLeague({ picks = 3, unattributed = 0, noDraftOrder = false,
+                       draftType = 'auction' } = {}) {
   const db = toPlayerDatabase(projections);
   const board = Object.values(db).sort((a, b) => b.projectedPoints - a.projectedPoints);
   const teams = [{ teamId: 5, teamName: "Mac's Marauders", roster: [], faabRemaining: 122,
@@ -111,8 +112,12 @@ function buildLeague({ picks = 3, unattributed = 0 } = {}) {
     rosterSettings: { QB: 1, RB: 2, WR: 2, TE: 1, FLEX: 1, 'D/ST': 1, K: 1, BE: 7,
                       startersCount: 9, benchCount: 7 },
     waiverSettings: { faabBudget: 100, waiverType: 'FAAB', processingDays: [] },
-    draftState: { draftType: 'auction', selections, currentPick: picks + unattributed + 1,
-                  currentNomination: null },
+    // Shaped like real espn-client output: it always sets draftOrder, and an
+    // auction carries a live bid and the room's own max.
+    draftState: { draftType, selections, currentPick: picks + unattributed + 1,
+                  ...(noDraftOrder ? {} : { draftOrder: teams.map((t) => t.teamId) }),
+                  currentNomination: null, currentNominationBid: null,
+                  currentNominationMax: null },
     playerDatabase: db,
   };
 }
@@ -125,14 +130,25 @@ function load(league) {
   store.state.activeTab = 'home';
 }
 
+// renderDraftPage was missing from this list, and when added it failed in all
+// three scenarios: league.draftState.draftOrder[teamIndex] on a scraped league
+// that has no draftOrder. The page a draft assistant exists to draw was the one
+// page the smoke test did not draw.
 const PAGES = ['renderHomePage', 'renderRosterPage', 'renderMatchupPage',
                'renderChampionshipPage', 'renderAlertsPage', 'renderWaiversPage',
-               'renderLeaguePage', 'renderTradesPage', 'renderSettingsPage'];
+               'renderLeaguePage', 'renderTradesPage', 'renderSettingsPage',
+               'renderDraftPage'];
 
 for (const scenario of [
   { name: 'mid-draft, 3 players', opts: { picks: 3 } },
   { name: 'mid-draft, 84 picks unattributed', opts: { picks: 3, unattributed: 84 } },
   { name: 'nothing drafted yet', opts: { picks: 0 } },
+  // A DOM-scraped league has no draftOrder. This is the exact shape that made
+  // renderDraftPage throw, so it gets its own scenario rather than relying on
+  // the fixture happening to omit the field.
+  { name: 'scraped league with no draftOrder', opts: { picks: 6, noDraftOrder: true } },
+  // A snake league takes an entirely different branch of renderDraftPage.
+  { name: 'snake draft', opts: { picks: 6, draftType: 'snake' } },
 ]) {
   console.log(`\n${scenario.name}`);
   const league = buildLeague(scenario.opts);

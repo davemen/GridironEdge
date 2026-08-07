@@ -130,7 +130,10 @@ async function scrapeEspnData() {
           }
         }
       }
-    } catch (e) {}
+    } catch (e) {
+          // Best effort: this reads the page and the page is not ours.
+          console.debug('[Gridiron Edge] read failed:', e && e.message);
+        }
 
     return { success: true, data };
   } catch (err) {
@@ -159,7 +162,10 @@ function scanForEspnState() {
             }
           }
         }
-      } catch (e) {}
+      } catch (e) {
+          // Best effort: this reads the page and the page is not ours.
+          console.debug('[Gridiron Edge] read failed:', e && e.message);
+        }
       return null;
     }
 
@@ -185,7 +191,10 @@ function scanForEspnState() {
             }
           }
         }
-      } catch (e) {}
+      } catch (e) {
+          // Best effort: this reads the page and the page is not ours.
+          console.debug('[Gridiron Edge] read failed:', e && e.message);
+        }
       return null;
     }
 
@@ -245,7 +254,10 @@ function scanForEspnState() {
             return { name, team, position };
           }
         }
-      } catch (e) {}
+      } catch (e) {
+          // Best effort: this reads the page and the page is not ours.
+          console.debug('[Gridiron Edge] read failed:', e && e.message);
+        }
       return null;
     }
 
@@ -264,7 +276,10 @@ function scanForEspnState() {
                 return val;
               }
             }
-          } catch (e) {}
+          } catch (e) {
+          // Best effort: this reads the page and the page is not ours.
+          console.debug('[Gridiron Edge] read failed:', e && e.message);
+        }
         }
       }
 
@@ -287,9 +302,15 @@ function scanForEspnState() {
             try {
               const val = obj[k];
               if (isReduxStore(val)) return val;
-            } catch (e) {}
+            } catch (e) {
+          // Best effort: this reads the page and the page is not ours.
+          console.debug('[Gridiron Edge] read failed:', e && e.message);
+        }
           }
-        } catch (e) {}
+        } catch (e) {
+          // Best effort: this reads the page and the page is not ours.
+          console.debug('[Gridiron Edge] read failed:', e && e.message);
+        }
         return null;
       }
 
@@ -319,7 +340,10 @@ function scanForEspnState() {
                 if (s) return s.getState();
                 dep = dep.next;
               }
-            } catch (e) {}
+            } catch (e) {
+          // Best effort: this reads the page and the page is not ours.
+          console.debug('[Gridiron Edge] read failed:', e && e.message);
+        }
 
             node = node.return;
           }
