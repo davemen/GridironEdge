@@ -1067,10 +1067,21 @@ export function renderHomePage(league = store.getActiveLeague()) {
     const oppId = isTeam1 ? nextFixture.team2Id : nextFixture.team1Id;
     const oppTeam = league.teams.find(t => t.teamId === oppId);
 
-    document.getElementById('match-my-name').innerHTML = myTeam?.teamName || 'My Team';
-    document.getElementById('match-my-proj').innerHTML = myProj.toFixed(1);
-    document.getElementById('match-opp-name').innerHTML = oppTeam ? oppTeam.teamName : 'Opponent';
-    document.getElementById('match-opp-proj').innerHTML = oppProj.toFixed(1);
+    // textContent, not innerHTML: a team name is whatever another manager
+    // typed. Proven injectable -- a nickname of <img src=x onerror=...> reached
+    // this sink verbatim through the real mapper and renderer. Both this and
+    // the opponent below sit behind a non-empty schedule, which is why the XSS
+    // suite passed while rendering raw markup.
+    document.getElementById('match-my-name').textContent = myTeam?.teamName || 'My Team';
+    // A fixture without projections is not a fixture with zero projections.
+    // ESPN's schedule carries the pairing before it carries any numbers, and
+    // this threw a TypeError on the first such week -- which, because it fires
+    // after the container has been cleared, empties the card and everything
+    // below it, reading exactly like "there is nothing to show".
+    const projText = (v) => (typeof v === 'number' && isFinite(v) ? v.toFixed(1) : '--');
+    document.getElementById('match-my-proj').textContent = projText(myProj);
+    document.getElementById('match-opp-name').textContent = oppTeam ? oppTeam.teamName : 'Opponent';
+    document.getElementById('match-opp-proj').textContent = projText(oppProj);
 
     const hint = document.getElementById('matchup-strategy-hint');
     if (myProj < oppProj - 5) {
@@ -2716,8 +2727,8 @@ export function renderChampionshipPage(league = store.getActiveLeague()) {
         item.style.border = '1px solid var(--border-color)';
         item.style.borderRadius = '4px';
         item.innerHTML = `
-          <strong>${action.title}</strong>
-          <span style="font-size:0.8rem; display:block; color:var(--text-secondary); margin-top:0.25rem;">${action.desc}</span>
+          <strong>${esc(action.title)}</strong>
+          <span style="font-size:0.8rem; display:block; color:var(--text-secondary); margin-top:0.25rem;">${esc(action.desc)}</span>
         `;
         actionBox.appendChild(item);
       });
@@ -2930,7 +2941,7 @@ function renderNewsItems(items, newsContainer, indicator) {
         <div style="font-size:0.9rem; margin-top:0.25rem;">${esc(item.headline)}</div>
         ${item.players && item.players.length ? `
           <div style="font-size:0.75rem; color:var(--text-secondary); margin-top:0.2rem;">
-            ${item.players.slice(0, 3).join(' · ')}</div>` : ''}
+            ${item.players.slice(0, 3).map(esc).join(' · ')}</div>` : ''}
       </div>`;
   }).join('');
 

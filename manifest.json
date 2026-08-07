@@ -2,6 +2,9 @@
   "manifest_version": 3,
   "name": "Gridiron Edge",
   "version": "2.0",
+  "content_security_policy": {
+    "extension_pages": "script-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'; frame-src 'none'; frame-ancestors 'none'; img-src 'self' data: https://a.espncdn.com; style-src 'self' 'unsafe-inline'; connect-src 'self' https://fantasy.espn.com https://site.api.espn.com https://api.sleeper.app"
+  },
   "description": "Live auction and draft assistant for ESPN fantasy football. Reads your draft room and prices every bid against your roster.",
   "permissions": [
     "activeTab",

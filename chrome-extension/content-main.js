@@ -1287,13 +1287,37 @@
    * fallback. In Chrome's MAIN world the React store is readable directly, so
    * there is nothing here worth sweeping for.
    */
+  // A sweep is already running, and when the last one finished.
+  //
+  // This script runs in the page's own world, so `event.source === window` and
+  // the origin check are both satisfied by ANY script in the frame -- an ad, a
+  // tag manager, an XSS on ESPN. A forged request was proven to drive the
+  // roster dropdown through every option, and eight forged messages produced
+  // eight concurrent sweeps whose `finally` blocks then raced to restore the
+  // selection. These bound the damage: one sweep at a time, and no more than
+  // one a minute. They do not make the message unforgeable -- the real fix is
+  // to drive the sweep from the isolated world, which the page cannot reach.
+  let sweepInFlight = false;
+  let sweepLastAt = 0;
+  const SWEEP_MIN_GAP_MS = 60000;
+
   function runSweep() {
+    if (sweepInFlight) {
+      return Promise.resolve({ ok: false, reason: 'sweep-already-running' });
+    }
+    if (Date.now() - sweepLastAt < SWEEP_MIN_GAP_MS) {
+      return Promise.resolve({ ok: false, reason: 'sweep-too-soon' });
+    }
+    sweepInFlight = true;
+    sweepLastAt = Date.now();
     const names = findLeagueTeamNames();
     if (!names.length) {
+      sweepInFlight = false;
       return Promise.resolve({ ok: false, reason: 'no-team-dropdown' });
     }
     const provisional = names.map((n, i) => ({ teamId: i + 1, teamName: n }));
     return sweepAllRosters(provisional).then((res) => {
+      sweepInFlight = false;
       if (!res.ok) return res;
       sweptRosters = res.byTeam;
       sweptAt = Date.now();
@@ -1305,7 +1329,10 @@
       lastSyncKey = null;
       runSoon();
       return { ok: true, teams: res.byTeam.length, players: found };
-    }).catch((e) => ({ ok: false, reason: (e && e.message) || 'sweep-threw' }));
+    }).catch((e) => {
+      sweepInFlight = false;
+      return { ok: false, reason: (e && e.message) || 'sweep-threw' };
+    });
   }
 
   // The request arrives on the window, not through chrome.runtime.

@@ -90,11 +90,31 @@ const payload = {
     { overallPickNumber: 2, playerName: BREAK, playerPosition: 'WR', playerTeam: 'LAR', drafterTeamId: 2, bidAmount: 5 },
   ] },
   currentNomination: { name: `${TAG} Nominee`, team: 'BUF', position: 'QB', bid: 5 },
+  // A schedule, because two real injection sinks live behind one.
+  //
+  // renderHomePage's matchup card (match-my-name / match-opp-name) and the
+  // championship action plan only draw when the league has fixtures. With no
+  // schedule in this payload, neither branch ever executed -- so the suite
+  // reported "no rendered target contains raw injected markup" while both were
+  // rendering a hostile team name verbatim. A panel that never rendered is not
+  // a panel that rendered safely, and the assertion could not tell them apart.
+  schedule: [
+    { week: 1, team1Id: 1, team2Id: 2, team1Score: 0, team2Score: 0, completed: false },
+    { week: 2, team1Id: 2, team2Id: 1, team1Score: 0, team2Score: 0, completed: false },
+  ],
 };
 
 console.log('\nevery page renders a hostile payload');
 await espnClient.importScrapedPayload(payload);
 const league = store.getActiveLeague();
+// Set on the imported league, not in the payload: the DOM-scrape mapper builds
+// its own league object and drops a `schedule` it was handed, so putting one in
+// the payload left both schedule-gated sinks unreachable and the suite went on
+// reporting them clean.
+league.schedule = [
+  { week: 1, team1Id: 1, team2Id: 2, team1Score: 0, team2Score: 0, completed: false },
+  { week: 2, team1Id: 2, team2Id: 1, team1Score: 0, team2Score: 0, completed: false },
+];
 store.state.activeTab = 'home';
 
 const PAGES = ['renderHomePage', 'renderRosterPage', 'renderMatchupPage',
