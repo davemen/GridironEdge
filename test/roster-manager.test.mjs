@@ -11,7 +11,7 @@ import {
   seasonPhase, restOfSeasonPoints, playoffPoints, breakoutProbability,
   bustProbability, lineupBreakdown, lineupGain, startProbability, blockingValue,
   evaluateBench, evaluateWaivers, faabLadder, getWaiverRecommendations,
-  opportunityTrend, CATEGORY, ACTION, MISSING_INPUTS,
+  opportunityTrend, freeAgentPool, CATEGORY, ACTION, MISSING_INPUTS,
 } from '../js/engine/roster-manager.js';
 
 let passed = 0, failed = 0;
@@ -196,6 +196,79 @@ console.log('\nno free agents');
   const rep = evaluateWaivers(l, { week: 5 });
   check('handles an empty waiver wire', Array.isArray(rep.targets) && rep.targets.length === 0);
   check('still evaluates the bench', Array.isArray(rep.bench));
+}
+
+console.log('\na drafted player is off the board, however he was recorded');
+{
+  // Three bars, and a mutation run showed all three could be deleted with the
+  // whole suite still green: the id bar, the name bar, and marking a draft
+  // selection as owned at all. This is the "recommend claiming Josh Allen
+  // while Josh Allen is already drafted" bug the code comments describe.
+  const base = league();
+  const anyone = Object.values(base.playerDatabase)[0];
+
+  // 1. On a roster.
+  const byRoster = league();
+  byRoster.teams[0].roster = [anyone.id];
+  check('a player on a roster is not a free agent',
+    !freeAgentPool(byRoster, byRoster.playerDatabase).some((p) => p.id === anyone.id),
+    anyone.name);
+
+  // 2. Drafted, but nobody could tell whose pick it was -- routine in an
+  // auction room, where the scrape often cannot attribute a lot.
+  const unattributed = league();
+  unattributed.teams.forEach((t) => { t.roster = []; });
+  unattributed.draftState = { selections: [{ playerId: anyone.id, teamId: null }] };
+  check('an unattributed pick is still off the board',
+    !freeAgentPool(unattributed, unattributed.playerDatabase).some((p) => p.id === anyone.id),
+    'he came back as a free agent, and the app will offer him to you');
+
+  // 3. Drafted under a STUB id, because the name did not resolve. The real
+  // record then sits in the pool looking free, which no id check can see.
+  const byName = league();
+  byName.teams.forEach((t) => { t.roster = []; });
+  const stubId = `MOCK_${anyone.name.toLowerCase().replace(/\s+/g, '_')}`;
+  byName.playerDatabase[stubId] = { id: stubId, name: anyone.name,
+    position: anyone.position, team: anyone.team, projectedPoints: 4.5 };
+  byName.draftState = { selections: [{ playerId: stubId, teamId: 1 }] };
+  const pool = freeAgentPool(byName, byName.playerDatabase);
+  check('and so is the real record behind a stub of the same name',
+    !pool.some((p) => p.id === anyone.id),
+    `${anyone.name} is offered as a free agent while somebody already owns him`);
+
+  // 4. A stub on a ROSTER, rather than in the selections. Same gap from the
+  // other direction, and the only case where barring rostered names matters:
+  // the id bar sees the stub, and nothing sees the real record behind it.
+  const stubRoster = league();
+  stubRoster.teams.forEach((t) => { t.roster = []; });
+  stubRoster.playerDatabase[stubId] = { id: stubId, name: anyone.name,
+    position: anyone.position, team: anyone.team, projectedPoints: 4.5 };
+  stubRoster.teams[0].roster = [stubId];
+  stubRoster.draftState = { selections: [] };
+  check('a stub on a roster also bars the real record',
+    !freeAgentPool(stubRoster, stubRoster.playerDatabase).some((p) => p.id === anyone.id),
+    `${anyone.name} is free while a stub of him sits on a roster`);
+
+  // 5. A drafted record with NO name. Nothing can bar it by name, so the id
+  // bar is the only thing standing between it and the free-agent list.
+  const nameless = league();
+  nameless.teams.forEach((t) => { t.roster = []; });
+  const namelessId = 'NAMELESS_1';
+  nameless.playerDatabase[namelessId] = { id: namelessId, name: '',
+    position: 'WR', team: 'FA', projectedPoints: 8 };
+  nameless.draftState = { selections: [{ playerId: namelessId, teamId: 2 }] };
+  check('a drafted record with no name is barred by its id',
+    !freeAgentPool(nameless, nameless.playerDatabase).some((p) => p.id === namelessId),
+    'the only bar that can catch this one is the id');
+
+  // The bars must not swallow the whole board.
+  const untouched = league();
+  untouched.teams.forEach((t) => { t.roster = []; });
+  untouched.draftState = { selections: [] };
+  check('an undrafted player is still available',
+    freeAgentPool(untouched, untouched.playerDatabase).length
+      === Object.keys(untouched.playerDatabase).length,
+    'the pool is emptier than the draft explains');
 }
 
 console.log(`\n${passed} passed, ${failed} failed\n`);

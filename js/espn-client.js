@@ -34,19 +34,14 @@ export const realDbReady = loadProjections().then((proj) => {
 });
 
 /**
- * Resolve the player currently on the block.
- *
- * Both mappers need this and both had their own copy. The copy in mapESPNLeague
- * read `playerDatabase` seventy-seven lines before its own `const` declaration --
- * a TDZ ReferenceError that only fired on a non-scraped payload with a live
- * nomination, which is why it survived — and it compared raw lowercased names
- * where the working copy correctly used findPlayer. One function, called twice.
- */
-/**
  * Replacement level for a position. The only acceptable answer when the feed
  * gives us nothing: a mid-range guess flows straight into a bid ceiling.
+ *
+ * Exported so a test can pin the constants. A mutation run moved QB from 9.0
+ * to 14.0 and the default from 3.0 to 8.0 with the whole suite green -- which
+ * is precisely a mid-range guess replacing a replacement level, undetected.
  */
-function replacementPoints(position) {
+export function replacementPoints(position) {
   if (position === 'QB') return 9.0;
   if (position === 'RB' || position === 'WR') return 4.5;
   return 3.0;

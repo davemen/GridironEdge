@@ -359,6 +359,33 @@ console.log('\nESPN\'s id tables are the ones ESPN actually uses');
   }
 }
 
+console.log('\nthe scraper says how much of the board it actually saw');
+{
+  // The engines read `coverage` and a test asserts they do -- but the PRODUCER
+  // was unguarded: hardcoding it to { kind: 'full-board' } passed the whole
+  // suite. A contract verified on one side only is a contract that can lie on
+  // the other, and this one decides whether the market model answers at all.
+  const seen = [];
+  globalThis.postMessage = (msg) => { if (msg && msg.data) seen.push(msg.data); };
+  globalThis.window.postMessage = globalThis.postMessage;
+
+  const src2 = readFileSync(join(ROOT, 'chrome-extension/content-main.js'), 'utf8');
+  const coverageOf = (text) => {
+    const m = /coverage: finalPicks\.length[\s\S]{0,400}?;/.exec(text);
+    return m ? m[0] : '';
+  };
+  const block = coverageOf(src2);
+  check('the coverage field is derived, not a constant',
+    /full-board/.test(block) && /own-roster-only/.test(block) && /swept-rosters/.test(block),
+    'one of the three states is missing, so it cannot report them apart');
+  check('and a full results table is what makes it full-board',
+    /coverage: finalPicks\.length\s*\?\s*\{ kind: 'full-board' \}/.test(block),
+    block.slice(0, 120));
+  check('an own-roster scrape carries which team it knows about',
+    /own-roster-only', knownTeamId/.test(block),
+    '"we saw one roster" and "we saw the board" must not be the same message');
+}
+
 console.log('\nthe sweep runs where the page cannot reach it');
 {
   // It used to be triggered by a window message into world MAIN, which any

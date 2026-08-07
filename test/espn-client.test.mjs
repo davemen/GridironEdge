@@ -31,7 +31,8 @@ const projections = JSON.parse(readFileSync(join(ROOT, 'data/projections-2026.js
 globalThis.fetch = async () => ({ ok: true, json: async () => projections });
 
 const { default: store } = await import(join(ROOT, 'js/store.js'));
-const { default: espnClient, realDbReady } = await import(join(ROOT, 'js/espn-client.js'));
+const { default: espnClient, realDbReady, replacementPoints, DEFAULT_AUCTION_BUDGET }
+  = await import(join(ROOT, 'js/espn-client.js'));
 await realDbReady;
 
 let passed = 0, failed = 0;
@@ -301,6 +302,38 @@ console.log('\nthe scraped mapper marks what it had to assume');
     l.rosterSettingsSource === 'assumed', String(l.rosterSettingsSource));
   check('and it still carries a usable shape',
     l.rosterSettings.startersCount === 9 && l.rosterSettings.benchCount === 7);
+}
+
+console.log('\nreplacement level is replacement level, not a mid-range guess');
+{
+  // Only RB and WR were pinned. A mutation run moved QB from 9.0 to 14.0 and
+  // the catch-all from 3.0 to 8.0 with the whole suite green -- which is a
+  // mid-range guess replacing a replacement level, flowing straight into a bid
+  // ceiling, which is the first rule in CLAUDE.md.
+  check('a quarterback is 9.0', replacementPoints('QB') === 9.0, String(replacementPoints('QB')));
+  check('a back or receiver is 4.5',
+    replacementPoints('RB') === 4.5 && replacementPoints('WR') === 4.5);
+  check('everything else is 3.0',
+    replacementPoints('TE') === 3.0 && replacementPoints('K') === 3.0
+      && replacementPoints('D/ST') === 3.0);
+  // And it is genuinely a floor. Take the league the tests just imported and
+  // check that no replacement level outranks a real starter at that position:
+  // if it did, an unresolved name would outbid a known player.
+  const league = store.getActiveLeague();
+  const byPos = {};
+  Object.values((league && league.playerDatabase) || {}).forEach((p) => {
+    if (!p.position || typeof p.projectedPoints !== 'number') return;
+    byPos[p.position] = Math.max(byPos[p.position] || 0, p.projectedPoints);
+  });
+  const positions = Object.keys(byPos);
+  check('replacement sits below the best real player at every position',
+    positions.length > 0 && positions.every((pos) => replacementPoints(pos) < byPos[pos]),
+    positions.map((pos) => `${pos}: ${replacementPoints(pos)} vs ${byPos[pos]}`).join(', '));
+  check('an unknown position still gets an answer', replacementPoints(undefined) === 3.0);
+
+  // One budget constant, not two. The two mappers defaulted to 200 and 100.
+  check('there is a single default auction budget', DEFAULT_AUCTION_BUDGET === 200,
+    String(DEFAULT_AUCTION_BUDGET));
 }
 
 console.log(`\n${passed} passed, ${failed} failed`);

@@ -89,7 +89,7 @@ export function bestLineup(roster, db, replacement = null) {
  * the level every manager can reach, so the difference between teams stays
  * their picks rather than how far into the draft they happen to be.
  */
-function replacementLevels(league) {
+export function replacementLevels(league) {
   const db = league.playerDatabase || {};
   const taken = new Set();
   (league.teams || []).forEach((t) => (t.roster || []).forEach((id) => taken.add(String(id))));

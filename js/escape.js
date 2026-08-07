@@ -19,8 +19,11 @@
  * attribute and starts a new one.
  *
  * A number is not safe just because it is meant to be a number -- `projectedPoints`
- * arrives from JSON we did not write -- so numeric formatting still goes through
- * `num()` rather than being trusted.
+ * arrives from JSON we did not write -- so numeric formatting goes through
+ * `num()` rather than being trusted. That was written as though it were already
+ * true and it was not: an audit found `num` and `int` imported by app.js and
+ * called nowhere in it, while figures from a scraped payload went straight into
+ * templates. They are used at those sinks now.
  */
 
 const HTML_ENTITIES = {
@@ -47,8 +50,16 @@ export const attr = esc;
 /**
  * A number, or a fallback. Use where markup expects a figure: it guarantees the
  * output contains no markup at all, whatever the JSON held.
+ *
+ * null and undefined take the fallback rather than becoming 0. `Number(null)`
+ * is 0 and 0 is finite, so a missing projection rendered as "0.0" -- which on
+ * screen is not a blank, it is a measurement saying this player is worth
+ * nothing. Since the mappers started reporting unknown values as null instead
+ * of inventing them, that distinction is the whole point. An actual 0 still
+ * prints as 0.
  */
 export function num(value, digits = 1, fallback = '—') {
+  if (value === null || value === undefined || value === '') return fallback;
   const n = Number(value);
   if (!Number.isFinite(n)) return fallback;
   return digits === 0 ? String(Math.round(n)) : n.toFixed(digits);

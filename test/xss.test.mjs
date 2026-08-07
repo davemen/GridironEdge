@@ -342,6 +342,25 @@ console.log('\nesc() escapes every character it claims to');
   cases.forEach(([raw, want]) => {
     check(`esc(${JSON.stringify(raw)}) is ${want}`, esc(raw) === want, esc(raw));
   });
+
+  // The null contract, which nothing pinned: `return ''` could become
+  // `return 'null'` with the suite green, and every optional field in every
+  // template would then render the word "null" where a blank belongs.
+  check('esc(null) is empty', esc(null) === '', JSON.stringify(esc(null)));
+  check('esc(undefined) is empty', esc(undefined) === '', JSON.stringify(esc(undefined)));
+  check('esc(0) is "0", not empty', esc(0) === '0', JSON.stringify(esc(0)));
+  check('esc(false) is "false"', esc(false) === 'false', JSON.stringify(esc(false)));
+
+  // num()/int() are the numeric half of the same contract, and they were dead
+  // code with a docstring in escape.js claiming every figure went through them.
+  const { num, int } = await import(join(ROOT, 'js/escape.js'));
+  check('num() renders a figure', num(12.34) === '12.3', num(12.34));
+  check('num() refuses a hostile string', num(TAG) === '—', num(TAG));
+  check('num() refuses null rather than printing it', num(null) === '—', num(null));
+  check('int() rounds', int(12.6) === '13', int(12.6));
+  check('int() refuses a hostile string', int(TAG) === '—', int(TAG));
+  check('and neither can emit markup',
+    !/[<>]/.test(String(num(TAG)) + String(int(TAG)) + String(num('<b>'))));
   // Ampersand first, or the escapes escape each other's output.
   check('esc does not double-escape its own output',
     esc('<') === '&lt;' && esc('&lt;') === '&amp;lt;');

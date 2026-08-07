@@ -89,7 +89,20 @@ function makeEl(id) {
   return el;
 }
 const elCache = new Map();
+
+/**
+ * Ids this stub pretends do not exist.
+ *
+ * getElementById created an element for every id ever asked for, so it never
+ * returned null -- and the app has 118 null guards plus several
+ * create-if-absent branches (the dashboard caveat, the missing-picks banner)
+ * whose false side had therefore never executed in any test. A stub that
+ * always says yes cannot see the difference between "handled" and "would have
+ * thrown".
+ */
+const absent = new Set();
 const getEl = (id) => {
+  if (absent.has(id)) return null;
   if (!elCache.has(id)) elCache.set(id, makeEl(id));
   return elCache.get(id);
 };
@@ -231,6 +244,54 @@ for (const scenario of [
     `got ${moves.length} chars`);
   const champ = written.get('dashboard-champ-prob') || '';
   check('Championship Outlook has a figure', /\d/.test(champ), `got "${champ}"`);
+}
+
+console.log('\nevery page survives an element that is not there');
+{
+  // index.html and js/app.js drift: a renamed container, or a panel not yet
+  // added to the markup, gives getElementById(null) -- and the guard for that
+  // is the branch this stub could never reach.
+  const league = buildLeague({ picks: 6 });
+  load(league);
+
+  // Every id the app asks for, gathered by watching a clean render.
+  const asked = new Set();
+  const realGet = globalThis.document.getElementById;
+  globalThis.document.getElementById = (id) => { asked.add(id); return realGet(id); };
+  for (const name of PAGES) { try { app[name](league); } catch (e) { /* recorded below */ } }
+  globalThis.document.getElementById = realGet;
+  check('the pages ask for containers by id', asked.size > 20, `${asked.size} ids`);
+
+  // The branches that exist BECAUSE an element may be absent -- the app builds
+  // these itself when the markup does not carry them. Their false side had
+  // never run, because the stub always said yes.
+  const CREATED_ON_DEMAND = ['dashboard-caveat', 'missing-picks-banner'];
+  for (const id of CREATED_ON_DEMAND) {
+    absent.add(id);
+    let err = null;
+    try {
+      app.renderHomePage(league);
+      if (app.renderMissingPicksBanner) app.renderMissingPicksBanner(league);
+    } catch (e) { err = e; }
+    absent.delete(id);
+    check(`a missing ${id} is created rather than thrown on`, !err,
+      err && `${err.constructor.name}: ${err.message}`);
+  }
+
+  // How much of the rest is unguarded, measured rather than asserted. The app
+  // does not claim every container is optional -- index.html ships all of them
+  // -- but the number is worth knowing, and worth not growing.
+  let unguarded = 0;
+  for (const id of asked) {
+    absent.add(id);
+    for (const name of PAGES) {
+      try { app[name](league); } catch (e) { unguarded++; break; }
+    }
+    absent.delete(id);
+  }
+  console.log(`  note ${unguarded} of ${asked.size} container ids take a page `
+    + 'down if index.html stops carrying them');
+  check('and it is not getting worse', unguarded <= 40, `${unguarded} unguarded`);
 }
 
 console.log('\na bid being typed survives the next sync');

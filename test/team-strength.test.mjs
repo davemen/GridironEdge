@@ -105,6 +105,27 @@ console.log('\nmid-draft, unfilled slots are worth what is still signable');
 
   const ranked = rankTeams(l);
   check('it says it is projecting unfilled slots', ranked[0].projected === true);
+
+  // Per slot, not just per team. The FLEX has its own fallback, so a total or a
+  // single `projected` flag stays healthy even with every fixed slot's
+  // replacement value zeroed -- a mutation run proved both survive that way.
+  const { replacementLevels } = await import('../js/engine/team-strength.js');
+  const levels = replacementLevels(l);
+  const empty = bestLineup([], db, levels);
+  check('every unfilled slot is valued, not zeroed',
+    empty.slots.length > 0 && empty.slots.every((sl) => sl.points > 0),
+    empty.slots.map((sl) => `${sl.slot}:${sl.points}`).join(' '));
+  check('and every one of them is marked as projected',
+    empty.slots.every((sl) => sl.projected === true),
+    empty.slots.filter((sl) => !sl.projected).map((sl) => sl.slot).join(',') || 'none');
+  check('a filled slot is not marked projected',
+    bestLineup(board.slice(0, 3).map((p) => p.id), db, levels)
+      .slots.filter((sl) => sl.player).every((sl) => sl.projected === false));
+  // Without replacement levels -- a finished draft -- an empty slot really is
+  // worth nothing, and must not claim to be a projection.
+  const done = bestLineup([], db, null);
+  check('with the draft over, an empty slot is zero and says nothing',
+    done.slots.every((sl) => sl.points === 0 && sl.projected === false));
   check('an undrafted team is not worth zero',
     ranked[ranked.length - 1].points > 0, `${ranked[ranked.length - 1].points}`);
   // Every team that has drafted nothing is in exactly the same position, so
