@@ -5,6 +5,19 @@
 
 import store from './store.js';
 import { mockPlayers, mockLeague } from './mock-data.js';
+import { loadProjections, toPlayerDatabase, findPlayer } from './player-database.js';
+
+// Real projections, loaded once at module init. Until this resolves the app
+// falls back to mock data, which is why consumers check realDbReady rather than
+// assuming the database is meaningful.
+let realDb = null;
+export const realDbReady = loadProjections().then((proj) => {
+  realDb = toPlayerDatabase(proj);
+  const n = Object.keys(realDb).length;
+  console.log(n ? `[Gridiron Edge] Loaded ${n} real player projections.`
+                : '[Gridiron Edge] No real projections - running on mock data.');
+  return realDb;
+});
 
 class ESPNClient {
   constructor() {
@@ -167,7 +180,10 @@ class ESPNClient {
       };
     });
 
-    const db = Object.assign({}, mockPlayers);
+    // Real projections when available; mock data only as a visible fallback.
+    const db = (realDb && Object.keys(realDb).length)
+      ? Object.assign({}, realDb)
+      : Object.assign({}, mockPlayers);
 
     // Match draft picks to players in mockPlayers database
     const selections = [];
@@ -230,24 +246,23 @@ class ESPNClient {
       const nomTeam = typeof espnData.currentNomination === 'object' ? espnData.currentNomination.team : 'FA';
       const nomPos = typeof espnData.currentNomination === 'object' ? espnData.currentNomination.position : 'RB';
       
-      let match = Object.values(db).find(pl => pl.name.toLowerCase() === nomName.toLowerCase());
+      // Resolve against the real database first; it normalises the suffixes and
+      // punctuation that ESPN and FantasyPros disagree about.
+      let match = findPlayer(db, nomName, nomPos);
+
       if (!match) {
-        // Substring match
-        match = Object.values(db).find(pl => {
-          const pName = nomName.toLowerCase();
-          const plName = pl.name.toLowerCase();
-          return pName.includes(plName) || plName.includes(pName);
-        });
-      }
-      
-      if (!match) {
+        console.warn('[Gridiron Edge] "' + nomName + '" is not in the projection set; '
+          + 'valuing him at replacement level rather than guessing.');
         const mockId = `MOCK_${nomName.replace(/\s+/g, '_')}`;
         match = {
           id: mockId,
           name: nomName,
           position: nomPos,
           team: nomTeam,
-          projectedPoints: nomPos === 'QB' ? 17.5 : (nomPos === 'RB' ? 12.5 : (nomPos === 'WR' ? 11.8 : 9.5)),
+          // Unknown players get replacement level, not a mid-range guess -- an
+          // invented projection would flow straight into a bid ceiling.
+          projectedPoints: nomPos === 'QB' ? 9.0 : (nomPos === 'RB' ? 4.5 : (nomPos === 'WR' ? 4.5 : 3.0)),
+          isUnknownPlayer: true,
           volatility: 4.0,
           injuryStatus: 'Healthy',
           byeWeek: 6,
@@ -418,7 +433,10 @@ class ESPNClient {
           name: nomName,
           position: nomPos,
           team: nomTeam,
-          projectedPoints: nomPos === 'QB' ? 17.5 : (nomPos === 'RB' ? 12.5 : (nomPos === 'WR' ? 11.8 : 9.5)),
+          // Unknown players get replacement level, not a mid-range guess -- an
+          // invented projection would flow straight into a bid ceiling.
+          projectedPoints: nomPos === 'QB' ? 9.0 : (nomPos === 'RB' ? 4.5 : (nomPos === 'WR' ? 4.5 : 3.0)),
+          isUnknownPlayer: true,
           volatility: 4.0,
           injuryStatus: 'Healthy',
           byeWeek: 6,

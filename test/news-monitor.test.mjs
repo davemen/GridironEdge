@@ -9,7 +9,7 @@
  */
 import { mockLeague, mockPlayers } from '../js/mock-data.js';
 import {
-  classifyHeadline, normalizeName, applyNews, EVENT_IMPACT,
+  classifyHeadline, normalizeName, applyNews, triage, EVENT_IMPACT,
 } from '../js/engine/news-monitor.js';
 import {
   breakoutProbability, blockingValue, effectivePpg, seasonPhase, evaluateWaivers,
@@ -151,6 +151,44 @@ console.log('\nnews reaches the waiver recommendations');
   } else {
     check('trending player appears among targets', false, 'Tyler Boyd not in targets');
   }
+}
+
+console.log('\ntriage: my players vs waiver targets');
+{
+  const l = sparseLeague();               // team 1 owns QB_01, RB_01, WR_03
+  const res = applyNews(l, [
+    { type: 'injury_out', team: 'SF', players: ['Christian McCaffrey'],
+      headline: 'McCaffrey placed on IR', source: 'ESPN' },
+    { type: 'promotion', team: 'LV', players: ['Zamir White'],
+      headline: 'Zamir White named starter', source: 'ESPN' },
+  ], { adds: [{ name: 'Tyler Boyd', adds: 41000 }], drops: [] });
+
+  const mineNames = res.affectsMyTeam.map((x) => x.player);
+  const oppNames = res.opportunities.map((x) => x.player);
+
+  check('bad news about a player I own is flagged',
+    mineNames.includes('Christian McCaffrey'), JSON.stringify(mineNames));
+  check('a free agent with rising value is an opportunity, not a roster alert',
+    oppNames.includes('Zamir White') && !mineNames.includes('Zamir White'),
+    JSON.stringify(oppNames));
+  check('a heavily-added free agent surfaces as an opportunity',
+    oppNames.includes('Tyler Boyd'));
+  check('players I own are never listed as claim targets',
+    !oppNames.includes('Christian McCaffrey'));
+  check('roster alerts are ordered worst first',
+    res.affectsMyTeam.every((x, i) => i === 0
+      || res.affectsMyTeam[i - 1].impact <= x.impact));
+  check('every row carries something to act on',
+    [...res.affectsMyTeam, ...res.opportunities].every(
+      (x) => x.headline || x.addsLast24h > 0));
+
+  // A player owned by a RIVAL is neither my problem nor my opportunity.
+  const owned = applyNews(sparseLeague(), [
+    { type: 'injury_out', team: 'NYJ', players: ['Breece Hall'],
+      headline: 'Hall out', source: 'ESPN' },
+  ], { adds: [], drops: [] });
+  check('news about a rival-owned player is not offered as a claim',
+    !owned.opportunities.some((x) => x.player === 'Breece Hall'));
 }
 
 console.log('\ndegrades safely');

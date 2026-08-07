@@ -9,6 +9,7 @@ import { recommendBid, targetBoard, buildLeagueState } from './engine/auction-ad
 import { optimizeLineup } from './engine/lineup-optimizer.js';
 import { recommendLineupStrategy } from './engine/bracket-strategy.js';
 import { evaluateWaivers, getWaiverRecommendations, CATEGORY, ACTION } from './engine/roster-manager.js';
+import { refreshNews } from './engine/news-monitor.js';
 import { generateTradeProposals } from './engine/trade-generator.js';
 import { runSeasonSimulation } from './engine/simulator.js';
 
@@ -1464,6 +1465,105 @@ function waiverCardHtml(t, idx) {
     </div>`;
 }
 
+/**
+ * Pull live news before evaluating the wire, then re-render.
+ *
+ * The panel on this page already showed headlines, but purely as reading
+ * material -- nothing it fetched reached the engine. This makes the same
+ * information change the recommendations: an injury promotes the backup nobody
+ * has written about yet, and league-wide add volume replaces a guess about
+ * whether a rival will claim someone with a measurement of how many already
+ * have.
+ */
+let newsState = { status: 'idle', summary: null };
+
+async function refreshNewsAndRerender(league) {
+  if (newsState.status === 'loading') return;
+  newsState = { status: 'loading', summary: null };
+  renderWaiversPage(league);
+  try {
+    const res = await refreshNews(league);
+    newsState = { status: res.newsAvailable ? 'ok' : 'unavailable', summary: res };
+  } catch (e) {
+    console.error('News refresh failed:', e);
+    newsState = { status: 'unavailable', summary: { errors: [e.message] } };
+  }
+  renderWaiversPage(league);
+}
+
+function newsBannerHtml(league) {
+  const s = newsState.summary;
+  if (newsState.status === 'loading') {
+    return `<div style="padding:0.6rem 0.9rem; margin-bottom:0.9rem; border-radius:6px;
+      background:rgba(255,255,255,0.04); font-size:0.82rem; color:var(--text-secondary);">
+      Checking injury, trade and depth-chart news…</div>`;
+  }
+  if (newsState.status === 'unavailable') {
+    return `<div style="padding:0.6rem 0.9rem; margin-bottom:0.9rem; border-radius:6px;
+      background:rgba(255,82,82,0.10); border-left:3px solid #ff5252; font-size:0.82rem;
+      color:var(--text-secondary);">
+      <strong style="color:#ff5252;">News feeds unreachable.</strong>
+      Recommendations are running on projections and usage only — an injury from
+      this morning will not be reflected.
+      <button id="btn-news-retry" class="btn-secondary"
+        style="margin-left:0.6rem; padding:0.2rem 0.6rem; font-size:0.75rem;">Retry</button>
+    </div>`;
+  }
+  if (newsState.status === 'ok' && s) {
+    // A generic feed is reading material. What matters is bad news about a
+    // player you own, and opportunity among players you do not.
+    const row = (x, tone) => `
+      <div style="display:flex; gap:0.6rem; align-items:baseline; padding:0.3rem 0;
+                  font-size:0.82rem; border-bottom:1px solid rgba(255,255,255,0.05);">
+        <strong style="color:${tone}; min-width:150px;">${x.player}</strong>
+        <span style="color:var(--text-secondary); font-size:0.75rem;">${x.position}-${x.team}</span>
+        <span style="flex:1; color:var(--text-secondary);">
+          ${x.headline || `${x.addsLast24h.toLocaleString()} managers added him in 24h`}
+        </span>
+        ${x.urgency === 'high' ? '<span style="color:#ff5252; font-size:0.7rem; font-weight:800;">URGENT</span>' : ''}
+      </div>`;
+
+    const mine = (s.affectsMyTeam || []).slice(0, 6);
+    const opps = (s.opportunities || []).slice(0, 6);
+
+    return `
+    <div style="padding:0.7rem 0.9rem; margin-bottom:0.9rem; border-radius:6px;
+                background:rgba(255,255,255,0.03); border-left:3px solid #16c784;">
+      <div style="display:flex; align-items:center; gap:0.6rem; flex-wrap:wrap;
+                  margin-bottom:0.5rem;">
+        <strong style="color:#16c784; font-size:0.82rem;">News applied</strong>
+        <span style="font-size:0.75rem; color:var(--text-secondary);">
+          ${s.itemsClassified} headlines · ${s.playersAffected} players re-valued ·
+          ${s.trendingTracked} tracked for add volume
+        </span>
+        <button id="btn-news-retry" class="btn-secondary"
+          style="margin-left:auto; padding:0.2rem 0.6rem; font-size:0.75rem;">Refresh</button>
+      </div>
+
+      ${mine.length ? `
+        <div style="font-size:0.7rem; text-transform:uppercase; letter-spacing:0.6px;
+                    color:#ff5252; font-weight:800; margin:0.5rem 0 0.2rem;">
+          Affects your roster</div>
+        ${mine.map((x) => row(x, '#ff5252')).join('')}` : ''}
+
+      ${opps.length ? `
+        <div style="font-size:0.7rem; text-transform:uppercase; letter-spacing:0.6px;
+                    color:#16c784; font-weight:800; margin:0.7rem 0 0.2rem;">
+          Worth claiming</div>
+        ${opps.map((x) => row(x, '#16c784')).join('')}` : ''}
+
+      ${!mine.length && !opps.length ? `
+        <div style="font-size:0.82rem; color:var(--text-secondary);">
+          Nothing in the last day affects your roster or the players you could claim.
+        </div>` : ''}
+    </div>`;
+  }
+  return `<div style="margin-bottom:0.9rem;">
+    <button id="btn-news-retry" class="btn-secondary"
+      style="padding:0.3rem 0.75rem; font-size:0.8rem;">Check injury &amp; trade news</button>
+  </div>`;
+}
+
 function renderWaiversPage(league = store.getActiveLeague()) {
   if (!league) return;
 
@@ -1541,7 +1641,14 @@ function renderWaiversPage(league = store.getActiveLeague()) {
       Calls that would depend on those are reported at lower confidence rather than guessed.
     </p>`;
 
-  listContainer.innerHTML = headerHtml + moveHtml + benchHtml + targetsHtml + caveat;
+  listContainer.innerHTML = newsBannerHtml(league) + headerHtml + moveHtml
+    + benchHtml + targetsHtml + caveat;
+
+  const retry = document.getElementById('btn-news-retry');
+  if (retry) retry.onclick = () => refreshNewsAndRerender(league);
+
+  // Pull news automatically the first time the page is opened.
+  if (newsState.status === 'idle') refreshNewsAndRerender(league);
 
   targets.slice(0, 6).forEach((t, idx) => {
     const btn = document.getElementById(`claim-btn-${idx}`);
@@ -1859,7 +1966,17 @@ function renderAlertsPage(league = store.getActiveLeague()) {
   fetchLiveBreakingNews(rosterNames);
 }
 
-// Fetch and render live breaking news from Reddit r/fantasyfootball
+/**
+ * Reddit is a community forum, not a wire. It carries rumour, jokes and
+ * speculation alongside real reporting, it rate-limits anonymous callers, and
+ * nothing in it is structured -- which is why it feeds the display panel only
+ * and never reaches the recommendation engine.
+ *
+ * The engine reads ESPN's news API and Sleeper's add/drop volume instead
+ * (js/engine/news-monitor.js), where items carry player and team tags that can
+ * be classified into injuries, trades and depth-chart moves. This function is
+ * the human-readable supplement to that, and it fails quietly.
+ */
 async function fetchLiveBreakingNews(rosterNames = []) {
   const newsContainer = document.getElementById('news-list-container');
   const indicator = document.getElementById('news-refresh-indicator');

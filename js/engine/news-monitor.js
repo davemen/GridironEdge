@@ -232,7 +232,49 @@ export function applyNews(league, news, trending, options = {}) {
     playersAffected: new Set(applied.map((a) => a.player)).size,
     trendingTracked: adds.length,
     applied,
+    // Split by what it means for THIS team, because a generic feed is reading
+    // material and these are decisions. Everything else on the wire is noise
+    // for someone who has to choose a lineup in an hour.
+    ...triage(league, players),
   };
+}
+
+/**
+ * Sort the affected players into the only two groups that require action:
+ * bad news about someone you own, and opportunity among players you do not.
+ */
+export function triage(league, players) {
+  const me = league.teams?.find((t) => t.teamId === league.myTeamId);
+  const mine = new Set((me?.roster || []).map(String));
+  const owned = new Set();
+  (league.teams || []).forEach((t) => (t.roster || []).forEach((id) => owned.add(String(id))));
+
+  const affects = [], opportunities = [];
+  players.forEach((p) => {
+    const ni = p.newsImpact;
+    if (!ni) return;
+    const headline = ni.events?.[0]?.headline || null;
+    const row = {
+      player: p.name, position: p.position, team: p.team,
+      impact: Number(ni.selfImpact.toFixed(2)),
+      claimHeat: Number((ni.claimHeat || 0).toFixed(2)),
+      addsLast24h: ni.addsLast24h || 0,
+      urgency: ni.urgency || 'low',
+      headline,
+    };
+    if (mine.has(String(p.id))) {
+      // Only bad news about your own players is actionable; good news about a
+      // player already in your lineup changes nothing you do today.
+      if (ni.selfImpact < 0) affects.push(row);
+    } else if (!owned.has(String(p.id))) {
+      if (ni.selfImpact > 0 || (ni.claimHeat || 0) > 0.25) opportunities.push(row);
+    }
+  });
+
+  affects.sort((a, b) => a.impact - b.impact);
+  opportunities.sort(
+    (a, b) => (b.impact + b.claimHeat) - (a.impact + a.claimHeat));
+  return { affectsMyTeam: affects, opportunities };
 }
 
 /**
