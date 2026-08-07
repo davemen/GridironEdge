@@ -1,4 +1,4 @@
-# Handoff — 2026-08-07
+# Handoff — 2026-08-07 (after round 5)
 
 Read `CLAUDE.md` first; it is the rules. This is the state and the queue.
 
@@ -12,102 +12,133 @@ findings, and repeat **until every category is ≥ 90**. Do not stop before that
 
 Prompts that work are in the memory file `repo-audit-prompt.md`. Two structural
 choices matter: run all five in parallel, and use **fresh** agents each round so
-"I fixed it" is verified by someone who did not write the fix. Round 4's most
-valuable output was re-checking round 3's claims — three fixes held, one did not.
+"I fixed it" is verified by someone who did not write the fix.
 
 ## Where the scores are
 
-| | R1 | R2 | R3 | R4 |
-|---|---|---|---|---|
-| security | 31 | 62 | 52 | 58 |
-| tests | 54 | 61 | 38 | 47 |
-| perf | 42 | 55 | 52 | 62 |
-| docs | 58 | 66 | 44 | 61 |
-| readability | 58 | 61 | 62 | 58 |
+| | R1 | R2 | R3 | R4 | R5 |
+|---|---|---|---|---|---|
+| security | 31 | 62 | 52 | 58 | 64 |
+| tests | 54 | 61 | 38 | 47 | 52 |
+| perf | 42 | 55 | 52 | 62 | 71 |
+| docs | 58 | 66 | 44 | 61 | 58 |
+| readability | 58 | 61 | 62 | 58 | 63 |
 
 Scores drop when a round reaches ground the last one did not. That is the
-system working, not a regression. Mutation score: 27% (R3) → 39% (R4).
+system working, not a regression.
 
-**Fixes landed after round 4 was recorded and not yet scored** — a round 5 will
-measure them: `test/engines.test.mjs` (the three untested engines), the worker's
-payload bounds, `coverage` finally being read, the `targetBoard` cache, and the
-draft board's competing price.
+**Round 5 raised 85 findings. 79 are fixed; 6 are open and listed below.**
+A round 6 has not been run — every score above is round 5's, and nothing in
+this file claims the fixes moved them. That is what round 6 is for.
 
-## Do these next, in this order
+## What round 5 taught, beyond the individual findings
 
-1. **`GRIDIRON_EDGE_SYNC` and `GRIDIRON_EDGE_SWEEP_REQUEST` are forgeable.**
-   `chrome-extension/content-main.js` runs in world MAIN, so `event.source ===
-   window` and the origin check are satisfied by any script on ESPN's page — an
-   ad, a tag manager. Proven in headless Chrome: a forged sync reached
-   `background.js` and passed its gate; a forged sweep drove the roster dropdown
-   through every option. There is an in-flight guard and a 60s floor, which
-   bound the damage but do not close it. **The fix is to run the sweep from the
-   isolated world**, which the page cannot reach, and to nonce the sync channel.
-   This is what makes every XSS finding remotely reachable rather than
-   self-inflicted.
+**Three agents found one defect from three directions.** The `targetBoard`
+cache — round 4's critical *fix* — shipped a key missing five inputs that
+change the answer. Performance proved it by priming and mutating, documentation
+proved two leagues returned the same board object, and the test agent's
+surviving mutants dropped `faabRemaining` and `myTeamId` from the key. When
+independent lenses converge, that is the finding to act on first.
 
-2. **`mapDOMScrapedLeague` invents the league's roster settings**
-   (`js/espn-client.js:401`). A hardcoded 1 QB / 2 RB / 2 WR / 1 TE / 1 FLEX /
-   7 bench, with no marker that it is a guess. Every extension payload takes
-   this path, so a 3-WR or 2-flex league gets wrong needs, wrong bid ceilings
-   and an invented "WRs: 2 / 2" denominator. The API path reads the real slot
-   counts, so the two mappers disagree. Violates the first rule in CLAUDE.md.
+**A test that reaches a sink is worth more than a test that asserts about it.**
+`test/xss.test.mjs` was green through eight raw injection sinks because it
+stubbed `fetch` to throw for every non-projections URL, only ever drove the
+DOM-scrape mapper, and keyed its recorder by element id — so every table row
+overwrote the last and only the final one was ever scanned. Fixing the *gate*
+found more than fixing the sinks.
 
-3. **Four live copies of the starting lineup.** `js/engine/lineup-rules.js`
-   claims to be the single definition; `lineup-optimizer.js`, `app.js` and
-   `draft-assistant.js` each carry their own and none imports it. `slotList()`
-   and `rosterSize()` have **zero importers repo-wide**. They agree today only
-   because item 2 fabricates settings that match.
+**Writing the fixture is most of the work.** Several fixes needed two or three
+attempts at a fixture before the mutation actually died: the free-agent name
+bar and id bar cover for each other unless the case distinguishes them, and
+team-strength's FLEX slot has its own fallback that masks every fixed slot's.
+If a mutation survives, the fixture is wrong, not the finding.
 
-4. **Raise the mutation score.** It needs to roughly double. Known survivors,
-   all recorded with the exact mutation in `audit/history.json`: the
-   name-based drafted-player bar, `team-strength`'s replacement-level fallback,
-   `espn-client`'s replacement constants, most of `lineup-rules`' constants,
-   and `store.js`'s merge semantics. `test/render.test.mjs`'s stub still never
-   returns null from `getElementById`, so create-if-absent branches never run.
+## Still open
 
-5. **Performance, all measured, all still open:** the scrape walks every div
-   twice per tick (~2,514 innerText reads) and one walk is usually discarded;
-   `sweepAllRosters` takes 11.2s in its common case (empty rosters early in an
-   auction, which is exactly when the auto-sweep fires); the auction panel is
-   rebuilt by whole-subtree `innerHTML` once a second, recreating the bid input
-   the user may be typing in.
+1. **The repo is public and its history holds real league data.** 27 blobs of
+   `imported_league.json` reachable from `origin/main`, carrying three real
+   league ids, the owner's team name, `myTeamId`, per-team FAAB and full pick
+   lists — plus a 14.6MB `sleeper_players.json` with ~11k birth dates and high
+   schools. `.gitignore` covers them today; that does not remove blobs. The fix
+   is `git filter-repo --invert-paths` and a **force-push of all refs**, which
+   rewrites published history — **the owner's call, not an agent's.** Ask before
+   touching it.
+
+2. **`GRIDIRON_EDGE_SYNC` is still forgeable, and a nonce cannot fix it.**
+   `content-main.js` runs in world MAIN, so `event.source === window` and the
+   origin check are satisfied by construction for any script on ESPN's page.
+   Every script in a frame sees every `postMessage`, so a token sent that way is
+   not a secret. The only real fix is to stop carrying data through the page's
+   world — which means moving or dropping the React/Redux read that is the only
+   reason `content-main.js` is in MAIN at all. That is a design change, not a
+   patch. The header in `content-isolated.js` now states this plainly instead of
+   reading as though the boundary were closed.
+   **The sweep half IS closed**: it moved to the isolated world, so a forged
+   message can no longer drive the draft room's dropdown.
+
+3. **`js/app.js` is 3,117 lines** with all eleven page renderers in it. The dead
+   assignments and orphaned docblocks are gone; the file is not split.
+
+4. **Two performance costs are deliberate, and say so in the code**: both shape
+   gates stringify the payload to measure it (trusting a size from the sender is
+   worse than paying twice, and textual identity is what stops the two gates
+   drifting apart *again*), and a cold `targetBoard` blocks 36–101ms in the task
+   that carries a sale (an idle callback would paint a board still listing the
+   player who just sold).
+
+5. **33 of 55 container ids take a page down if `index.html` stops carrying
+   them.** Measured by `test/render.test.mjs`, which pins the number so it
+   cannot grow. The app ships all of them and does not claim they are optional.
+
+## Do these next
+
+- **Run round 5's fixes past fresh agents.** 79 findings were closed by the
+  same session that read them, which is exactly the arrangement round 4 showed
+  is worth distrusting: three of its four claimed fixes held, one did not.
+- **Verify the extension against a live draft room.** The sweep moved from the
+  page's world to the isolated world. It is covered by a test that drives it
+  against a fake React-controlled `<select>` and asserts it visits every team,
+  reads a *different* roster for each, and restores the selection — but it has
+  not run against ESPN. After any install, **reload the ESPN draft room tab**:
+  content scripts are injected at page load, so an open tab keeps the old ones
+  and keeps scraping, which is why a missing new route looks like a bug in the
+  new code. Both halves print their build to that tab's console.
+- **Raise the mutation score.** It was 36% at round 5 and the campaign predates
+  this session's work; the survivors it named are killed, but the number itself
+  needs re-measuring.
 
 ## The extension itself
 
 Installed at `/Applications/GridironEdge.app`, build `2026.08.07-sweep`.
-Rebuild and install with `./tools/install-safari.sh` — it does the four steps
-that are each individually easy to forget, including **launching the app**,
-without which Safari does not list the extension at all.
+Rebuild and install with `./tools/install-safari.sh <TEAM_ID>` — the Apple Team
+ID is now an argument or `$GRIDIRON_TEAM_ID`, not a literal in a public repo.
 
-Proven against a live Safari auction today: the roster scraper, team
-identification from the room's dropdown, and the automatic scan (9 picks → 118
-of 122). After any install, **reload the ESPN draft room tab** — content scripts
-are injected at page load, so an open tab keeps the old ones and keeps scraping,
-which is why a missing new route looks like a bug in the new code. Both halves
-print their build to that tab's console; check them.
+`chrome-extension/popup.js` and `popup.html` are **gone**: the manifest
+registers no `default_popup`, so 676 lines shipped in every build and none of
+it was ever loaded.
 
-Untested against a live room: nothing new since the scan was proven.
+## Things I got wrong, so you do not repeat them
 
-## Things I got wrong today, so you do not repeat them
-
-- **I twice concluded a scraper bug from a partial DOM dump and was wrong both
-  times** — first that the container check was the whole problem, then that an
-  auction renders no draft board at all. Both were corrected by asking for more
-  of the actual markup. Ask for the DOM before theorising.
-- **A test that passes can be passing for the wrong reason.** My `targetBoard`
-  cache test passed while the mutation it was meant to catch survived, because
-  the fixture changed two things at once. The fixture that isolates it is an
-  *unattributed pick* — off the board, no budget moved.
-- **I wrote comments that my own later change falsified within hours** (the
-  sweep's "Never automatic"). When behaviour changes, the header above it is
-  part of the change.
+- **I twice wrote a test that could not fail.** The bid-input test passed
+  against the unfixed code because the DOM stub handed back the same element
+  object forever; the free-agent tests passed against three separate reverts
+  because the bars cover for each other. Both times the check that caught it was
+  the same: re-apply the exact mutation in a scratch copy and watch it go red.
+  Do that every time, not when it seems necessary.
+- **My first consolidation of the draft-assistant lineup shape changed the
+  recommendations.** Deriving the slots from `lineup-rules` correctly included
+  D/ST and K, which put a kicker into the shortlist at pick 97. Nothing
+  measures that, so the scope was put back and the reason recorded in the code.
+  A refactor that improves the answer is still a behaviour change.
+- **The handoff I read at the start was wrong** about which files import
+  `lineup-rules.js`. Check the claim, including this one.
 
 ## Ground rules that bit repeatedly
 
-- `npm test` is the gate. 15 suites. `node --check` proves almost nothing here.
+- `npm test` is the gate. 15 suites, ~620 assertions. `node --check` proves
+  almost nothing here.
 - Never write to `imported_league.json` or `data/*.json` while testing — an
-  early audit destroyed real user data that way. Copy to `/tmp`.
+  early audit destroyed real user data that way. Copy to the scratchpad.
 - Never invent a number, and never let "nothing to report" share a message with
   "could not reach the feed". Most findings this whole audit reduce to one of
   those two.
