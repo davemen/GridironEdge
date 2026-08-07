@@ -1,5 +1,5 @@
 import { optimizeLineup } from './lineup-optimizer.js';
-import { PLAYOFF_TEAMS, BYE_TEAMS } from './lineup-rules.js';
+import { PLAYOFF_TEAMS, BYE_TEAMS, REGULAR_WEEKS } from './lineup-rules.js';
 import { getWaiverRecommendations } from './roster-manager.js';
 import { generateTradeProposals } from './trade-generator.js';
 
@@ -131,6 +131,45 @@ export function runSeasonSimulation(league, runs = 1000) {
     return totalTeamProj > 0 ? totalTeamProj : 105.0;
   };
 
+
+  /**
+   * Play the bracket out, scored from the teams actually in it.
+   *
+   * The bracket was six randomNormal draws with hardcoded means -- 115 v 110,
+   * 112 v 112, 116 v 114 -- that never read a roster, a projection or the
+   * seed's identity. The champion was a coin flip between fixed indices, so
+   * the "probability of winning the title" on the home page was noise wearing
+   * the clothes of a forecast: exactly what CLAUDE.md exists to prevent, and
+   * invisible on screen because invented output looks like real output.
+   *
+   * It also referenced only pTeams[0..3], so widening the field to six left
+   * seeds 5 and 6 permanently unable to win.
+   *
+   * The per-week projections are already computed above, so each game uses the
+   * two teams' own scoring with the same 12-point weekly spread as the regular
+   * season. Top seeds get byes; the rest pair highest against lowest.
+   */
+  function playBracket(seeds, weekProj) {
+    const scoreOf = (id) => Math.max(50, randomNormal((weekProj || {})[id] || 105, 12));
+    const beats = (a, b) => (scoreOf(a) >= scoreOf(b) ? a : b);
+    const byes = seeds.slice(0, BYE_TEAMS);
+    let rest = seeds.slice(BYE_TEAMS);
+    while (rest.length > 1) {
+      const next = [];
+      while (rest.length > 1) next.push(beats(rest.shift(), rest.pop()));
+      if (rest.length) next.push(rest.shift());
+      rest = next;
+    }
+    let alive = byes.concat(rest);
+    while (alive.length > 1) {
+      const next = [];
+      while (alive.length > 1) next.push(beats(alive.shift(), alive.pop()));
+      if (alive.length) next.push(alive.shift());
+      alive = next;
+    }
+    return alive[0];
+  }
+
   // Pre-calculate normal and windy projections per week for all teams (Weeks 5-14)
   const teamProjectionsPerWeek = {};
   for (let w = 5; w <= 14; w++) {
@@ -235,24 +274,9 @@ export function runSeasonSimulation(league, runs = 1000) {
         byeReaches++;
       }
 
-      // Simulate playoffs brackets: Semifinals (1 vs 4, 2 vs 3)
       const pTeams = standings.slice(0, playoffSize).map(s => s.teamId);
-      
-      // Semifinal 1: Team 1 vs Team 4
-      const semi1Score1 = randomNormal(115, 10);
-      const semi1Score2 = randomNormal(110, 10);
-      const finalist1 = semi1Score1 > semi1Score2 ? pTeams[0] : pTeams[3];
-
-      // Semifinal 2: Team 2 vs Team 3
-      const semi2Score1 = randomNormal(112, 10);
-      const semi2Score2 = randomNormal(112, 10);
-      const finalist2 = semi2Score1 > semi2Score2 ? pTeams[1] : pTeams[2];
-
-      // Championship match
-      // Suppose my team is a finalist
-      const finalScore1 = randomNormal(116, 9);
-      const finalScore2 = randomNormal(114, 9);
-      const championId = finalScore1 > finalScore2 ? finalist1 : finalist2;
+      const championId = playBracket(
+        pTeams, (teamProjectionsPerWeek[REGULAR_WEEKS] || {}).normal);
 
       champWinsCount[championId]++;
       if (championId === league.myTeamId) {
@@ -260,17 +284,11 @@ export function runSeasonSimulation(league, runs = 1000) {
       }
     } else {
       // Simulate playoffs for other teams to see who wins
+      // Scored the same way, so champWinsCount is one consistent distribution
+      // rather than two models disagreeing about who is likely to win.
       const pTeams = standings.slice(0, playoffSize).map(s => s.teamId);
-      const semi1Score1 = randomNormal(112, 10);
-      const semi1Score2 = randomNormal(110, 10);
-      const finalist1 = semi1Score1 > semi1Score2 ? pTeams[0] : pTeams[3];
-
-      const semi2Score1 = randomNormal(112, 10);
-      const semi2Score2 = randomNormal(112, 10);
-      const finalist2 = semi2Score1 > semi2Score2 ? pTeams[1] : pTeams[2];
-
-      const championId = randomNormal(115, 9) > randomNormal(115, 9) ? finalist1 : finalist2;
-      champWinsCount[championId]++;
+      champWinsCount[playBracket(
+        pTeams, (teamProjectionsPerWeek[REGULAR_WEEKS] || {}).normal)]++;
     }
   }
 
