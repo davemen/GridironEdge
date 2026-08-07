@@ -497,7 +497,8 @@ export function renderMissingPicksBanner(league) {
   const have = ((league.draftState || {}).selections || []).length;
 
   if (sweepWatch && have > sweepWatch.haveAtStart) {
-    sweepMessage = `Scan added ${have - sweepWatch.haveAtStart} picks.`;
+    const gained = have - sweepWatch.haveAtStart;
+    sweepMessage = `Scan added ${gained} ${gained === 1 ? 'pick' : 'picks'}.`;
     sweepWatch = null;
   }
   let el = document.getElementById('missing-picks-banner');
