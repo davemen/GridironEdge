@@ -28,6 +28,16 @@ export const realDbReady = loadProjections().then((proj) => {
  * nomination, which is why it survived — and it compared raw lowercased names
  * where the working copy correctly used findPlayer. One function, called twice.
  */
+/**
+ * Replacement level for a position. The only acceptable answer when the feed
+ * gives us nothing: a mid-range guess flows straight into a bid ceiling.
+ */
+function replacementPoints(position) {
+  if (position === 'QB') return 9.0;
+  if (position === 'RB' || position === 'WR') return 4.5;
+  return 3.0;
+}
+
 function unresolvedPlayer(name, position, team) {
   const pos = position || 'RB';
   console.warn('[Gridiron Edge] "' + name + '" is not in the projection set; '
@@ -41,7 +51,7 @@ function unresolvedPlayer(name, position, team) {
     team: team || 'FA',
     // Replacement level, not a mid-range guess -- an invented projection flows
     // straight into a bid ceiling.
-    projectedPoints: pos === 'QB' ? 9.0 : (pos === 'RB' || pos === 'WR' ? 4.5 : 3.0),
+    projectedPoints: replacementPoints(pos),
     isUnknownPlayer: true,
     volatility: 4.0,
     injuryStatus: 'Healthy',
@@ -561,7 +571,12 @@ class ESPNClient {
           name: player.fullName,
           position: this.mapESPNPosition(player.defaultPositionId),
           team: player.proTeamId ? String(player.proTeamId) : 'FA',
-          projectedPoints: p.ratings?.overall?.projectedPoints || 10,
+          // Keyed like every other record: without a key it is invisible to
+          // findPlayer AND it defeats the database index for everyone else.
+          key: playerKey(player.fullName || ''),
+          // No invented mid-range guess: unknown means replacement level.
+          projectedPoints: typeof p.ratings?.overall?.projectedPoints === 'number'
+            ? p.ratings.overall.projectedPoints : replacementPoints(mapESPNPosition(player.defaultPositionId)),
           volatility: this.getVolatilityByPos(player.defaultPositionId),
           injuryStatus: this.mapESPNInjury(player.injuryStatus),
           byeWeek: player.byeWeek || 6,

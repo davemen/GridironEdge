@@ -1413,11 +1413,14 @@ function auctionAdvisoryHtml(rec) {
       </div>
     </div>` : '';
 
+  // Escapes its own inputs and returns markup. Callers must NOT wrap the result
+  // in esc() -- one did, and the Action tile rendered its own div as visible
+  // text on the panel this app exists to serve.
   const stat = (label, value, color) => `
     <div style="flex:1; min-width:110px;">
       <div style="font-size:0.66rem; color:var(--text-secondary); text-transform:uppercase;
-                  letter-spacing:0.5px; font-weight:600;">${label}</div>
-      <div style="font-size:1.25rem; font-weight:800; color:${color || 'var(--text-primary)'};">${value}</div>
+                  letter-spacing:0.5px; font-weight:600;">${esc(label)}</div>
+      <div style="font-size:1.25rem; font-weight:800; color:${attr(color || 'var(--text-primary)')};">${esc(value)}</div>
     </div>`;
 
   return `
@@ -1427,7 +1430,7 @@ function auctionAdvisoryHtml(rec) {
       ${stat('Bid now', rec.recommendedBid > 0 ? '$' + rec.recommendedBid : '—', style.color)}
       ${stat('Walk-away ceiling', '$' + rec.maxBid, rec.mustBuy ? '#f59e0b' : 'var(--accent-green)')}
       ${stat('Market forecast', '$' + rec.expectedPrice)}
-      ${esc(stat('Action', style.label, style.color))}
+      ${stat('Action', style.label, style.color)}
       ${stat('Confidence', rec.confidence.toUpperCase())}
     </div>
 

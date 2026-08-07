@@ -1,0 +1,6223 @@
+{
+ "generated": "run: node test/fixtures/regenerate.mjs",
+ "cases": [
+  {
+   "size": 8,
+   "picks": 0,
+   "seed": 0,
+   "player": "Bijan Robinson",
+   "bid": 0,
+   "out": [
+    67,
+    62,
+    58,
+    "BID",
+    true,
+    12,
+    199,
+    1
+   ]
+  },
+  {
+   "size": 8,
+   "picks": 0,
+   "seed": 0,
+   "player": "Bijan Robinson",
+   "bid": 15,
+   "out": [
+    67,
+    62,
+    58,
+    "BID",
+    true,
+    12,
+    184,
+    1
+   ]
+  },
+  {
+   "size": 8,
+   "picks": 0,
+   "seed": 0,
+   "player": "Bijan Robinson",
+   "bid": 60,
+   "out": [
+    67,
+    62,
+    58,
+    "BID",
+    true,
+    12,
+    139,
+    1
+   ]
+  },
+  {
+   "size": 8,
+   "picks": 0,
+   "seed": 0,
+   "player": "Trevor Lawrence",
+   "bid": 0,
+   "out": [
+    11,
+    11,
+    10,
+    "BID",
+    false,
+    8,
+    199,
+    1
+   ]
+  },
+  {
+   "size": 8,
+   "picks": 0,
+   "seed": 0,
+   "player": "Trevor Lawrence",
+   "bid": 15,
+   "out": [
+    11,
+    11,
+    10,
+    "EXIT",
+    false,
+    8,
+    184,
+    1
+   ]
+  },
+  {
+   "size": 8,
+   "picks": 0,
+   "seed": 0,
+   "player": "Trevor Lawrence",
+   "bid": 60,
+   "out": [
+    11,
+    11,
+    10,
+    "EXIT",
+    false,
+    8,
+    139,
+    1
+   ]
+  },
+  {
+   "size": 8,
+   "picks": 0,
+   "seed": 0,
+   "player": "Brandon Aubrey",
+   "bid": 0,
+   "out": [
+    12,
+    12,
+    12,
+    "BID",
+    false,
+    2,
+    199,
+    1
+   ]
+  },
+  {
+   "size": 8,
+   "picks": 0,
+   "seed": 0,
+   "player": "Brandon Aubrey",
+   "bid": 15,
+   "out": [
+    12,
+    12,
+    12,
+    "EXIT",
+    false,
+    2,
+    184,
+    1
+   ]
+  },
+  {
+   "size": 8,
+   "picks": 0,
+   "seed": 0,
+   "player": "Brandon Aubrey",
+   "bid": 60,
+   "out": [
+    12,
+    12,
+    12,
+    "EXIT",
+    false,
+    2,
+    139,
+    1
+   ]
+  },
+  {
+   "size": 8,
+   "picks": 0,
+   "seed": 0,
+   "player": "Cade Otton",
+   "bid": 0,
+   "out": [
+    3,
+    3,
+    2,
+    "BID",
+    false,
+    10,
+    199,
+    1
+   ]
+  },
+  {
+   "size": 8,
+   "picks": 0,
+   "seed": 0,
+   "player": "Cade Otton",
+   "bid": 15,
+   "out": [
+    3,
+    3,
+    2,
+    "EXIT",
+    false,
+    10,
+    184,
+    1
+   ]
+  },
+  {
+   "size": 8,
+   "picks": 0,
+   "seed": 0,
+   "player": "Cade Otton",
+   "bid": 60,
+   "out": [
+    3,
+    3,
+    2,
+    "EXIT",
+    false,
+    10,
+    139,
+    1
+   ]
+  },
+  {
+   "size": 8,
+   "picks": 0,
+   "seed": 3,
+   "player": "Bijan Robinson",
+   "bid": 0,
+   "out": [
+    67,
+    62,
+    58,
+    "BID",
+    true,
+    12,
+    199,
+    1
+   ]
+  },
+  {
+   "size": 8,
+   "picks": 0,
+   "seed": 3,
+   "player": "Bijan Robinson",
+   "bid": 15,
+   "out": [
+    67,
+    62,
+    58,
+    "BID",
+    true,
+    12,
+    184,
+    1
+   ]
+  },
+  {
+   "size": 8,
+   "picks": 0,
+   "seed": 3,
+   "player": "Bijan Robinson",
+   "bid": 60,
+   "out": [
+    67,
+    62,
+    58,
+    "BID",
+    true,
+    12,
+    139,
+    1
+   ]
+  },
+  {
+   "size": 8,
+   "picks": 0,
+   "seed": 3,
+   "player": "Trevor Lawrence",
+   "bid": 0,
+   "out": [
+    11,
+    11,
+    10,
+    "BID",
+    false,
+    8,
+    199,
+    1
+   ]
+  },
+  {
+   "size": 8,
+   "picks": 0,
+   "seed": 3,
+   "player": "Trevor Lawrence",
+   "bid": 15,
+   "out": [
+    11,
+    11,
+    10,
+    "EXIT",
+    false,
+    8,
+    184,
+    1
+   ]
+  },
+  {
+   "size": 8,
+   "picks": 0,
+   "seed": 3,
+   "player": "Trevor Lawrence",
+   "bid": 60,
+   "out": [
+    11,
+    11,
+    10,
+    "EXIT",
+    false,
+    8,
+    139,
+    1
+   ]
+  },
+  {
+   "size": 8,
+   "picks": 0,
+   "seed": 3,
+   "player": "Brandon Aubrey",
+   "bid": 0,
+   "out": [
+    12,
+    12,
+    12,
+    "BID",
+    false,
+    2,
+    199,
+    1
+   ]
+  },
+  {
+   "size": 8,
+   "picks": 0,
+   "seed": 3,
+   "player": "Brandon Aubrey",
+   "bid": 15,
+   "out": [
+    12,
+    12,
+    12,
+    "EXIT",
+    false,
+    2,
+    184,
+    1
+   ]
+  },
+  {
+   "size": 8,
+   "picks": 0,
+   "seed": 3,
+   "player": "Brandon Aubrey",
+   "bid": 60,
+   "out": [
+    12,
+    12,
+    12,
+    "EXIT",
+    false,
+    2,
+    139,
+    1
+   ]
+  },
+  {
+   "size": 8,
+   "picks": 0,
+   "seed": 3,
+   "player": "Cade Otton",
+   "bid": 0,
+   "out": [
+    3,
+    3,
+    2,
+    "BID",
+    false,
+    10,
+    199,
+    1
+   ]
+  },
+  {
+   "size": 8,
+   "picks": 0,
+   "seed": 3,
+   "player": "Cade Otton",
+   "bid": 15,
+   "out": [
+    3,
+    3,
+    2,
+    "EXIT",
+    false,
+    10,
+    184,
+    1
+   ]
+  },
+  {
+   "size": 8,
+   "picks": 0,
+   "seed": 3,
+   "player": "Cade Otton",
+   "bid": 60,
+   "out": [
+    3,
+    3,
+    2,
+    "EXIT",
+    false,
+    10,
+    139,
+    1
+   ]
+  },
+  {
+   "size": 8,
+   "picks": 11,
+   "seed": 0,
+   "player": "Jalen Hurts",
+   "bid": 0,
+   "out": [
+    21,
+    19,
+    17,
+    "BID",
+    true,
+    10,
+    173,
+    0.83
+   ]
+  },
+  {
+   "size": 8,
+   "picks": 11,
+   "seed": 0,
+   "player": "Jalen Hurts",
+   "bid": 15,
+   "out": [
+    21,
+    19,
+    17,
+    "BID",
+    true,
+    10,
+    158,
+    0.83
+   ]
+  },
+  {
+   "size": 8,
+   "picks": 11,
+   "seed": 0,
+   "player": "Jalen Hurts",
+   "bid": 60,
+   "out": [
+    21,
+    21,
+    17,
+    "EXIT",
+    true,
+    10,
+    113,
+    0.83
+   ]
+  },
+  {
+   "size": 8,
+   "picks": 11,
+   "seed": 0,
+   "player": "Bo Nix",
+   "bid": 0,
+   "out": [
+    3,
+    0,
+    8,
+    "PASS",
+    false,
+    0,
+    173,
+    0.83
+   ]
+  },
+  {
+   "size": 8,
+   "picks": 11,
+   "seed": 0,
+   "player": "Bo Nix",
+   "bid": 15,
+   "out": [
+    3,
+    0,
+    8,
+    "EXIT",
+    false,
+    0,
+    158,
+    0.83
+   ]
+  },
+  {
+   "size": 8,
+   "picks": 11,
+   "seed": 0,
+   "player": "Bo Nix",
+   "bid": 60,
+   "out": [
+    3,
+    0,
+    8,
+    "EXIT",
+    false,
+    0,
+    113,
+    0.83
+   ]
+  },
+  {
+   "size": 8,
+   "picks": 11,
+   "seed": 0,
+   "player": "Wan'Dale Robinson",
+   "bid": 0,
+   "out": [
+    3,
+    0,
+    5,
+    "PASS",
+    false,
+    0,
+    173,
+    0.83
+   ]
+  },
+  {
+   "size": 8,
+   "picks": 11,
+   "seed": 0,
+   "player": "Wan'Dale Robinson",
+   "bid": 15,
+   "out": [
+    3,
+    0,
+    5,
+    "EXIT",
+    false,
+    0,
+    158,
+    0.83
+   ]
+  },
+  {
+   "size": 8,
+   "picks": 11,
+   "seed": 0,
+   "player": "Wan'Dale Robinson",
+   "bid": 60,
+   "out": [
+    3,
+    0,
+    5,
+    "EXIT",
+    false,
+    0,
+    113,
+    0.83
+   ]
+  },
+  {
+   "size": 8,
+   "picks": 11,
+   "seed": 0,
+   "player": "Braelon Allen",
+   "bid": 0,
+   "out": [
+    4,
+    2,
+    1,
+    "BID",
+    false,
+    10,
+    173,
+    0.83
+   ]
+  },
+  {
+   "size": 8,
+   "picks": 11,
+   "seed": 0,
+   "player": "Braelon Allen",
+   "bid": 15,
+   "out": [
+    4,
+    4,
+    1,
+    "EXIT",
+    false,
+    10,
+    158,
+    0.83
+   ]
+  },
+  {
+   "size": 8,
+   "picks": 11,
+   "seed": 0,
+   "player": "Braelon Allen",
+   "bid": 60,
+   "out": [
+    4,
+    4,
+    1,
+    "EXIT",
+    false,
+    10,
+    113,
+    0.83
+   ]
+  },
+  {
+   "size": 8,
+   "picks": 11,
+   "seed": 3,
+   "player": "Jalen Hurts",
+   "bid": 0,
+   "out": [
+    0,
+    0,
+    12,
+    "EXIT",
+    false,
+    0,
+    196,
+    0.89
+   ]
+  },
+  {
+   "size": 8,
+   "picks": 11,
+   "seed": 3,
+   "player": "Jalen Hurts",
+   "bid": 15,
+   "out": [
+    0,
+    0,
+    12,
+    "EXIT",
+    false,
+    0,
+    181,
+    0.89
+   ]
+  },
+  {
+   "size": 8,
+   "picks": 11,
+   "seed": 3,
+   "player": "Jalen Hurts",
+   "bid": 60,
+   "out": [
+    0,
+    0,
+    12,
+    "EXIT",
+    false,
+    0,
+    136,
+    0.89
+   ]
+  },
+  {
+   "size": 8,
+   "picks": 11,
+   "seed": 3,
+   "player": "Bo Nix",
+   "bid": 0,
+   "out": [
+    0,
+    0,
+    6,
+    "EXIT",
+    false,
+    0,
+    196,
+    0.89
+   ]
+  },
+  {
+   "size": 8,
+   "picks": 11,
+   "seed": 3,
+   "player": "Bo Nix",
+   "bid": 15,
+   "out": [
+    0,
+    0,
+    6,
+    "EXIT",
+    false,
+    0,
+    181,
+    0.89
+   ]
+  },
+  {
+   "size": 8,
+   "picks": 11,
+   "seed": 3,
+   "player": "Bo Nix",
+   "bid": 60,
+   "out": [
+    0,
+    0,
+    6,
+    "EXIT",
+    false,
+    0,
+    136,
+    0.89
+   ]
+  },
+  {
+   "size": 8,
+   "picks": 11,
+   "seed": 3,
+   "player": "Wan'Dale Robinson",
+   "bid": 0,
+   "out": [
+    0,
+    0,
+    3,
+    "EXIT",
+    false,
+    0,
+    196,
+    0.89
+   ]
+  },
+  {
+   "size": 8,
+   "picks": 11,
+   "seed": 3,
+   "player": "Wan'Dale Robinson",
+   "bid": 15,
+   "out": [
+    0,
+    0,
+    3,
+    "EXIT",
+    false,
+    0,
+    181,
+    0.89
+   ]
+  },
+  {
+   "size": 8,
+   "picks": 11,
+   "seed": 3,
+   "player": "Wan'Dale Robinson",
+   "bid": 60,
+   "out": [
+    0,
+    0,
+    3,
+    "EXIT",
+    false,
+    0,
+    136,
+    0.89
+   ]
+  },
+  {
+   "size": 8,
+   "picks": 11,
+   "seed": 3,
+   "player": "Braelon Allen",
+   "bid": 0,
+   "out": [
+    0,
+    0,
+    1,
+    "EXIT",
+    false,
+    0,
+    196,
+    0.89
+   ]
+  },
+  {
+   "size": 8,
+   "picks": 11,
+   "seed": 3,
+   "player": "Braelon Allen",
+   "bid": 15,
+   "out": [
+    0,
+    0,
+    1,
+    "EXIT",
+    false,
+    0,
+    181,
+    0.89
+   ]
+  },
+  {
+   "size": 8,
+   "picks": 11,
+   "seed": 3,
+   "player": "Braelon Allen",
+   "bid": 60,
+   "out": [
+    0,
+    0,
+    1,
+    "EXIT",
+    false,
+    0,
+    136,
+    0.89
+   ]
+  },
+  {
+   "size": 8,
+   "picks": 29,
+   "seed": 0,
+   "player": "Nico Collins",
+   "bid": 0,
+   "out": [
+    28,
+    28,
+    27,
+    "BID",
+    false,
+    10,
+    131,
+    0.58
+   ]
+  },
+  {
+   "size": 8,
+   "picks": 29,
+   "seed": 0,
+   "player": "Nico Collins",
+   "bid": 15,
+   "out": [
+    28,
+    28,
+    27,
+    "BID",
+    false,
+    10,
+    116,
+    0.58
+   ]
+  },
+  {
+   "size": 8,
+   "picks": 29,
+   "seed": 0,
+   "player": "Nico Collins",
+   "bid": 60,
+   "out": [
+    28,
+    28,
+    27,
+    "EXIT",
+    false,
+    10,
+    71,
+    0.58
+   ]
+  },
+  {
+   "size": 8,
+   "picks": 29,
+   "seed": 0,
+   "player": "Baker Mayfield",
+   "bid": 0,
+   "out": [
+    0,
+    0,
+    9,
+    "EXIT",
+    false,
+    0,
+    131,
+    0.58
+   ]
+  },
+  {
+   "size": 8,
+   "picks": 29,
+   "seed": 0,
+   "player": "Baker Mayfield",
+   "bid": 15,
+   "out": [
+    0,
+    0,
+    9,
+    "EXIT",
+    false,
+    0,
+    116,
+    0.58
+   ]
+  },
+  {
+   "size": 8,
+   "picks": 29,
+   "seed": 0,
+   "player": "Baker Mayfield",
+   "bid": 60,
+   "out": [
+    0,
+    0,
+    9,
+    "EXIT",
+    false,
+    0,
+    71,
+    0.58
+   ]
+  },
+  {
+   "size": 8,
+   "picks": 29,
+   "seed": 0,
+   "player": "Makai Lemon",
+   "bid": 0,
+   "out": [
+    5,
+    4,
+    3,
+    "BID",
+    false,
+    1,
+    131,
+    0.58
+   ]
+  },
+  {
+   "size": 8,
+   "picks": 29,
+   "seed": 0,
+   "player": "Makai Lemon",
+   "bid": 15,
+   "out": [
+    5,
+    5,
+    3,
+    "EXIT",
+    false,
+    1,
+    116,
+    0.58
+   ]
+  },
+  {
+   "size": 8,
+   "picks": 29,
+   "seed": 0,
+   "player": "Makai Lemon",
+   "bid": 60,
+   "out": [
+    5,
+    5,
+    3,
+    "EXIT",
+    false,
+    1,
+    71,
+    0.58
+   ]
+  },
+  {
+   "size": 8,
+   "picks": 29,
+   "seed": 0,
+   "player": "Eli Stowers",
+   "bid": 0,
+   "out": [
+    0,
+    0,
+    1,
+    "EXIT",
+    false,
+    0,
+    131,
+    0.58
+   ]
+  },
+  {
+   "size": 8,
+   "picks": 29,
+   "seed": 0,
+   "player": "Eli Stowers",
+   "bid": 15,
+   "out": [
+    0,
+    0,
+    1,
+    "EXIT",
+    false,
+    0,
+    116,
+    0.58
+   ]
+  },
+  {
+   "size": 8,
+   "picks": 29,
+   "seed": 0,
+   "player": "Eli Stowers",
+   "bid": 60,
+   "out": [
+    0,
+    0,
+    1,
+    "EXIT",
+    false,
+    0,
+    71,
+    0.58
+   ]
+  },
+  {
+   "size": 8,
+   "picks": 29,
+   "seed": 3,
+   "player": "Nico Collins",
+   "bid": 0,
+   "out": [
+    30,
+    30,
+    29,
+    "BID",
+    false,
+    4,
+    123,
+    0.6
+   ]
+  },
+  {
+   "size": 8,
+   "picks": 29,
+   "seed": 3,
+   "player": "Nico Collins",
+   "bid": 15,
+   "out": [
+    30,
+    30,
+    29,
+    "BID",
+    false,
+    4,
+    108,
+    0.6
+   ]
+  },
+  {
+   "size": 8,
+   "picks": 29,
+   "seed": 3,
+   "player": "Nico Collins",
+   "bid": 60,
+   "out": [
+    30,
+    30,
+    29,
+    "EXIT",
+    false,
+    4,
+    63,
+    0.6
+   ]
+  },
+  {
+   "size": 8,
+   "picks": 29,
+   "seed": 3,
+   "player": "Baker Mayfield",
+   "bid": 0,
+   "out": [
+    0,
+    0,
+    12,
+    "EXIT",
+    false,
+    0,
+    124,
+    0.6
+   ]
+  },
+  {
+   "size": 8,
+   "picks": 29,
+   "seed": 3,
+   "player": "Baker Mayfield",
+   "bid": 15,
+   "out": [
+    0,
+    0,
+    12,
+    "EXIT",
+    false,
+    0,
+    124,
+    0.6
+   ]
+  },
+  {
+   "size": 8,
+   "picks": 29,
+   "seed": 3,
+   "player": "Baker Mayfield",
+   "bid": 60,
+   "out": [
+    0,
+    0,
+    12,
+    "EXIT",
+    false,
+    0,
+    124,
+    0.6
+   ]
+  },
+  {
+   "size": 8,
+   "picks": 29,
+   "seed": 3,
+   "player": "Makai Lemon",
+   "bid": 0,
+   "out": [
+    5,
+    4,
+    3,
+    "BID",
+    false,
+    5,
+    123,
+    0.6
+   ]
+  },
+  {
+   "size": 8,
+   "picks": 29,
+   "seed": 3,
+   "player": "Makai Lemon",
+   "bid": 15,
+   "out": [
+    5,
+    5,
+    3,
+    "EXIT",
+    false,
+    5,
+    108,
+    0.6
+   ]
+  },
+  {
+   "size": 8,
+   "picks": 29,
+   "seed": 3,
+   "player": "Makai Lemon",
+   "bid": 60,
+   "out": [
+    5,
+    5,
+    3,
+    "EXIT",
+    false,
+    5,
+    63,
+    0.6
+   ]
+  },
+  {
+   "size": 8,
+   "picks": 29,
+   "seed": 3,
+   "player": "Eli Stowers",
+   "bid": 0,
+   "out": [
+    3,
+    2,
+    1,
+    "BID",
+    false,
+    6,
+    123,
+    0.6
+   ]
+  },
+  {
+   "size": 8,
+   "picks": 29,
+   "seed": 3,
+   "player": "Eli Stowers",
+   "bid": 15,
+   "out": [
+    3,
+    3,
+    1,
+    "EXIT",
+    false,
+    6,
+    108,
+    0.6
+   ]
+  },
+  {
+   "size": 8,
+   "picks": 29,
+   "seed": 3,
+   "player": "Eli Stowers",
+   "bid": 60,
+   "out": [
+    3,
+    3,
+    1,
+    "EXIT",
+    false,
+    6,
+    63,
+    0.6
+   ]
+  },
+  {
+   "size": 8,
+   "picks": 64,
+   "seed": 0,
+   "player": "Davante Adams",
+   "bid": 0,
+   "out": [
+    10,
+    1,
+    10,
+    "BID",
+    false,
+    4,
+    79,
+    0.4
+   ]
+  },
+  {
+   "size": 8,
+   "picks": 64,
+   "seed": 0,
+   "player": "Davante Adams",
+   "bid": 15,
+   "out": [
+    10,
+    10,
+    10,
+    "EXIT",
+    false,
+    4,
+    64,
+    0.4
+   ]
+  },
+  {
+   "size": 8,
+   "picks": 64,
+   "seed": 0,
+   "player": "Davante Adams",
+   "bid": 60,
+   "out": [
+    10,
+    10,
+    10,
+    "EXIT",
+    false,
+    4,
+    19,
+    0.4
+   ]
+  },
+  {
+   "size": 8,
+   "picks": 64,
+   "seed": 0,
+   "player": "Cam Ward",
+   "bid": 0,
+   "out": [
+    0,
+    0,
+    9,
+    "EXIT",
+    false,
+    0,
+    79,
+    0.4
+   ]
+  },
+  {
+   "size": 8,
+   "picks": 64,
+   "seed": 0,
+   "player": "Cam Ward",
+   "bid": 15,
+   "out": [
+    0,
+    0,
+    9,
+    "EXIT",
+    false,
+    0,
+    64,
+    0.4
+   ]
+  },
+  {
+   "size": 8,
+   "picks": 64,
+   "seed": 0,
+   "player": "Cam Ward",
+   "bid": 60,
+   "out": [
+    0,
+    0,
+    9,
+    "EXIT",
+    false,
+    0,
+    19,
+    0.4
+   ]
+  },
+  {
+   "size": 8,
+   "picks": 64,
+   "seed": 0,
+   "player": "Rashid Shaheed",
+   "bid": 0,
+   "out": [
+    2,
+    2,
+    4,
+    "BID",
+    false,
+    0,
+    79,
+    0.4
+   ]
+  },
+  {
+   "size": 8,
+   "picks": 64,
+   "seed": 0,
+   "player": "Rashid Shaheed",
+   "bid": 15,
+   "out": [
+    2,
+    2,
+    4,
+    "EXIT",
+    false,
+    0,
+    64,
+    0.4
+   ]
+  },
+  {
+   "size": 8,
+   "picks": 64,
+   "seed": 0,
+   "player": "Rashid Shaheed",
+   "bid": 60,
+   "out": [
+    2,
+    2,
+    4,
+    "EXIT",
+    false,
+    0,
+    19,
+    0.4
+   ]
+  },
+  {
+   "size": 8,
+   "picks": 64,
+   "seed": 0,
+   "player": "Justin Fields",
+   "bid": 0,
+   "out": [
+    1,
+    1,
+    1,
+    "BID",
+    false,
+    0,
+    79,
+    0.4
+   ]
+  },
+  {
+   "size": 8,
+   "picks": 64,
+   "seed": 0,
+   "player": "Justin Fields",
+   "bid": 15,
+   "out": [
+    1,
+    1,
+    1,
+    "EXIT",
+    false,
+    0,
+    64,
+    0.4
+   ]
+  },
+  {
+   "size": 8,
+   "picks": 64,
+   "seed": 0,
+   "player": "Justin Fields",
+   "bid": 60,
+   "out": [
+    1,
+    1,
+    1,
+    "EXIT",
+    false,
+    0,
+    19,
+    0.4
+   ]
+  },
+  {
+   "size": 8,
+   "picks": 64,
+   "seed": 3,
+   "player": "Davante Adams",
+   "bid": 0,
+   "out": [
+    11,
+    0,
+    11,
+    "PASS",
+    false,
+    8,
+    63,
+    0.4
+   ]
+  },
+  {
+   "size": 8,
+   "picks": 64,
+   "seed": 3,
+   "player": "Davante Adams",
+   "bid": 15,
+   "out": [
+    11,
+    0,
+    11,
+    "EXIT",
+    false,
+    8,
+    48,
+    0.4
+   ]
+  },
+  {
+   "size": 8,
+   "picks": 64,
+   "seed": 3,
+   "player": "Davante Adams",
+   "bid": 60,
+   "out": [
+    11,
+    0,
+    11,
+    "EXIT",
+    false,
+    8,
+    3,
+    0.4
+   ]
+  },
+  {
+   "size": 8,
+   "picks": 64,
+   "seed": 3,
+   "player": "Cam Ward",
+   "bid": 0,
+   "out": [
+    0,
+    0,
+    11,
+    "EXIT",
+    false,
+    0,
+    64,
+    0.4
+   ]
+  },
+  {
+   "size": 8,
+   "picks": 64,
+   "seed": 3,
+   "player": "Cam Ward",
+   "bid": 15,
+   "out": [
+    0,
+    0,
+    11,
+    "EXIT",
+    false,
+    0,
+    64,
+    0.4
+   ]
+  },
+  {
+   "size": 8,
+   "picks": 64,
+   "seed": 3,
+   "player": "Cam Ward",
+   "bid": 60,
+   "out": [
+    0,
+    0,
+    11,
+    "EXIT",
+    false,
+    0,
+    64,
+    0.4
+   ]
+  },
+  {
+   "size": 8,
+   "picks": 64,
+   "seed": 3,
+   "player": "Rashid Shaheed",
+   "bid": 0,
+   "out": [
+    2,
+    2,
+    3,
+    "BID",
+    false,
+    0,
+    63,
+    0.4
+   ]
+  },
+  {
+   "size": 8,
+   "picks": 64,
+   "seed": 3,
+   "player": "Rashid Shaheed",
+   "bid": 15,
+   "out": [
+    2,
+    2,
+    3,
+    "EXIT",
+    false,
+    0,
+    48,
+    0.4
+   ]
+  },
+  {
+   "size": 8,
+   "picks": 64,
+   "seed": 3,
+   "player": "Rashid Shaheed",
+   "bid": 60,
+   "out": [
+    2,
+    2,
+    3,
+    "EXIT",
+    false,
+    0,
+    3,
+    0.4
+   ]
+  },
+  {
+   "size": 8,
+   "picks": 64,
+   "seed": 3,
+   "player": "Justin Fields",
+   "bid": 0,
+   "out": [
+    0,
+    0,
+    1,
+    "EXIT",
+    false,
+    0,
+    64,
+    0.4
+   ]
+  },
+  {
+   "size": 8,
+   "picks": 64,
+   "seed": 3,
+   "player": "Justin Fields",
+   "bid": 15,
+   "out": [
+    0,
+    0,
+    1,
+    "EXIT",
+    false,
+    0,
+    64,
+    0.4
+   ]
+  },
+  {
+   "size": 8,
+   "picks": 64,
+   "seed": 3,
+   "player": "Justin Fields",
+   "bid": 60,
+   "out": [
+    0,
+    0,
+    1,
+    "EXIT",
+    false,
+    0,
+    64,
+    0.4
+   ]
+  },
+  {
+   "size": 8,
+   "picks": 113,
+   "seed": 0,
+   "player": "Chuba Hubbard",
+   "bid": 0,
+   "out": [
+    0,
+    0,
+    1,
+    "EXIT",
+    false,
+    0,
+    -55,
+    0.4
+   ]
+  },
+  {
+   "size": 8,
+   "picks": 113,
+   "seed": 0,
+   "player": "Chuba Hubbard",
+   "bid": 15,
+   "out": [
+    0,
+    0,
+    1,
+    "EXIT",
+    false,
+    0,
+    -55,
+    0.4
+   ]
+  },
+  {
+   "size": 8,
+   "picks": 113,
+   "seed": 0,
+   "player": "Chuba Hubbard",
+   "bid": 60,
+   "out": [
+    0,
+    0,
+    1,
+    "EXIT",
+    false,
+    0,
+    -55,
+    0.4
+   ]
+  },
+  {
+   "size": 8,
+   "picks": 113,
+   "seed": 0,
+   "player": "Jayden Higgins",
+   "bid": 0,
+   "out": [
+    0,
+    0,
+    1,
+    "EXIT",
+    false,
+    0,
+    -55,
+    0.4
+   ]
+  },
+  {
+   "size": 8,
+   "picks": 113,
+   "seed": 0,
+   "player": "Jayden Higgins",
+   "bid": 15,
+   "out": [
+    0,
+    0,
+    1,
+    "EXIT",
+    false,
+    0,
+    -55,
+    0.4
+   ]
+  },
+  {
+   "size": 8,
+   "picks": 113,
+   "seed": 0,
+   "player": "Jayden Higgins",
+   "bid": 60,
+   "out": [
+    0,
+    0,
+    1,
+    "EXIT",
+    false,
+    0,
+    -55,
+    0.4
+   ]
+  },
+  {
+   "size": 8,
+   "picks": 113,
+   "seed": 0,
+   "player": "Ryan Fitzgerald",
+   "bid": 0,
+   "out": [
+    0,
+    0,
+    1,
+    "EXIT",
+    false,
+    0,
+    -55,
+    0.4
+   ]
+  },
+  {
+   "size": 8,
+   "picks": 113,
+   "seed": 0,
+   "player": "Ryan Fitzgerald",
+   "bid": 15,
+   "out": [
+    0,
+    0,
+    1,
+    "EXIT",
+    false,
+    0,
+    -55,
+    0.4
+   ]
+  },
+  {
+   "size": 8,
+   "picks": 113,
+   "seed": 0,
+   "player": "Ryan Fitzgerald",
+   "bid": 60,
+   "out": [
+    0,
+    0,
+    1,
+    "EXIT",
+    false,
+    0,
+    -55,
+    0.4
+   ]
+  },
+  {
+   "size": 8,
+   "picks": 113,
+   "seed": 0,
+   "player": "Olamide Zaccheaus",
+   "bid": 0,
+   "out": [
+    0,
+    0,
+    1,
+    "EXIT",
+    false,
+    0,
+    -55,
+    0.4
+   ]
+  },
+  {
+   "size": 8,
+   "picks": 113,
+   "seed": 0,
+   "player": "Olamide Zaccheaus",
+   "bid": 15,
+   "out": [
+    0,
+    0,
+    1,
+    "EXIT",
+    false,
+    0,
+    -55,
+    0.4
+   ]
+  },
+  {
+   "size": 8,
+   "picks": 113,
+   "seed": 0,
+   "player": "Olamide Zaccheaus",
+   "bid": 60,
+   "out": [
+    0,
+    0,
+    1,
+    "EXIT",
+    false,
+    0,
+    -55,
+    0.4
+   ]
+  },
+  {
+   "size": 8,
+   "picks": 113,
+   "seed": 3,
+   "player": "Chuba Hubbard",
+   "bid": 0,
+   "out": [
+    0,
+    0,
+    1,
+    "EXIT",
+    false,
+    0,
+    -66,
+    0.4
+   ]
+  },
+  {
+   "size": 8,
+   "picks": 113,
+   "seed": 3,
+   "player": "Chuba Hubbard",
+   "bid": 15,
+   "out": [
+    0,
+    0,
+    1,
+    "EXIT",
+    false,
+    0,
+    -66,
+    0.4
+   ]
+  },
+  {
+   "size": 8,
+   "picks": 113,
+   "seed": 3,
+   "player": "Chuba Hubbard",
+   "bid": 60,
+   "out": [
+    0,
+    0,
+    1,
+    "EXIT",
+    false,
+    0,
+    -66,
+    0.4
+   ]
+  },
+  {
+   "size": 8,
+   "picks": 113,
+   "seed": 3,
+   "player": "Jayden Higgins",
+   "bid": 0,
+   "out": [
+    0,
+    0,
+    1,
+    "EXIT",
+    false,
+    0,
+    -66,
+    0.4
+   ]
+  },
+  {
+   "size": 8,
+   "picks": 113,
+   "seed": 3,
+   "player": "Jayden Higgins",
+   "bid": 15,
+   "out": [
+    0,
+    0,
+    1,
+    "EXIT",
+    false,
+    0,
+    -66,
+    0.4
+   ]
+  },
+  {
+   "size": 8,
+   "picks": 113,
+   "seed": 3,
+   "player": "Jayden Higgins",
+   "bid": 60,
+   "out": [
+    0,
+    0,
+    1,
+    "EXIT",
+    false,
+    0,
+    -66,
+    0.4
+   ]
+  },
+  {
+   "size": 8,
+   "picks": 113,
+   "seed": 3,
+   "player": "Ryan Fitzgerald",
+   "bid": 0,
+   "out": [
+    0,
+    0,
+    1,
+    "EXIT",
+    false,
+    0,
+    -66,
+    0.4
+   ]
+  },
+  {
+   "size": 8,
+   "picks": 113,
+   "seed": 3,
+   "player": "Ryan Fitzgerald",
+   "bid": 15,
+   "out": [
+    0,
+    0,
+    1,
+    "EXIT",
+    false,
+    0,
+    -66,
+    0.4
+   ]
+  },
+  {
+   "size": 8,
+   "picks": 113,
+   "seed": 3,
+   "player": "Ryan Fitzgerald",
+   "bid": 60,
+   "out": [
+    0,
+    0,
+    1,
+    "EXIT",
+    false,
+    0,
+    -66,
+    0.4
+   ]
+  },
+  {
+   "size": 8,
+   "picks": 113,
+   "seed": 3,
+   "player": "Olamide Zaccheaus",
+   "bid": 0,
+   "out": [
+    0,
+    0,
+    1,
+    "EXIT",
+    false,
+    0,
+    -66,
+    0.4
+   ]
+  },
+  {
+   "size": 8,
+   "picks": 113,
+   "seed": 3,
+   "player": "Olamide Zaccheaus",
+   "bid": 15,
+   "out": [
+    0,
+    0,
+    1,
+    "EXIT",
+    false,
+    0,
+    -66,
+    0.4
+   ]
+  },
+  {
+   "size": 8,
+   "picks": 113,
+   "seed": 3,
+   "player": "Olamide Zaccheaus",
+   "bid": 60,
+   "out": [
+    0,
+    0,
+    1,
+    "EXIT",
+    false,
+    0,
+    -66,
+    0.4
+   ]
+  },
+  {
+   "size": 10,
+   "picks": 0,
+   "seed": 0,
+   "player": "Bijan Robinson",
+   "bid": 0,
+   "out": [
+    83,
+    76,
+    72,
+    "BID",
+    true,
+    16,
+    199,
+    1
+   ]
+  },
+  {
+   "size": 10,
+   "picks": 0,
+   "seed": 0,
+   "player": "Bijan Robinson",
+   "bid": 15,
+   "out": [
+    83,
+    76,
+    72,
+    "BID",
+    true,
+    16,
+    184,
+    1
+   ]
+  },
+  {
+   "size": 10,
+   "picks": 0,
+   "seed": 0,
+   "player": "Bijan Robinson",
+   "bid": 60,
+   "out": [
+    83,
+    76,
+    72,
+    "BID",
+    true,
+    16,
+    139,
+    1
+   ]
+  },
+  {
+   "size": 10,
+   "picks": 0,
+   "seed": 0,
+   "player": "Trevor Lawrence",
+   "bid": 0,
+   "out": [
+    14,
+    14,
+    12,
+    "BID",
+    false,
+    6,
+    199,
+    1
+   ]
+  },
+  {
+   "size": 10,
+   "picks": 0,
+   "seed": 0,
+   "player": "Trevor Lawrence",
+   "bid": 15,
+   "out": [
+    14,
+    14,
+    12,
+    "EXIT",
+    false,
+    6,
+    184,
+    1
+   ]
+  },
+  {
+   "size": 10,
+   "picks": 0,
+   "seed": 0,
+   "player": "Trevor Lawrence",
+   "bid": 60,
+   "out": [
+    14,
+    14,
+    12,
+    "EXIT",
+    false,
+    6,
+    139,
+    1
+   ]
+  },
+  {
+   "size": 10,
+   "picks": 0,
+   "seed": 0,
+   "player": "Brandon Aubrey",
+   "bid": 0,
+   "out": [
+    15,
+    15,
+    14,
+    "BID",
+    false,
+    9,
+    199,
+    1
+   ]
+  },
+  {
+   "size": 10,
+   "picks": 0,
+   "seed": 0,
+   "player": "Brandon Aubrey",
+   "bid": 15,
+   "out": [
+    15,
+    15,
+    14,
+    "EXIT",
+    false,
+    9,
+    184,
+    1
+   ]
+  },
+  {
+   "size": 10,
+   "picks": 0,
+   "seed": 0,
+   "player": "Brandon Aubrey",
+   "bid": 60,
+   "out": [
+    15,
+    15,
+    14,
+    "EXIT",
+    false,
+    9,
+    139,
+    1
+   ]
+  },
+  {
+   "size": 10,
+   "picks": 0,
+   "seed": 0,
+   "player": "Cade Otton",
+   "bid": 0,
+   "out": [
+    3,
+    3,
+    2,
+    "BID",
+    false,
+    3,
+    199,
+    1
+   ]
+  },
+  {
+   "size": 10,
+   "picks": 0,
+   "seed": 0,
+   "player": "Cade Otton",
+   "bid": 15,
+   "out": [
+    3,
+    3,
+    2,
+    "EXIT",
+    false,
+    3,
+    184,
+    1
+   ]
+  },
+  {
+   "size": 10,
+   "picks": 0,
+   "seed": 0,
+   "player": "Cade Otton",
+   "bid": 60,
+   "out": [
+    3,
+    3,
+    2,
+    "EXIT",
+    false,
+    3,
+    139,
+    1
+   ]
+  },
+  {
+   "size": 10,
+   "picks": 0,
+   "seed": 3,
+   "player": "Bijan Robinson",
+   "bid": 0,
+   "out": [
+    83,
+    76,
+    72,
+    "BID",
+    true,
+    16,
+    199,
+    1
+   ]
+  },
+  {
+   "size": 10,
+   "picks": 0,
+   "seed": 3,
+   "player": "Bijan Robinson",
+   "bid": 15,
+   "out": [
+    83,
+    76,
+    72,
+    "BID",
+    true,
+    16,
+    184,
+    1
+   ]
+  },
+  {
+   "size": 10,
+   "picks": 0,
+   "seed": 3,
+   "player": "Bijan Robinson",
+   "bid": 60,
+   "out": [
+    83,
+    76,
+    72,
+    "BID",
+    true,
+    16,
+    139,
+    1
+   ]
+  },
+  {
+   "size": 10,
+   "picks": 0,
+   "seed": 3,
+   "player": "Trevor Lawrence",
+   "bid": 0,
+   "out": [
+    14,
+    14,
+    12,
+    "BID",
+    false,
+    6,
+    199,
+    1
+   ]
+  },
+  {
+   "size": 10,
+   "picks": 0,
+   "seed": 3,
+   "player": "Trevor Lawrence",
+   "bid": 15,
+   "out": [
+    14,
+    14,
+    12,
+    "EXIT",
+    false,
+    6,
+    184,
+    1
+   ]
+  },
+  {
+   "size": 10,
+   "picks": 0,
+   "seed": 3,
+   "player": "Trevor Lawrence",
+   "bid": 60,
+   "out": [
+    14,
+    14,
+    12,
+    "EXIT",
+    false,
+    6,
+    139,
+    1
+   ]
+  },
+  {
+   "size": 10,
+   "picks": 0,
+   "seed": 3,
+   "player": "Brandon Aubrey",
+   "bid": 0,
+   "out": [
+    15,
+    15,
+    14,
+    "BID",
+    false,
+    9,
+    199,
+    1
+   ]
+  },
+  {
+   "size": 10,
+   "picks": 0,
+   "seed": 3,
+   "player": "Brandon Aubrey",
+   "bid": 15,
+   "out": [
+    15,
+    15,
+    14,
+    "EXIT",
+    false,
+    9,
+    184,
+    1
+   ]
+  },
+  {
+   "size": 10,
+   "picks": 0,
+   "seed": 3,
+   "player": "Brandon Aubrey",
+   "bid": 60,
+   "out": [
+    15,
+    15,
+    14,
+    "EXIT",
+    false,
+    9,
+    139,
+    1
+   ]
+  },
+  {
+   "size": 10,
+   "picks": 0,
+   "seed": 3,
+   "player": "Cade Otton",
+   "bid": 0,
+   "out": [
+    3,
+    3,
+    2,
+    "BID",
+    false,
+    3,
+    199,
+    1
+   ]
+  },
+  {
+   "size": 10,
+   "picks": 0,
+   "seed": 3,
+   "player": "Cade Otton",
+   "bid": 15,
+   "out": [
+    3,
+    3,
+    2,
+    "EXIT",
+    false,
+    3,
+    184,
+    1
+   ]
+  },
+  {
+   "size": 10,
+   "picks": 0,
+   "seed": 3,
+   "player": "Cade Otton",
+   "bid": 60,
+   "out": [
+    3,
+    3,
+    2,
+    "EXIT",
+    false,
+    3,
+    139,
+    1
+   ]
+  },
+  {
+   "size": 10,
+   "picks": 11,
+   "seed": 0,
+   "player": "Jalen Hurts",
+   "bid": 0,
+   "out": [
+    22,
+    22,
+    22,
+    "BID",
+    false,
+    5,
+    187,
+    0.87
+   ]
+  },
+  {
+   "size": 10,
+   "picks": 11,
+   "seed": 0,
+   "player": "Jalen Hurts",
+   "bid": 15,
+   "out": [
+    22,
+    22,
+    22,
+    "BID",
+    false,
+    5,
+    172,
+    0.87
+   ]
+  },
+  {
+   "size": 10,
+   "picks": 11,
+   "seed": 0,
+   "player": "Jalen Hurts",
+   "bid": 60,
+   "out": [
+    22,
+    22,
+    22,
+    "EXIT",
+    false,
+    5,
+    127,
+    0.87
+   ]
+  },
+  {
+   "size": 10,
+   "picks": 11,
+   "seed": 0,
+   "player": "Bo Nix",
+   "bid": 0,
+   "out": [
+    4,
+    0,
+    10,
+    "PASS",
+    false,
+    0,
+    187,
+    0.87
+   ]
+  },
+  {
+   "size": 10,
+   "picks": 11,
+   "seed": 0,
+   "player": "Bo Nix",
+   "bid": 15,
+   "out": [
+    4,
+    0,
+    10,
+    "EXIT",
+    false,
+    0,
+    172,
+    0.87
+   ]
+  },
+  {
+   "size": 10,
+   "picks": 11,
+   "seed": 0,
+   "player": "Bo Nix",
+   "bid": 60,
+   "out": [
+    4,
+    0,
+    10,
+    "EXIT",
+    false,
+    0,
+    127,
+    0.87
+   ]
+  },
+  {
+   "size": 10,
+   "picks": 11,
+   "seed": 0,
+   "player": "Wan'Dale Robinson",
+   "bid": 0,
+   "out": [
+    6,
+    6,
+    6,
+    "BID",
+    false,
+    2,
+    187,
+    0.87
+   ]
+  },
+  {
+   "size": 10,
+   "picks": 11,
+   "seed": 0,
+   "player": "Wan'Dale Robinson",
+   "bid": 15,
+   "out": [
+    6,
+    6,
+    6,
+    "EXIT",
+    false,
+    2,
+    172,
+    0.87
+   ]
+  },
+  {
+   "size": 10,
+   "picks": 11,
+   "seed": 0,
+   "player": "Wan'Dale Robinson",
+   "bid": 60,
+   "out": [
+    6,
+    6,
+    6,
+    "EXIT",
+    false,
+    2,
+    127,
+    0.87
+   ]
+  },
+  {
+   "size": 10,
+   "picks": 11,
+   "seed": 0,
+   "player": "Braelon Allen",
+   "bid": 0,
+   "out": [
+    1,
+    0,
+    1,
+    "PASS",
+    false,
+    3,
+    187,
+    0.87
+   ]
+  },
+  {
+   "size": 10,
+   "picks": 11,
+   "seed": 0,
+   "player": "Braelon Allen",
+   "bid": 15,
+   "out": [
+    1,
+    0,
+    1,
+    "EXIT",
+    false,
+    3,
+    172,
+    0.87
+   ]
+  },
+  {
+   "size": 10,
+   "picks": 11,
+   "seed": 0,
+   "player": "Braelon Allen",
+   "bid": 60,
+   "out": [
+    1,
+    0,
+    1,
+    "EXIT",
+    false,
+    3,
+    127,
+    0.87
+   ]
+  },
+  {
+   "size": 10,
+   "picks": 11,
+   "seed": 3,
+   "player": "Jalen Hurts",
+   "bid": 0,
+   "out": [
+    0,
+    0,
+    15,
+    "EXIT",
+    false,
+    0,
+    182,
+    0.91
+   ]
+  },
+  {
+   "size": 10,
+   "picks": 11,
+   "seed": 3,
+   "player": "Jalen Hurts",
+   "bid": 15,
+   "out": [
+    0,
+    0,
+    15,
+    "EXIT",
+    false,
+    0,
+    167,
+    0.91
+   ]
+  },
+  {
+   "size": 10,
+   "picks": 11,
+   "seed": 3,
+   "player": "Jalen Hurts",
+   "bid": 60,
+   "out": [
+    0,
+    0,
+    15,
+    "EXIT",
+    false,
+    0,
+    122,
+    0.91
+   ]
+  },
+  {
+   "size": 10,
+   "picks": 11,
+   "seed": 3,
+   "player": "Bo Nix",
+   "bid": 0,
+   "out": [
+    0,
+    0,
+    7,
+    "EXIT",
+    false,
+    0,
+    182,
+    0.91
+   ]
+  },
+  {
+   "size": 10,
+   "picks": 11,
+   "seed": 3,
+   "player": "Bo Nix",
+   "bid": 15,
+   "out": [
+    0,
+    0,
+    7,
+    "EXIT",
+    false,
+    0,
+    167,
+    0.91
+   ]
+  },
+  {
+   "size": 10,
+   "picks": 11,
+   "seed": 3,
+   "player": "Bo Nix",
+   "bid": 60,
+   "out": [
+    0,
+    0,
+    7,
+    "EXIT",
+    false,
+    0,
+    122,
+    0.91
+   ]
+  },
+  {
+   "size": 10,
+   "picks": 11,
+   "seed": 3,
+   "player": "Wan'Dale Robinson",
+   "bid": 0,
+   "out": [
+    0,
+    0,
+    3,
+    "EXIT",
+    false,
+    0,
+    182,
+    0.91
+   ]
+  },
+  {
+   "size": 10,
+   "picks": 11,
+   "seed": 3,
+   "player": "Wan'Dale Robinson",
+   "bid": 15,
+   "out": [
+    0,
+    0,
+    3,
+    "EXIT",
+    false,
+    0,
+    167,
+    0.91
+   ]
+  },
+  {
+   "size": 10,
+   "picks": 11,
+   "seed": 3,
+   "player": "Wan'Dale Robinson",
+   "bid": 60,
+   "out": [
+    0,
+    0,
+    3,
+    "EXIT",
+    false,
+    0,
+    122,
+    0.91
+   ]
+  },
+  {
+   "size": 10,
+   "picks": 11,
+   "seed": 3,
+   "player": "Braelon Allen",
+   "bid": 0,
+   "out": [
+    0,
+    0,
+    1,
+    "EXIT",
+    false,
+    0,
+    182,
+    0.91
+   ]
+  },
+  {
+   "size": 10,
+   "picks": 11,
+   "seed": 3,
+   "player": "Braelon Allen",
+   "bid": 15,
+   "out": [
+    0,
+    0,
+    1,
+    "EXIT",
+    false,
+    0,
+    167,
+    0.91
+   ]
+  },
+  {
+   "size": 10,
+   "picks": 11,
+   "seed": 3,
+   "player": "Braelon Allen",
+   "bid": 60,
+   "out": [
+    0,
+    0,
+    1,
+    "EXIT",
+    false,
+    0,
+    122,
+    0.91
+   ]
+  },
+  {
+   "size": 10,
+   "picks": 29,
+   "seed": 0,
+   "player": "Nico Collins",
+   "bid": 0,
+   "out": [
+    41,
+    41,
+    40,
+    "BID",
+    false,
+    6,
+    166,
+    0.66
+   ]
+  },
+  {
+   "size": 10,
+   "picks": 29,
+   "seed": 0,
+   "player": "Nico Collins",
+   "bid": 15,
+   "out": [
+    41,
+    41,
+    40,
+    "BID",
+    false,
+    6,
+    151,
+    0.66
+   ]
+  },
+  {
+   "size": 10,
+   "picks": 29,
+   "seed": 0,
+   "player": "Nico Collins",
+   "bid": 60,
+   "out": [
+    41,
+    41,
+    40,
+    "EXIT",
+    false,
+    6,
+    106,
+    0.66
+   ]
+  },
+  {
+   "size": 10,
+   "picks": 29,
+   "seed": 0,
+   "player": "Baker Mayfield",
+   "bid": 0,
+   "out": [
+    3,
+    0,
+    10,
+    "PASS",
+    false,
+    0,
+    166,
+    0.66
+   ]
+  },
+  {
+   "size": 10,
+   "picks": 29,
+   "seed": 0,
+   "player": "Baker Mayfield",
+   "bid": 15,
+   "out": [
+    3,
+    0,
+    10,
+    "EXIT",
+    false,
+    0,
+    151,
+    0.66
+   ]
+  },
+  {
+   "size": 10,
+   "picks": 29,
+   "seed": 0,
+   "player": "Baker Mayfield",
+   "bid": 60,
+   "out": [
+    3,
+    0,
+    10,
+    "EXIT",
+    false,
+    0,
+    106,
+    0.66
+   ]
+  },
+  {
+   "size": 10,
+   "picks": 29,
+   "seed": 0,
+   "player": "Makai Lemon",
+   "bid": 0,
+   "out": [
+    2,
+    0,
+    4,
+    "PASS",
+    false,
+    0,
+    166,
+    0.66
+   ]
+  },
+  {
+   "size": 10,
+   "picks": 29,
+   "seed": 0,
+   "player": "Makai Lemon",
+   "bid": 15,
+   "out": [
+    2,
+    0,
+    4,
+    "EXIT",
+    false,
+    0,
+    151,
+    0.66
+   ]
+  },
+  {
+   "size": 10,
+   "picks": 29,
+   "seed": 0,
+   "player": "Makai Lemon",
+   "bid": 60,
+   "out": [
+    2,
+    0,
+    4,
+    "EXIT",
+    false,
+    0,
+    106,
+    0.66
+   ]
+  },
+  {
+   "size": 10,
+   "picks": 29,
+   "seed": 0,
+   "player": "Eli Stowers",
+   "bid": 0,
+   "out": [
+    0,
+    0,
+    1,
+    "EXIT",
+    false,
+    0,
+    166,
+    0.66
+   ]
+  },
+  {
+   "size": 10,
+   "picks": 29,
+   "seed": 0,
+   "player": "Eli Stowers",
+   "bid": 15,
+   "out": [
+    0,
+    0,
+    1,
+    "EXIT",
+    false,
+    0,
+    151,
+    0.66
+   ]
+  },
+  {
+   "size": 10,
+   "picks": 29,
+   "seed": 0,
+   "player": "Eli Stowers",
+   "bid": 60,
+   "out": [
+    0,
+    0,
+    1,
+    "EXIT",
+    false,
+    0,
+    106,
+    0.66
+   ]
+  },
+  {
+   "size": 10,
+   "picks": 29,
+   "seed": 3,
+   "player": "Nico Collins",
+   "bid": 0,
+   "out": [
+    42,
+    42,
+    41,
+    "BID",
+    false,
+    4,
+    118,
+    0.68
+   ]
+  },
+  {
+   "size": 10,
+   "picks": 29,
+   "seed": 3,
+   "player": "Nico Collins",
+   "bid": 15,
+   "out": [
+    42,
+    42,
+    41,
+    "BID",
+    false,
+    4,
+    103,
+    0.68
+   ]
+  },
+  {
+   "size": 10,
+   "picks": 29,
+   "seed": 3,
+   "player": "Nico Collins",
+   "bid": 60,
+   "out": [
+    42,
+    42,
+    41,
+    "EXIT",
+    false,
+    4,
+    58,
+    0.68
+   ]
+  },
+  {
+   "size": 10,
+   "picks": 29,
+   "seed": 3,
+   "player": "Baker Mayfield",
+   "bid": 0,
+   "out": [
+    0,
+    0,
+    10,
+    "EXIT",
+    false,
+    0,
+    119,
+    0.68
+   ]
+  },
+  {
+   "size": 10,
+   "picks": 29,
+   "seed": 3,
+   "player": "Baker Mayfield",
+   "bid": 15,
+   "out": [
+    0,
+    0,
+    10,
+    "EXIT",
+    false,
+    0,
+    119,
+    0.68
+   ]
+  },
+  {
+   "size": 10,
+   "picks": 29,
+   "seed": 3,
+   "player": "Baker Mayfield",
+   "bid": 60,
+   "out": [
+    0,
+    0,
+    10,
+    "EXIT",
+    false,
+    0,
+    119,
+    0.68
+   ]
+  },
+  {
+   "size": 10,
+   "picks": 29,
+   "seed": 3,
+   "player": "Makai Lemon",
+   "bid": 0,
+   "out": [
+    5,
+    5,
+    4,
+    "BID",
+    false,
+    4,
+    118,
+    0.68
+   ]
+  },
+  {
+   "size": 10,
+   "picks": 29,
+   "seed": 3,
+   "player": "Makai Lemon",
+   "bid": 15,
+   "out": [
+    5,
+    5,
+    4,
+    "EXIT",
+    false,
+    4,
+    103,
+    0.68
+   ]
+  },
+  {
+   "size": 10,
+   "picks": 29,
+   "seed": 3,
+   "player": "Makai Lemon",
+   "bid": 60,
+   "out": [
+    5,
+    5,
+    4,
+    "EXIT",
+    false,
+    4,
+    58,
+    0.68
+   ]
+  },
+  {
+   "size": 10,
+   "picks": 29,
+   "seed": 3,
+   "player": "Eli Stowers",
+   "bid": 0,
+   "out": [
+    2,
+    2,
+    1,
+    "BID",
+    false,
+    8,
+    118,
+    0.68
+   ]
+  },
+  {
+   "size": 10,
+   "picks": 29,
+   "seed": 3,
+   "player": "Eli Stowers",
+   "bid": 15,
+   "out": [
+    2,
+    2,
+    1,
+    "EXIT",
+    false,
+    8,
+    103,
+    0.68
+   ]
+  },
+  {
+   "size": 10,
+   "picks": 29,
+   "seed": 3,
+   "player": "Eli Stowers",
+   "bid": 60,
+   "out": [
+    2,
+    2,
+    1,
+    "EXIT",
+    false,
+    8,
+    58,
+    0.68
+   ]
+  },
+  {
+   "size": 10,
+   "picks": 64,
+   "seed": 0,
+   "player": "Davante Adams",
+   "bid": 0,
+   "out": [
+    15,
+    1,
+    15,
+    "BID",
+    false,
+    7,
+    102,
+    0.4
+   ]
+  },
+  {
+   "size": 10,
+   "picks": 64,
+   "seed": 0,
+   "player": "Davante Adams",
+   "bid": 15,
+   "out": [
+    15,
+    15,
+    15,
+    "EXIT",
+    false,
+    7,
+    87,
+    0.4
+   ]
+  },
+  {
+   "size": 10,
+   "picks": 64,
+   "seed": 0,
+   "player": "Davante Adams",
+   "bid": 60,
+   "out": [
+    15,
+    15,
+    15,
+    "EXIT",
+    false,
+    7,
+    42,
+    0.4
+   ]
+  },
+  {
+   "size": 10,
+   "picks": 64,
+   "seed": 0,
+   "player": "Cam Ward",
+   "bid": 0,
+   "out": [
+    0,
+    0,
+    10,
+    "EXIT",
+    false,
+    0,
+    102,
+    0.4
+   ]
+  },
+  {
+   "size": 10,
+   "picks": 64,
+   "seed": 0,
+   "player": "Cam Ward",
+   "bid": 15,
+   "out": [
+    0,
+    0,
+    10,
+    "EXIT",
+    false,
+    0,
+    87,
+    0.4
+   ]
+  },
+  {
+   "size": 10,
+   "picks": 64,
+   "seed": 0,
+   "player": "Cam Ward",
+   "bid": 60,
+   "out": [
+    0,
+    0,
+    10,
+    "EXIT",
+    false,
+    0,
+    42,
+    0.4
+   ]
+  },
+  {
+   "size": 10,
+   "picks": 64,
+   "seed": 0,
+   "player": "Rashid Shaheed",
+   "bid": 0,
+   "out": [
+    3,
+    3,
+    4,
+    "BID",
+    false,
+    0,
+    102,
+    0.4
+   ]
+  },
+  {
+   "size": 10,
+   "picks": 64,
+   "seed": 0,
+   "player": "Rashid Shaheed",
+   "bid": 15,
+   "out": [
+    3,
+    3,
+    4,
+    "EXIT",
+    false,
+    0,
+    87,
+    0.4
+   ]
+  },
+  {
+   "size": 10,
+   "picks": 64,
+   "seed": 0,
+   "player": "Rashid Shaheed",
+   "bid": 60,
+   "out": [
+    3,
+    3,
+    4,
+    "EXIT",
+    false,
+    0,
+    42,
+    0.4
+   ]
+  },
+  {
+   "size": 10,
+   "picks": 64,
+   "seed": 0,
+   "player": "Justin Fields",
+   "bid": 0,
+   "out": [
+    1,
+    1,
+    1,
+    "BID",
+    false,
+    0,
+    102,
+    0.4
+   ]
+  },
+  {
+   "size": 10,
+   "picks": 64,
+   "seed": 0,
+   "player": "Justin Fields",
+   "bid": 15,
+   "out": [
+    1,
+    1,
+    1,
+    "EXIT",
+    false,
+    0,
+    87,
+    0.4
+   ]
+  },
+  {
+   "size": 10,
+   "picks": 64,
+   "seed": 0,
+   "player": "Justin Fields",
+   "bid": 60,
+   "out": [
+    1,
+    1,
+    1,
+    "EXIT",
+    false,
+    0,
+    42,
+    0.4
+   ]
+  },
+  {
+   "size": 10,
+   "picks": 64,
+   "seed": 3,
+   "player": "Davante Adams",
+   "bid": 0,
+   "out": [
+    0,
+    0,
+    16,
+    "EXIT",
+    false,
+    0,
+    30,
+    0.4
+   ]
+  },
+  {
+   "size": 10,
+   "picks": 64,
+   "seed": 3,
+   "player": "Davante Adams",
+   "bid": 15,
+   "out": [
+    0,
+    0,
+    16,
+    "EXIT",
+    false,
+    0,
+    15,
+    0.4
+   ]
+  },
+  {
+   "size": 10,
+   "picks": 64,
+   "seed": 3,
+   "player": "Davante Adams",
+   "bid": 60,
+   "out": [
+    0,
+    0,
+    16,
+    "EXIT",
+    false,
+    0,
+    -30,
+    0.4
+   ]
+  },
+  {
+   "size": 10,
+   "picks": 64,
+   "seed": 3,
+   "player": "Cam Ward",
+   "bid": 0,
+   "out": [
+    0,
+    0,
+    12,
+    "EXIT",
+    false,
+    0,
+    31,
+    0.4
+   ]
+  },
+  {
+   "size": 10,
+   "picks": 64,
+   "seed": 3,
+   "player": "Cam Ward",
+   "bid": 15,
+   "out": [
+    0,
+    0,
+    12,
+    "EXIT",
+    false,
+    0,
+    31,
+    0.4
+   ]
+  },
+  {
+   "size": 10,
+   "picks": 64,
+   "seed": 3,
+   "player": "Cam Ward",
+   "bid": 60,
+   "out": [
+    0,
+    0,
+    12,
+    "EXIT",
+    false,
+    0,
+    31,
+    0.4
+   ]
+  },
+  {
+   "size": 10,
+   "picks": 64,
+   "seed": 3,
+   "player": "Rashid Shaheed",
+   "bid": 0,
+   "out": [
+    3,
+    3,
+    4,
+    "BID",
+    false,
+    0,
+    30,
+    0.4
+   ]
+  },
+  {
+   "size": 10,
+   "picks": 64,
+   "seed": 3,
+   "player": "Rashid Shaheed",
+   "bid": 15,
+   "out": [
+    3,
+    3,
+    4,
+    "EXIT",
+    false,
+    0,
+    15,
+    0.4
+   ]
+  },
+  {
+   "size": 10,
+   "picks": 64,
+   "seed": 3,
+   "player": "Rashid Shaheed",
+   "bid": 60,
+   "out": [
+    3,
+    3,
+    4,
+    "EXIT",
+    false,
+    0,
+    -30,
+    0.4
+   ]
+  },
+  {
+   "size": 10,
+   "picks": 64,
+   "seed": 3,
+   "player": "Justin Fields",
+   "bid": 0,
+   "out": [
+    0,
+    0,
+    1,
+    "EXIT",
+    false,
+    0,
+    31,
+    0.4
+   ]
+  },
+  {
+   "size": 10,
+   "picks": 64,
+   "seed": 3,
+   "player": "Justin Fields",
+   "bid": 15,
+   "out": [
+    0,
+    0,
+    1,
+    "EXIT",
+    false,
+    0,
+    31,
+    0.4
+   ]
+  },
+  {
+   "size": 10,
+   "picks": 64,
+   "seed": 3,
+   "player": "Justin Fields",
+   "bid": 60,
+   "out": [
+    0,
+    0,
+    1,
+    "EXIT",
+    false,
+    0,
+    31,
+    0.4
+   ]
+  },
+  {
+   "size": 10,
+   "picks": 113,
+   "seed": 0,
+   "player": "Chuba Hubbard",
+   "bid": 0,
+   "out": [
+    1,
+    1,
+    1,
+    "BID",
+    false,
+    0,
+    7,
+    0.4
+   ]
+  },
+  {
+   "size": 10,
+   "picks": 113,
+   "seed": 0,
+   "player": "Chuba Hubbard",
+   "bid": 15,
+   "out": [
+    1,
+    1,
+    1,
+    "EXIT",
+    false,
+    0,
+    -8,
+    0.4
+   ]
+  },
+  {
+   "size": 10,
+   "picks": 113,
+   "seed": 0,
+   "player": "Chuba Hubbard",
+   "bid": 60,
+   "out": [
+    1,
+    1,
+    1,
+    "EXIT",
+    false,
+    0,
+    -53,
+    0.4
+   ]
+  },
+  {
+   "size": 10,
+   "picks": 113,
+   "seed": 0,
+   "player": "Jayden Higgins",
+   "bid": 0,
+   "out": [
+    0,
+    0,
+    1,
+    "EXIT",
+    false,
+    0,
+    8,
+    0.4
+   ]
+  },
+  {
+   "size": 10,
+   "picks": 113,
+   "seed": 0,
+   "player": "Jayden Higgins",
+   "bid": 15,
+   "out": [
+    0,
+    0,
+    1,
+    "EXIT",
+    false,
+    0,
+    8,
+    0.4
+   ]
+  },
+  {
+   "size": 10,
+   "picks": 113,
+   "seed": 0,
+   "player": "Jayden Higgins",
+   "bid": 60,
+   "out": [
+    0,
+    0,
+    1,
+    "EXIT",
+    false,
+    0,
+    8,
+    0.4
+   ]
+  },
+  {
+   "size": 10,
+   "picks": 113,
+   "seed": 0,
+   "player": "Ryan Fitzgerald",
+   "bid": 0,
+   "out": [
+    0,
+    0,
+    1,
+    "EXIT",
+    false,
+    0,
+    7,
+    0.4
+   ]
+  },
+  {
+   "size": 10,
+   "picks": 113,
+   "seed": 0,
+   "player": "Ryan Fitzgerald",
+   "bid": 15,
+   "out": [
+    0,
+    0,
+    1,
+    "EXIT",
+    false,
+    0,
+    -8,
+    0.4
+   ]
+  },
+  {
+   "size": 10,
+   "picks": 113,
+   "seed": 0,
+   "player": "Ryan Fitzgerald",
+   "bid": 60,
+   "out": [
+    0,
+    0,
+    1,
+    "EXIT",
+    false,
+    0,
+    -53,
+    0.4
+   ]
+  },
+  {
+   "size": 10,
+   "picks": 113,
+   "seed": 0,
+   "player": "Olamide Zaccheaus",
+   "bid": 0,
+   "out": [
+    0,
+    0,
+    1,
+    "EXIT",
+    false,
+    0,
+    8,
+    0.4
+   ]
+  },
+  {
+   "size": 10,
+   "picks": 113,
+   "seed": 0,
+   "player": "Olamide Zaccheaus",
+   "bid": 15,
+   "out": [
+    0,
+    0,
+    1,
+    "EXIT",
+    false,
+    0,
+    8,
+    0.4
+   ]
+  },
+  {
+   "size": 10,
+   "picks": 113,
+   "seed": 0,
+   "player": "Olamide Zaccheaus",
+   "bid": 60,
+   "out": [
+    0,
+    0,
+    1,
+    "EXIT",
+    false,
+    0,
+    8,
+    0.4
+   ]
+  },
+  {
+   "size": 10,
+   "picks": 113,
+   "seed": 3,
+   "player": "Chuba Hubbard",
+   "bid": 0,
+   "out": [
+    0,
+    0,
+    14,
+    "EXIT",
+    false,
+    0,
+    -64,
+    0.4
+   ]
+  },
+  {
+   "size": 10,
+   "picks": 113,
+   "seed": 3,
+   "player": "Chuba Hubbard",
+   "bid": 15,
+   "out": [
+    0,
+    0,
+    14,
+    "EXIT",
+    false,
+    0,
+    -64,
+    0.4
+   ]
+  },
+  {
+   "size": 10,
+   "picks": 113,
+   "seed": 3,
+   "player": "Chuba Hubbard",
+   "bid": 60,
+   "out": [
+    0,
+    0,
+    14,
+    "EXIT",
+    false,
+    0,
+    -64,
+    0.4
+   ]
+  },
+  {
+   "size": 10,
+   "picks": 113,
+   "seed": 3,
+   "player": "Jayden Higgins",
+   "bid": 0,
+   "out": [
+    0,
+    0,
+    9,
+    "EXIT",
+    false,
+    0,
+    -64,
+    0.4
+   ]
+  },
+  {
+   "size": 10,
+   "picks": 113,
+   "seed": 3,
+   "player": "Jayden Higgins",
+   "bid": 15,
+   "out": [
+    0,
+    0,
+    9,
+    "EXIT",
+    false,
+    0,
+    -64,
+    0.4
+   ]
+  },
+  {
+   "size": 10,
+   "picks": 113,
+   "seed": 3,
+   "player": "Jayden Higgins",
+   "bid": 60,
+   "out": [
+    0,
+    0,
+    9,
+    "EXIT",
+    false,
+    0,
+    -64,
+    0.4
+   ]
+  },
+  {
+   "size": 10,
+   "picks": 113,
+   "seed": 3,
+   "player": "Ryan Fitzgerald",
+   "bid": 0,
+   "out": [
+    0,
+    0,
+    1,
+    "EXIT",
+    false,
+    0,
+    -64,
+    0.4
+   ]
+  },
+  {
+   "size": 10,
+   "picks": 113,
+   "seed": 3,
+   "player": "Ryan Fitzgerald",
+   "bid": 15,
+   "out": [
+    0,
+    0,
+    1,
+    "EXIT",
+    false,
+    0,
+    -64,
+    0.4
+   ]
+  },
+  {
+   "size": 10,
+   "picks": 113,
+   "seed": 3,
+   "player": "Ryan Fitzgerald",
+   "bid": 60,
+   "out": [
+    0,
+    0,
+    1,
+    "EXIT",
+    false,
+    0,
+    -64,
+    0.4
+   ]
+  },
+  {
+   "size": 10,
+   "picks": 113,
+   "seed": 3,
+   "player": "Olamide Zaccheaus",
+   "bid": 0,
+   "out": [
+    0,
+    0,
+    1,
+    "EXIT",
+    false,
+    0,
+    -64,
+    0.4
+   ]
+  },
+  {
+   "size": 10,
+   "picks": 113,
+   "seed": 3,
+   "player": "Olamide Zaccheaus",
+   "bid": 15,
+   "out": [
+    0,
+    0,
+    1,
+    "EXIT",
+    false,
+    0,
+    -64,
+    0.4
+   ]
+  },
+  {
+   "size": 10,
+   "picks": 113,
+   "seed": 3,
+   "player": "Olamide Zaccheaus",
+   "bid": 60,
+   "out": [
+    0,
+    0,
+    1,
+    "EXIT",
+    false,
+    0,
+    -64,
+    0.4
+   ]
+  },
+  {
+   "size": 12,
+   "picks": 0,
+   "seed": 0,
+   "player": "Bijan Robinson",
+   "bid": 0,
+   "out": [
+    86,
+    86,
+    86,
+    "BID",
+    false,
+    1,
+    199,
+    1
+   ]
+  },
+  {
+   "size": 12,
+   "picks": 0,
+   "seed": 0,
+   "player": "Bijan Robinson",
+   "bid": 15,
+   "out": [
+    86,
+    86,
+    86,
+    "BID",
+    false,
+    1,
+    184,
+    1
+   ]
+  },
+  {
+   "size": 12,
+   "picks": 0,
+   "seed": 0,
+   "player": "Bijan Robinson",
+   "bid": 60,
+   "out": [
+    86,
+    86,
+    86,
+    "BID",
+    false,
+    1,
+    139,
+    1
+   ]
+  },
+  {
+   "size": 12,
+   "picks": 0,
+   "seed": 0,
+   "player": "Trevor Lawrence",
+   "bid": 0,
+   "out": [
+    17,
+    16,
+    14,
+    "BID",
+    false,
+    9,
+    199,
+    1
+   ]
+  },
+  {
+   "size": 12,
+   "picks": 0,
+   "seed": 0,
+   "player": "Trevor Lawrence",
+   "bid": 15,
+   "out": [
+    17,
+    16,
+    14,
+    "HOLD",
+    false,
+    9,
+    184,
+    1
+   ]
+  },
+  {
+   "size": 12,
+   "picks": 0,
+   "seed": 0,
+   "player": "Trevor Lawrence",
+   "bid": 60,
+   "out": [
+    17,
+    17,
+    14,
+    "EXIT",
+    false,
+    9,
+    139,
+    1
+   ]
+  },
+  {
+   "size": 12,
+   "picks": 0,
+   "seed": 0,
+   "player": "Brandon Aubrey",
+   "bid": 0,
+   "out": [
+    17,
+    17,
+    16,
+    "BID",
+    false,
+    0,
+    199,
+    1
+   ]
+  },
+  {
+   "size": 12,
+   "picks": 0,
+   "seed": 0,
+   "player": "Brandon Aubrey",
+   "bid": 15,
+   "out": [
+    17,
+    17,
+    16,
+    "HOLD",
+    false,
+    0,
+    184,
+    1
+   ]
+  },
+  {
+   "size": 12,
+   "picks": 0,
+   "seed": 0,
+   "player": "Brandon Aubrey",
+   "bid": 60,
+   "out": [
+    17,
+    17,
+    16,
+    "EXIT",
+    false,
+    0,
+    139,
+    1
+   ]
+  },
+  {
+   "size": 12,
+   "picks": 0,
+   "seed": 0,
+   "player": "Cade Otton",
+   "bid": 0,
+   "out": [
+    4,
+    3,
+    2,
+    "BID",
+    false,
+    4,
+    199,
+    1
+   ]
+  },
+  {
+   "size": 12,
+   "picks": 0,
+   "seed": 0,
+   "player": "Cade Otton",
+   "bid": 15,
+   "out": [
+    4,
+    4,
+    2,
+    "EXIT",
+    false,
+    4,
+    184,
+    1
+   ]
+  },
+  {
+   "size": 12,
+   "picks": 0,
+   "seed": 0,
+   "player": "Cade Otton",
+   "bid": 60,
+   "out": [
+    4,
+    4,
+    2,
+    "EXIT",
+    false,
+    4,
+    139,
+    1
+   ]
+  },
+  {
+   "size": 12,
+   "picks": 0,
+   "seed": 3,
+   "player": "Bijan Robinson",
+   "bid": 0,
+   "out": [
+    86,
+    86,
+    86,
+    "BID",
+    false,
+    1,
+    199,
+    1
+   ]
+  },
+  {
+   "size": 12,
+   "picks": 0,
+   "seed": 3,
+   "player": "Bijan Robinson",
+   "bid": 15,
+   "out": [
+    86,
+    86,
+    86,
+    "BID",
+    false,
+    1,
+    184,
+    1
+   ]
+  },
+  {
+   "size": 12,
+   "picks": 0,
+   "seed": 3,
+   "player": "Bijan Robinson",
+   "bid": 60,
+   "out": [
+    86,
+    86,
+    86,
+    "BID",
+    false,
+    1,
+    139,
+    1
+   ]
+  },
+  {
+   "size": 12,
+   "picks": 0,
+   "seed": 3,
+   "player": "Trevor Lawrence",
+   "bid": 0,
+   "out": [
+    17,
+    16,
+    14,
+    "BID",
+    false,
+    9,
+    199,
+    1
+   ]
+  },
+  {
+   "size": 12,
+   "picks": 0,
+   "seed": 3,
+   "player": "Trevor Lawrence",
+   "bid": 15,
+   "out": [
+    17,
+    16,
+    14,
+    "HOLD",
+    false,
+    9,
+    184,
+    1
+   ]
+  },
+  {
+   "size": 12,
+   "picks": 0,
+   "seed": 3,
+   "player": "Trevor Lawrence",
+   "bid": 60,
+   "out": [
+    17,
+    17,
+    14,
+    "EXIT",
+    false,
+    9,
+    139,
+    1
+   ]
+  },
+  {
+   "size": 12,
+   "picks": 0,
+   "seed": 3,
+   "player": "Brandon Aubrey",
+   "bid": 0,
+   "out": [
+    17,
+    17,
+    16,
+    "BID",
+    false,
+    0,
+    199,
+    1
+   ]
+  },
+  {
+   "size": 12,
+   "picks": 0,
+   "seed": 3,
+   "player": "Brandon Aubrey",
+   "bid": 15,
+   "out": [
+    17,
+    17,
+    16,
+    "HOLD",
+    false,
+    0,
+    184,
+    1
+   ]
+  },
+  {
+   "size": 12,
+   "picks": 0,
+   "seed": 3,
+   "player": "Brandon Aubrey",
+   "bid": 60,
+   "out": [
+    17,
+    17,
+    16,
+    "EXIT",
+    false,
+    0,
+    139,
+    1
+   ]
+  },
+  {
+   "size": 12,
+   "picks": 0,
+   "seed": 3,
+   "player": "Cade Otton",
+   "bid": 0,
+   "out": [
+    4,
+    3,
+    2,
+    "BID",
+    false,
+    4,
+    199,
+    1
+   ]
+  },
+  {
+   "size": 12,
+   "picks": 0,
+   "seed": 3,
+   "player": "Cade Otton",
+   "bid": 15,
+   "out": [
+    4,
+    4,
+    2,
+    "EXIT",
+    false,
+    4,
+    184,
+    1
+   ]
+  },
+  {
+   "size": 12,
+   "picks": 0,
+   "seed": 3,
+   "player": "Cade Otton",
+   "bid": 60,
+   "out": [
+    4,
+    4,
+    2,
+    "EXIT",
+    false,
+    4,
+    139,
+    1
+   ]
+  },
+  {
+   "size": 12,
+   "picks": 11,
+   "seed": 0,
+   "player": "Jalen Hurts",
+   "bid": 0,
+   "out": [
+    30,
+    28,
+    25,
+    "BID",
+    true,
+    11,
+    198,
+    0.89
+   ]
+  },
+  {
+   "size": 12,
+   "picks": 11,
+   "seed": 0,
+   "player": "Jalen Hurts",
+   "bid": 15,
+   "out": [
+    30,
+    28,
+    25,
+    "BID",
+    true,
+    11,
+    183,
+    0.89
+   ]
+  },
+  {
+   "size": 12,
+   "picks": 11,
+   "seed": 0,
+   "player": "Jalen Hurts",
+   "bid": 60,
+   "out": [
+    30,
+    30,
+    25,
+    "EXIT",
+    true,
+    11,
+    138,
+    0.89
+   ]
+  },
+  {
+   "size": 12,
+   "picks": 11,
+   "seed": 0,
+   "player": "Bo Nix",
+   "bid": 0,
+   "out": [
+    2,
+    0,
+    12,
+    "PASS",
+    false,
+    0,
+    198,
+    0.89
+   ]
+  },
+  {
+   "size": 12,
+   "picks": 11,
+   "seed": 0,
+   "player": "Bo Nix",
+   "bid": 15,
+   "out": [
+    2,
+    0,
+    12,
+    "EXIT",
+    false,
+    0,
+    183,
+    0.89
+   ]
+  },
+  {
+   "size": 12,
+   "picks": 11,
+   "seed": 0,
+   "player": "Bo Nix",
+   "bid": 60,
+   "out": [
+    2,
+    0,
+    12,
+    "EXIT",
+    false,
+    0,
+    138,
+    0.89
+   ]
+  },
+  {
+   "size": 12,
+   "picks": 11,
+   "seed": 0,
+   "player": "Wan'Dale Robinson",
+   "bid": 0,
+   "out": [
+    9,
+    8,
+    7,
+    "BID",
+    false,
+    5,
+    198,
+    0.89
+   ]
+  },
+  {
+   "size": 12,
+   "picks": 11,
+   "seed": 0,
+   "player": "Wan'Dale Robinson",
+   "bid": 15,
+   "out": [
+    9,
+    9,
+    7,
+    "EXIT",
+    false,
+    5,
+    183,
+    0.89
+   ]
+  },
+  {
+   "size": 12,
+   "picks": 11,
+   "seed": 0,
+   "player": "Wan'Dale Robinson",
+   "bid": 60,
+   "out": [
+    9,
+    9,
+    7,
+    "EXIT",
+    false,
+    5,
+    138,
+    0.89
+   ]
+  },
+  {
+   "size": 12,
+   "picks": 11,
+   "seed": 0,
+   "player": "Braelon Allen",
+   "bid": 0,
+   "out": [
+    5,
+    2,
+    1,
+    "BID",
+    false,
+    10,
+    198,
+    0.89
+   ]
+  },
+  {
+   "size": 12,
+   "picks": 11,
+   "seed": 0,
+   "player": "Braelon Allen",
+   "bid": 15,
+   "out": [
+    5,
+    5,
+    1,
+    "EXIT",
+    false,
+    10,
+    183,
+    0.89
+   ]
+  },
+  {
+   "size": 12,
+   "picks": 11,
+   "seed": 0,
+   "player": "Braelon Allen",
+   "bid": 60,
+   "out": [
+    5,
+    5,
+    1,
+    "EXIT",
+    false,
+    10,
+    138,
+    0.89
+   ]
+  },
+  {
+   "size": 12,
+   "picks": 11,
+   "seed": 3,
+   "player": "Jalen Hurts",
+   "bid": 0,
+   "out": [
+    0,
+    0,
+    17,
+    "EXIT",
+    false,
+    0,
+    196,
+    0.93
+   ]
+  },
+  {
+   "size": 12,
+   "picks": 11,
+   "seed": 3,
+   "player": "Jalen Hurts",
+   "bid": 15,
+   "out": [
+    0,
+    0,
+    17,
+    "EXIT",
+    false,
+    0,
+    181,
+    0.93
+   ]
+  },
+  {
+   "size": 12,
+   "picks": 11,
+   "seed": 3,
+   "player": "Jalen Hurts",
+   "bid": 60,
+   "out": [
+    0,
+    0,
+    17,
+    "EXIT",
+    false,
+    0,
+    136,
+    0.93
+   ]
+  },
+  {
+   "size": 12,
+   "picks": 11,
+   "seed": 3,
+   "player": "Bo Nix",
+   "bid": 0,
+   "out": [
+    0,
+    0,
+    8,
+    "EXIT",
+    false,
+    0,
+    196,
+    0.93
+   ]
+  },
+  {
+   "size": 12,
+   "picks": 11,
+   "seed": 3,
+   "player": "Bo Nix",
+   "bid": 15,
+   "out": [
+    0,
+    0,
+    8,
+    "EXIT",
+    false,
+    0,
+    181,
+    0.93
+   ]
+  },
+  {
+   "size": 12,
+   "picks": 11,
+   "seed": 3,
+   "player": "Bo Nix",
+   "bid": 60,
+   "out": [
+    0,
+    0,
+    8,
+    "EXIT",
+    false,
+    0,
+    136,
+    0.93
+   ]
+  },
+  {
+   "size": 12,
+   "picks": 11,
+   "seed": 3,
+   "player": "Wan'Dale Robinson",
+   "bid": 0,
+   "out": [
+    11,
+    4,
+    3,
+    "BID",
+    false,
+    1,
+    196,
+    0.93
+   ]
+  },
+  {
+   "size": 12,
+   "picks": 11,
+   "seed": 3,
+   "player": "Wan'Dale Robinson",
+   "bid": 15,
+   "out": [
+    11,
+    11,
+    3,
+    "EXIT",
+    false,
+    1,
+    181,
+    0.93
+   ]
+  },
+  {
+   "size": 12,
+   "picks": 11,
+   "seed": 3,
+   "player": "Wan'Dale Robinson",
+   "bid": 60,
+   "out": [
+    11,
+    11,
+    3,
+    "EXIT",
+    false,
+    1,
+    136,
+    0.93
+   ]
+  },
+  {
+   "size": 12,
+   "picks": 11,
+   "seed": 3,
+   "player": "Braelon Allen",
+   "bid": 0,
+   "out": [
+    0,
+    0,
+    1,
+    "EXIT",
+    false,
+    0,
+    196,
+    0.93
+   ]
+  },
+  {
+   "size": 12,
+   "picks": 11,
+   "seed": 3,
+   "player": "Braelon Allen",
+   "bid": 15,
+   "out": [
+    0,
+    0,
+    1,
+    "EXIT",
+    false,
+    0,
+    181,
+    0.93
+   ]
+  },
+  {
+   "size": 12,
+   "picks": 11,
+   "seed": 3,
+   "player": "Braelon Allen",
+   "bid": 60,
+   "out": [
+    0,
+    0,
+    1,
+    "EXIT",
+    false,
+    0,
+    136,
+    0.93
+   ]
+  },
+  {
+   "size": 12,
+   "picks": 29,
+   "seed": 0,
+   "player": "Nico Collins",
+   "bid": 0,
+   "out": [
+    39,
+    39,
+    38,
+    "BID",
+    false,
+    6,
+    128,
+    0.72
+   ]
+  },
+  {
+   "size": 12,
+   "picks": 29,
+   "seed": 0,
+   "player": "Nico Collins",
+   "bid": 15,
+   "out": [
+    39,
+    39,
+    38,
+    "BID",
+    false,
+    6,
+    113,
+    0.72
+   ]
+  },
+  {
+   "size": 12,
+   "picks": 29,
+   "seed": 0,
+   "player": "Nico Collins",
+   "bid": 60,
+   "out": [
+    39,
+    39,
+    38,
+    "EXIT",
+    false,
+    6,
+    68,
+    0.72
+   ]
+  },
+  {
+   "size": 12,
+   "picks": 29,
+   "seed": 0,
+   "player": "Baker Mayfield",
+   "bid": 0,
+   "out": [
+    1,
+    0,
+    11,
+    "PASS",
+    false,
+    0,
+    128,
+    0.72
+   ]
+  },
+  {
+   "size": 12,
+   "picks": 29,
+   "seed": 0,
+   "player": "Baker Mayfield",
+   "bid": 15,
+   "out": [
+    1,
+    0,
+    11,
+    "EXIT",
+    false,
+    0,
+    113,
+    0.72
+   ]
+  },
+  {
+   "size": 12,
+   "picks": 29,
+   "seed": 0,
+   "player": "Baker Mayfield",
+   "bid": 60,
+   "out": [
+    1,
+    0,
+    11,
+    "EXIT",
+    false,
+    0,
+    68,
+    0.72
+   ]
+  },
+  {
+   "size": 12,
+   "picks": 29,
+   "seed": 0,
+   "player": "Makai Lemon",
+   "bid": 0,
+   "out": [
+    2,
+    0,
+    4,
+    "PASS",
+    false,
+    0,
+    128,
+    0.72
+   ]
+  },
+  {
+   "size": 12,
+   "picks": 29,
+   "seed": 0,
+   "player": "Makai Lemon",
+   "bid": 15,
+   "out": [
+    2,
+    0,
+    4,
+    "EXIT",
+    false,
+    0,
+    113,
+    0.72
+   ]
+  },
+  {
+   "size": 12,
+   "picks": 29,
+   "seed": 0,
+   "player": "Makai Lemon",
+   "bid": 60,
+   "out": [
+    2,
+    0,
+    4,
+    "EXIT",
+    false,
+    0,
+    68,
+    0.72
+   ]
+  },
+  {
+   "size": 12,
+   "picks": 29,
+   "seed": 0,
+   "player": "Eli Stowers",
+   "bid": 0,
+   "out": [
+    0,
+    0,
+    1,
+    "EXIT",
+    false,
+    0,
+    128,
+    0.72
+   ]
+  },
+  {
+   "size": 12,
+   "picks": 29,
+   "seed": 0,
+   "player": "Eli Stowers",
+   "bid": 15,
+   "out": [
+    0,
+    0,
+    1,
+    "EXIT",
+    false,
+    0,
+    113,
+    0.72
+   ]
+  },
+  {
+   "size": 12,
+   "picks": 29,
+   "seed": 0,
+   "player": "Eli Stowers",
+   "bid": 60,
+   "out": [
+    0,
+    0,
+    1,
+    "EXIT",
+    false,
+    0,
+    68,
+    0.72
+   ]
+  },
+  {
+   "size": 12,
+   "picks": 29,
+   "seed": 3,
+   "player": "Nico Collins",
+   "bid": 0,
+   "out": [
+    53,
+    0,
+    53,
+    "PASS",
+    false,
+    5,
+    122,
+    0.73
+   ]
+  },
+  {
+   "size": 12,
+   "picks": 29,
+   "seed": 3,
+   "player": "Nico Collins",
+   "bid": 15,
+   "out": [
+    53,
+    0,
+    53,
+    "PASS",
+    false,
+    5,
+    107,
+    0.73
+   ]
+  },
+  {
+   "size": 12,
+   "picks": 29,
+   "seed": 3,
+   "player": "Nico Collins",
+   "bid": 60,
+   "out": [
+    53,
+    0,
+    53,
+    "EXIT",
+    false,
+    5,
+    62,
+    0.73
+   ]
+  },
+  {
+   "size": 12,
+   "picks": 29,
+   "seed": 3,
+   "player": "Baker Mayfield",
+   "bid": 0,
+   "out": [
+    0,
+    0,
+    20,
+    "EXIT",
+    false,
+    0,
+    122,
+    0.73
+   ]
+  },
+  {
+   "size": 12,
+   "picks": 29,
+   "seed": 3,
+   "player": "Baker Mayfield",
+   "bid": 15,
+   "out": [
+    0,
+    0,
+    20,
+    "EXIT",
+    false,
+    0,
+    107,
+    0.73
+   ]
+  },
+  {
+   "size": 12,
+   "picks": 29,
+   "seed": 3,
+   "player": "Baker Mayfield",
+   "bid": 60,
+   "out": [
+    0,
+    0,
+    20,
+    "EXIT",
+    false,
+    0,
+    62,
+    0.73
+   ]
+  },
+  {
+   "size": 12,
+   "picks": 29,
+   "seed": 3,
+   "player": "Makai Lemon",
+   "bid": 0,
+   "out": [
+    5,
+    5,
+    5,
+    "BID",
+    false,
+    4,
+    122,
+    0.73
+   ]
+  },
+  {
+   "size": 12,
+   "picks": 29,
+   "seed": 3,
+   "player": "Makai Lemon",
+   "bid": 15,
+   "out": [
+    5,
+    5,
+    5,
+    "EXIT",
+    false,
+    4,
+    107,
+    0.73
+   ]
+  },
+  {
+   "size": 12,
+   "picks": 29,
+   "seed": 3,
+   "player": "Makai Lemon",
+   "bid": 60,
+   "out": [
+    5,
+    5,
+    5,
+    "EXIT",
+    false,
+    4,
+    62,
+    0.73
+   ]
+  },
+  {
+   "size": 12,
+   "picks": 29,
+   "seed": 3,
+   "player": "Eli Stowers",
+   "bid": 0,
+   "out": [
+    4,
+    2,
+    1,
+    "BID",
+    false,
+    9,
+    122,
+    0.73
+   ]
+  },
+  {
+   "size": 12,
+   "picks": 29,
+   "seed": 3,
+   "player": "Eli Stowers",
+   "bid": 15,
+   "out": [
+    4,
+    4,
+    1,
+    "EXIT",
+    false,
+    9,
+    107,
+    0.73
+   ]
+  },
+  {
+   "size": 12,
+   "picks": 29,
+   "seed": 3,
+   "player": "Eli Stowers",
+   "bid": 60,
+   "out": [
+    4,
+    4,
+    1,
+    "EXIT",
+    false,
+    9,
+    62,
+    0.73
+   ]
+  },
+  {
+   "size": 12,
+   "picks": 64,
+   "seed": 0,
+   "player": "Davante Adams",
+   "bid": 0,
+   "out": [
+    4,
+    0,
+    20,
+    "PASS",
+    false,
+    0,
+    53,
+    0.4
+   ]
+  },
+  {
+   "size": 12,
+   "picks": 64,
+   "seed": 0,
+   "player": "Davante Adams",
+   "bid": 15,
+   "out": [
+    4,
+    0,
+    20,
+    "EXIT",
+    false,
+    0,
+    38,
+    0.4
+   ]
+  },
+  {
+   "size": 12,
+   "picks": 64,
+   "seed": 0,
+   "player": "Davante Adams",
+   "bid": 60,
+   "out": [
+    4,
+    0,
+    20,
+    "EXIT",
+    false,
+    0,
+    -7,
+    0.4
+   ]
+  },
+  {
+   "size": 12,
+   "picks": 64,
+   "seed": 0,
+   "player": "Cam Ward",
+   "bid": 0,
+   "out": [
+    1,
+    0,
+    9,
+    "PASS",
+    false,
+    0,
+    53,
+    0.4
+   ]
+  },
+  {
+   "size": 12,
+   "picks": 64,
+   "seed": 0,
+   "player": "Cam Ward",
+   "bid": 15,
+   "out": [
+    1,
+    0,
+    9,
+    "EXIT",
+    false,
+    0,
+    38,
+    0.4
+   ]
+  },
+  {
+   "size": 12,
+   "picks": 64,
+   "seed": 0,
+   "player": "Cam Ward",
+   "bid": 60,
+   "out": [
+    1,
+    0,
+    9,
+    "EXIT",
+    false,
+    0,
+    -7,
+    0.4
+   ]
+  },
+  {
+   "size": 12,
+   "picks": 64,
+   "seed": 0,
+   "player": "Rashid Shaheed",
+   "bid": 0,
+   "out": [
+    3,
+    3,
+    5,
+    "BID",
+    false,
+    0,
+    53,
+    0.4
+   ]
+  },
+  {
+   "size": 12,
+   "picks": 64,
+   "seed": 0,
+   "player": "Rashid Shaheed",
+   "bid": 15,
+   "out": [
+    3,
+    3,
+    5,
+    "EXIT",
+    false,
+    0,
+    38,
+    0.4
+   ]
+  },
+  {
+   "size": 12,
+   "picks": 64,
+   "seed": 0,
+   "player": "Rashid Shaheed",
+   "bid": 60,
+   "out": [
+    3,
+    3,
+    5,
+    "EXIT",
+    false,
+    0,
+    -7,
+    0.4
+   ]
+  },
+  {
+   "size": 12,
+   "picks": 64,
+   "seed": 0,
+   "player": "Justin Fields",
+   "bid": 0,
+   "out": [
+    1,
+    1,
+    1,
+    "BID",
+    false,
+    0,
+    53,
+    0.4
+   ]
+  },
+  {
+   "size": 12,
+   "picks": 64,
+   "seed": 0,
+   "player": "Justin Fields",
+   "bid": 15,
+   "out": [
+    1,
+    1,
+    1,
+    "EXIT",
+    false,
+    0,
+    38,
+    0.4
+   ]
+  },
+  {
+   "size": 12,
+   "picks": 64,
+   "seed": 0,
+   "player": "Justin Fields",
+   "bid": 60,
+   "out": [
+    1,
+    1,
+    1,
+    "EXIT",
+    false,
+    0,
+    -7,
+    0.4
+   ]
+  },
+  {
+   "size": 12,
+   "picks": 64,
+   "seed": 3,
+   "player": "Davante Adams",
+   "bid": 0,
+   "out": [
+    22,
+    22,
+    22,
+    "BID",
+    false,
+    3,
+    41,
+    0.43
+   ]
+  },
+  {
+   "size": 12,
+   "picks": 64,
+   "seed": 3,
+   "player": "Davante Adams",
+   "bid": 15,
+   "out": [
+    22,
+    22,
+    22,
+    "BID",
+    false,
+    3,
+    26,
+    0.43
+   ]
+  },
+  {
+   "size": 12,
+   "picks": 64,
+   "seed": 3,
+   "player": "Davante Adams",
+   "bid": 60,
+   "out": [
+    22,
+    22,
+    22,
+    "EXIT",
+    false,
+    3,
+    -19,
+    0.43
+   ]
+  },
+  {
+   "size": 12,
+   "picks": 64,
+   "seed": 3,
+   "player": "Cam Ward",
+   "bid": 0,
+   "out": [
+    1,
+    0,
+    13,
+    "PASS",
+    false,
+    0,
+    41,
+    0.43
+   ]
+  },
+  {
+   "size": 12,
+   "picks": 64,
+   "seed": 3,
+   "player": "Cam Ward",
+   "bid": 15,
+   "out": [
+    1,
+    0,
+    13,
+    "EXIT",
+    false,
+    0,
+    26,
+    0.43
+   ]
+  },
+  {
+   "size": 12,
+   "picks": 64,
+   "seed": 3,
+   "player": "Cam Ward",
+   "bid": 60,
+   "out": [
+    1,
+    0,
+    13,
+    "EXIT",
+    false,
+    0,
+    -19,
+    0.43
+   ]
+  },
+  {
+   "size": 12,
+   "picks": 64,
+   "seed": 3,
+   "player": "Rashid Shaheed",
+   "bid": 0,
+   "out": [
+    2,
+    0,
+    5,
+    "PASS",
+    false,
+    0,
+    41,
+    0.43
+   ]
+  },
+  {
+   "size": 12,
+   "picks": 64,
+   "seed": 3,
+   "player": "Rashid Shaheed",
+   "bid": 15,
+   "out": [
+    2,
+    0,
+    5,
+    "EXIT",
+    false,
+    0,
+    26,
+    0.43
+   ]
+  },
+  {
+   "size": 12,
+   "picks": 64,
+   "seed": 3,
+   "player": "Rashid Shaheed",
+   "bid": 60,
+   "out": [
+    2,
+    0,
+    5,
+    "EXIT",
+    false,
+    0,
+    -19,
+    0.43
+   ]
+  },
+  {
+   "size": 12,
+   "picks": 64,
+   "seed": 3,
+   "player": "Justin Fields",
+   "bid": 0,
+   "out": [
+    1,
+    1,
+    1,
+    "BID",
+    false,
+    0,
+    41,
+    0.43
+   ]
+  },
+  {
+   "size": 12,
+   "picks": 64,
+   "seed": 3,
+   "player": "Justin Fields",
+   "bid": 15,
+   "out": [
+    1,
+    1,
+    1,
+    "EXIT",
+    false,
+    0,
+    26,
+    0.43
+   ]
+  },
+  {
+   "size": 12,
+   "picks": 64,
+   "seed": 3,
+   "player": "Justin Fields",
+   "bid": 60,
+   "out": [
+    1,
+    1,
+    1,
+    "EXIT",
+    false,
+    0,
+    -19,
+    0.43
+   ]
+  },
+  {
+   "size": 12,
+   "picks": 113,
+   "seed": 0,
+   "player": "Chuba Hubbard",
+   "bid": 0,
+   "out": [
+    3,
+    0,
+    9,
+    "PASS",
+    false,
+    0,
+    9,
+    0.4
+   ]
+  },
+  {
+   "size": 12,
+   "picks": 113,
+   "seed": 0,
+   "player": "Chuba Hubbard",
+   "bid": 15,
+   "out": [
+    3,
+    0,
+    9,
+    "EXIT",
+    false,
+    0,
+    -6,
+    0.4
+   ]
+  },
+  {
+   "size": 12,
+   "picks": 113,
+   "seed": 0,
+   "player": "Chuba Hubbard",
+   "bid": 60,
+   "out": [
+    3,
+    0,
+    9,
+    "EXIT",
+    false,
+    0,
+    -51,
+    0.4
+   ]
+  },
+  {
+   "size": 12,
+   "picks": 113,
+   "seed": 0,
+   "player": "Jayden Higgins",
+   "bid": 0,
+   "out": [
+    3,
+    0,
+    6,
+    "PASS",
+    false,
+    0,
+    9,
+    0.4
+   ]
+  },
+  {
+   "size": 12,
+   "picks": 113,
+   "seed": 0,
+   "player": "Jayden Higgins",
+   "bid": 15,
+   "out": [
+    3,
+    0,
+    6,
+    "EXIT",
+    false,
+    0,
+    -6,
+    0.4
+   ]
+  },
+  {
+   "size": 12,
+   "picks": 113,
+   "seed": 0,
+   "player": "Jayden Higgins",
+   "bid": 60,
+   "out": [
+    3,
+    0,
+    6,
+    "EXIT",
+    false,
+    0,
+    -51,
+    0.4
+   ]
+  },
+  {
+   "size": 12,
+   "picks": 113,
+   "seed": 0,
+   "player": "Ryan Fitzgerald",
+   "bid": 0,
+   "out": [
+    1,
+    1,
+    1,
+    "BID",
+    false,
+    0,
+    9,
+    0.4
+   ]
+  },
+  {
+   "size": 12,
+   "picks": 113,
+   "seed": 0,
+   "player": "Ryan Fitzgerald",
+   "bid": 15,
+   "out": [
+    1,
+    1,
+    1,
+    "EXIT",
+    false,
+    0,
+    -6,
+    0.4
+   ]
+  },
+  {
+   "size": 12,
+   "picks": 113,
+   "seed": 0,
+   "player": "Ryan Fitzgerald",
+   "bid": 60,
+   "out": [
+    1,
+    1,
+    1,
+    "EXIT",
+    false,
+    0,
+    -51,
+    0.4
+   ]
+  },
+  {
+   "size": 12,
+   "picks": 113,
+   "seed": 0,
+   "player": "Olamide Zaccheaus",
+   "bid": 0,
+   "out": [
+    1,
+    1,
+    1,
+    "BID",
+    false,
+    0,
+    9,
+    0.4
+   ]
+  },
+  {
+   "size": 12,
+   "picks": 113,
+   "seed": 0,
+   "player": "Olamide Zaccheaus",
+   "bid": 15,
+   "out": [
+    1,
+    1,
+    1,
+    "EXIT",
+    false,
+    0,
+    -6,
+    0.4
+   ]
+  },
+  {
+   "size": 12,
+   "picks": 113,
+   "seed": 0,
+   "player": "Olamide Zaccheaus",
+   "bid": 60,
+   "out": [
+    1,
+    1,
+    1,
+    "EXIT",
+    false,
+    0,
+    -51,
+    0.4
+   ]
+  },
+  {
+   "size": 12,
+   "picks": 113,
+   "seed": 3,
+   "player": "Chuba Hubbard",
+   "bid": 0,
+   "out": [
+    0,
+    0,
+    11,
+    "EXIT",
+    false,
+    0,
+    -10,
+    0.4
+   ]
+  },
+  {
+   "size": 12,
+   "picks": 113,
+   "seed": 3,
+   "player": "Chuba Hubbard",
+   "bid": 15,
+   "out": [
+    0,
+    0,
+    11,
+    "EXIT",
+    false,
+    0,
+    -10,
+    0.4
+   ]
+  },
+  {
+   "size": 12,
+   "picks": 113,
+   "seed": 3,
+   "player": "Chuba Hubbard",
+   "bid": 60,
+   "out": [
+    0,
+    0,
+    11,
+    "EXIT",
+    false,
+    0,
+    -10,
+    0.4
+   ]
+  },
+  {
+   "size": 12,
+   "picks": 113,
+   "seed": 3,
+   "player": "Jayden Higgins",
+   "bid": 0,
+   "out": [
+    0,
+    0,
+    10,
+    "EXIT",
+    false,
+    0,
+    -10,
+    0.4
+   ]
+  },
+  {
+   "size": 12,
+   "picks": 113,
+   "seed": 3,
+   "player": "Jayden Higgins",
+   "bid": 15,
+   "out": [
+    0,
+    0,
+    10,
+    "EXIT",
+    false,
+    0,
+    -10,
+    0.4
+   ]
+  },
+  {
+   "size": 12,
+   "picks": 113,
+   "seed": 3,
+   "player": "Jayden Higgins",
+   "bid": 60,
+   "out": [
+    0,
+    0,
+    10,
+    "EXIT",
+    false,
+    0,
+    -10,
+    0.4
+   ]
+  },
+  {
+   "size": 12,
+   "picks": 113,
+   "seed": 3,
+   "player": "Ryan Fitzgerald",
+   "bid": 0,
+   "out": [
+    0,
+    0,
+    1,
+    "EXIT",
+    false,
+    0,
+    -10,
+    0.4
+   ]
+  },
+  {
+   "size": 12,
+   "picks": 113,
+   "seed": 3,
+   "player": "Ryan Fitzgerald",
+   "bid": 15,
+   "out": [
+    0,
+    0,
+    1,
+    "EXIT",
+    false,
+    0,
+    -10,
+    0.4
+   ]
+  },
+  {
+   "size": 12,
+   "picks": 113,
+   "seed": 3,
+   "player": "Ryan Fitzgerald",
+   "bid": 60,
+   "out": [
+    0,
+    0,
+    1,
+    "EXIT",
+    false,
+    0,
+    -10,
+    0.4
+   ]
+  },
+  {
+   "size": 12,
+   "picks": 113,
+   "seed": 3,
+   "player": "Olamide Zaccheaus",
+   "bid": 0,
+   "out": [
+    0,
+    0,
+    1,
+    "EXIT",
+    false,
+    0,
+    -10,
+    0.4
+   ]
+  },
+  {
+   "size": 12,
+   "picks": 113,
+   "seed": 3,
+   "player": "Olamide Zaccheaus",
+   "bid": 15,
+   "out": [
+    0,
+    0,
+    1,
+    "EXIT",
+    false,
+    0,
+    -10,
+    0.4
+   ]
+  },
+  {
+   "size": 12,
+   "picks": 113,
+   "seed": 3,
+   "player": "Olamide Zaccheaus",
+   "bid": 60,
+   "out": [
+    0,
+    0,
+    1,
+    "EXIT",
+    false,
+    0,
+    -10,
+    0.4
+   ]
+  }
+ ],
+ "plans": [
+  {
+   "size": 8,
+   "picks": 0,
+   "value": 1597.32,
+   "spend": 130,
+   "bought": [
+    "Wan'Dale Robinson@13",
+    "Rome Odunze@15",
+    "Jadarian Price@13",
+    "Daniel Jones@14",
+    "Sam LaPorta@13",
+    "Derrick Henry@18",
+    "Emeka Egbuka@17",
+    "Brandon Aubrey@14",
+    "Houston Texans@13"
+   ]
+  },
+  {
+   "size": 8,
+   "picks": 29,
+   "value": 2114.8884,
+   "spend": 133,
+   "bought": [
+    "Wan'Dale Robinson@13",
+    "Rome Odunze@15",
+    "Jadarian Price@13",
+    "Sam LaPorta@13",
+    "Derrick Henry@18",
+    "Brandon Aubrey@14",
+    "Houston Texans@13",
+    "Bijan Robinson@33"
+   ]
+  },
+  {
+   "size": 8,
+   "picks": 64,
+   "value": 2414.0238,
+   "spend": 136,
+   "bought": [
+    "Wan'Dale Robinson@13",
+    "Jadarian Price@13",
+    "Derrick Henry@18",
+    "Brandon Aubrey@14",
+    "Houston Texans@13",
+    "Bijan Robinson@33",
+    "Ja'Marr Chase@30"
+   ]
+  },
+  {
+   "size": 12,
+   "picks": 0,
+   "value": 1597.32,
+   "spend": 130,
+   "bought": [
+    "Wan'Dale Robinson@13",
+    "Rome Odunze@15",
+    "Jadarian Price@13",
+    "Daniel Jones@14",
+    "Sam LaPorta@13",
+    "Derrick Henry@18",
+    "Emeka Egbuka@17",
+    "Brandon Aubrey@14",
+    "Houston Texans@13"
+   ]
+  },
+  {
+   "size": 12,
+   "picks": 29,
+   "value": 2081.5684,
+   "spend": 133,
+   "bought": [
+    "Wan'Dale Robinson@13",
+    "Rome Odunze@15",
+    "Jadarian Price@13",
+    "Sam LaPorta@13",
+    "Derrick Henry@18",
+    "Brandon Aubrey@14",
+    "Houston Texans@13",
+    "Bijan Robinson@33"
+   ]
+  },
+  {
+   "size": 12,
+   "picks": 64,
+   "value": 2485.500725,
+   "spend": 140,
+   "bought": [
+    "Jadarian Price@13",
+    "Sam LaPorta@13",
+    "Brandon Aubrey@14",
+    "Houston Texans@13",
+    "Bijan Robinson@33",
+    "Trey McBride@22",
+    "Ja'Marr Chase@30"
+   ]
+  }
+ ]
+}
