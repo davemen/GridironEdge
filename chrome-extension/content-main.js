@@ -5,7 +5,7 @@
   // Version marker: lets a console check confirm whether Chrome is running the
   // current content script or a cached older one, which is the first thing to
   // rule out when a fix appears to have had no effect.
-  try { window.__GRIDIRON_EDGE_VERSION__ = '2026.08.07-rejects'; } catch (e) {
+  try { window.__GRIDIRON_EDGE_VERSION__ = '2026.08.07-sweep'; } catch (e) {
           // Best effort: this reads the page and the page is not ours.
           console.debug('[Gridiron Edge] read failed:', e && e.message);
         }

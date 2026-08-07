@@ -37,7 +37,12 @@
     return true;
   }
 
-  console.log("[Gridiron Edge Sync] Isolated script initialized. Listening for messages from page context...");
+  // The build marker goes in the log line on purpose. Content scripts are
+  // injected at page load, so a draft room opened before an extension update
+  // keeps running the old code -- and it keeps scraping, so nothing looks
+  // wrong while a newly added message route is simply absent. Printing the
+  // build makes "is this tab running the new scraper?" answerable.
+  console.log("[Gridiron Edge Sync] Isolated script initialized (2026.08.07-sweep).");
 
   window.addEventListener('message', (event) => {
     // Same frame AND the right site. event.source alone proves almost nothing:
