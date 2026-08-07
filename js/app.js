@@ -1284,7 +1284,8 @@ export function renderDraftPage(league = store.getActiveLeague()) {
 
   // Build picking list
   const picksHtml = [];
-  // Show next 4 picks and past 4 picks
+  // The three picks behind and the five ahead, which is the window that fits
+  // the strip. The comment here said four and four.
   const selections = league.draftState.selections || [];
   
   for (let p = Math.max(1, currentPick - 3); p <= Math.min(totalPicks, currentPick + 5); p++) {
@@ -2789,7 +2790,6 @@ function renderPreseasonOutlook(league, runs = 3000) {
   // only, so a pick stored under an unresolved stub -- a name findPlayer could
   // not match, which is routine in a scraped auction -- left the real record in
   // the pool and the Championship page offered a player another manager owns.
-  // roster-manager.js's header says this copy was removed; it was not.
   const moves = highestImpactMoves(league, freeAgentPool(league, league.playerDatabase || {}));
 
   const plan = document.getElementById('sim-action-plan');
@@ -3021,17 +3021,6 @@ export function renderAlertsPage(league = store.getActiveLeague()) {
 }
 
 /**
- * Reddit is a community forum, not a wire. It carries rumour, jokes and
- * speculation alongside real reporting, it rate-limits anonymous callers, and
- * nothing in it is structured -- which is why it feeds the display panel only
- * and never reaches the recommendation engine.
- *
- * The engine reads ESPN's news API and Sleeper's add/drop volume instead
- * (js/engine/news-monitor.js), where items carry player and team tags that can
- * be classified into injuries, trades and depth-chart moves. This function is
- * the human-readable supplement to that, and it fails quietly.
- */
-/**
  * Draw a fetched feed. Split out so a cached result renders by exactly the same
  * path as a fresh one -- otherwise the two drift and the cached view quietly
  * becomes a second, worse implementation.
@@ -3129,9 +3118,10 @@ function renderNewsItems(items, newsContainer, indicator) {
   }
 }
 
-// The news feed is fetched on render, and during a live draft the sync poll
-// re-renders every three seconds -- roughly twenty ESPN requests a minute, which
-// gets throttled and then fails. It reads as "the news broke again" because the
+// The news feed is fetched on render, and a live draft re-renders on every
+// sync -- the extension delivers by port and storage.onChanged, as fast as the
+// room changes, which is several times a second in an auction. That is far
+// more than twenty ESPN requests a minute, and they get throttled and then fail. It reads as "the news broke again" because the
 // panel worked a moment earlier. Headlines do not change that fast: hold the
 // last result and reuse it.
 const NEWS_TTL_MS = 5 * 60 * 1000;

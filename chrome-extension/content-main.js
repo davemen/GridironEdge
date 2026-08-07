@@ -632,31 +632,15 @@
   }
 
   /**
-   * The team named in the roster panel's own dropdown, or null.
-   *
-   * The draft room has a <select> whose selected option IS the team whose
-   * roster is on screen -- yours, until you go looking at someone else's. That
-   * is the strongest signal on the page, and it was very nearly unreachable:
-   *
-   *  - it read `sel.innerText`, which for a <select> is not reliably the option
-   *    text at all, rather than reading `options`;
-   *  - it then required that text to contain "Team 1", "Team 2" or "Team 8",
-   *    so it depended on opponents leaving ESPN's placeholder names in place.
-   *    In a league where everyone has renamed their team it can never match.
-   *
-   * It now identifies the dropdown by what it is: the one whose options are the
-   * league's own team names. The teams are already scraped, so this is a
-   * comparison against known values rather than another guess about markup.
-   * The page also carries selects for positions, NFL clubs, seasons and rounds,
-   * and this cannot be confused with any of them.
-   */
-  /**
    * The league's team names, taken from the roster panel's own dropdown.
    *
-   * An auction room renders no draft-results table at all -- confirmed against
-   * a live room, which contains exactly two <table> elements: the queue and one
-   * team's roster. So the team list cannot be recovered from pick rows, because
-   * there are no pick rows. It used to fall back to inventing eight teams
+   * An auction room usually renders no draft-results table: one live room,
+   * checked directly, contained exactly two <table> elements, the queue and one
+   * team's roster. Usually, not never -- findDraftSummaryContainer accepts an
+   * auction results table when it finds one, and HANDOFF.md records concluding
+   * "an auction renders no draft board at all" as a mistake made from a partial
+   * DOM dump. So the team list often cannot be recovered from pick rows, because
+   * there are none. It used to fall back to inventing eight teams
    * called "Team 1".."Team 8", which is the failure this codebase keeps
    * repeating: a fabricated league is indistinguishable on screen from a real
    * one, and every opponent budget derived from it is fiction.
@@ -1202,7 +1186,6 @@
     }
   }
 
-  // Poll the page DOM for live changes every 2 seconds
   /**
    * React to the room, do not wait for a timer.
    *
@@ -1248,18 +1231,6 @@
     });
   }
 
-  /**
-   * "Scan all rosters", on request only.
-   *
-   * Never automatic. The sweep writes to the page you are drafting in, and
-   * running it on every update would flicker the roster panel through eight
-   * teams continuously while the bid clock is going.
-   *
-   * Only reachable where the script has extension APIs -- the isolated world,
-   * which is where Safari runs it and where the worker injects it as a
-   * fallback. In Chrome's MAIN world the React store is readable directly, so
-   * there is nothing here worth sweeping for.
-   */
   // The sweep does not live here any more.
   //
   // It used to be triggered by a window message, and this script is declared

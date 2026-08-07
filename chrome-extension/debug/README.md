@@ -6,7 +6,7 @@ clicked, submitted or sent anywhere.
 
 | File | Answers |
 |---|---|
-| `diagnose.js` | What can and cannot the scraper see on this page? Dumps the nomination card, bid controls, budget rows and the results table where one exists — an auction room renders none. |
+| `diagnose.js` | What can and cannot the scraper see on this page? Dumps the nomination card, bid controls, budget rows and the results table where one exists — an auction room often has none. |
 | `syncheck.js` | Is the sync loop running, and did the worker store the last payload? |
 | `bidcheck.js` | What does the live bid element actually contain right now? |
 

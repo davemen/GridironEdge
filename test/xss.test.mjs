@@ -6,8 +6,10 @@
  * The app builds its UI from template literals and assigns them with innerHTML,
  * and almost everything it interpolates is scraped from the live ESPN room or
  * fetched from a news API. A security audit demonstrated the full chain: a POST
- * to the local sync endpoint, through the real importScrapedPayload, into nine
- * confirmed injection points across five panels.
+ * to the local sync endpoint of the day, through the real importScrapedPayload,
+ * into nine confirmed injection points across five panels. That endpoint is
+ * gone; the same chain runs from a forged window message, which is what this
+ * file drives.
  *
  * So this drives the REAL mapper and the REAL renderers with a payload carrying
  * markup in every field a manager can choose, and fails if a raw angle bracket

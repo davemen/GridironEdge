@@ -13,15 +13,24 @@ distributable app. Doing this the obvious way produced a 16MB app containing a
 personal league file.
 
 ```bash
-./tools/package-extension.sh          # -> ../GridironEdge-package, ~700KB
+./tools/package-extension.sh          # -> ../GridironEdge-package
 cd ../GridironEdge-package
 xcrun safari-web-extension-converter . \
   --app-name GridironEdge \
   --bundle-identifier com.gridironedge \
-  --macos-only
+  --macos-only \
+  --project-location ../GridironEdge-Safari
 ```
 
-That produces an Xcode project. Open it, set your **Team** under Signing &
+That produces an Xcode project at
+`../GridironEdge-Safari/GridironEdge/GridironEdge.xcodeproj`.
+
+`--project-location` matters and used to be missing: without it the converter
+writes the project next to the staged files, and every other path in this file
+-- the rebuild command below, `tools/install-safari.sh` and
+`tools/make-icons.py` -- looks for it under `../GridironEdge-Safari`. Anyone
+following the build section as written ended up with a project the rebuild
+section could not find, and make-icons silently skipped the asset catalogue. Open it, set your **Team** under Signing &
 Capabilities on both targets (the app and the `.appex`), and run.
 
 The two bundle IDs must nest: the app is `com.gridironedge.GridironEdge` and the

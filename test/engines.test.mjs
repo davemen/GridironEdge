@@ -5,7 +5,7 @@
  *
  * A mutation run over the whole repo found these were the largest holes left.
  * `runSeasonSimulation` could be replaced by `return { playoffPct: 50,
- * champPct: 50, byePct: 50, actionPlan: [] }` and all fourteen suites passed,
+ * champPct: 50, byePct: 50, actionPlan: [] }` and every suite passed,
  * because the only assertion anywhere near it was that the championship figure
  * on the home page contains a digit -- which "50%" does, and so does an
  * invented number. `optimizeLineup` could return null for every roster and

@@ -93,10 +93,13 @@
   /**
    * The league's team names, taken from the roster panel's own dropdown.
    *
-   * An auction room renders no draft-results table at all -- confirmed against
-   * a live room, which contains exactly two <table> elements: the queue and one
-   * team's roster. So the team list cannot be recovered from pick rows, because
-   * there are no pick rows. It used to fall back to inventing eight teams
+   * An auction room usually renders no draft-results table: one live room,
+   * checked directly, contained exactly two <table> elements, the queue and one
+   * team's roster. Usually, not never -- findDraftSummaryContainer accepts an
+   * auction results table when it finds one, and HANDOFF.md records concluding
+   * "an auction renders no draft board at all" as a mistake made from a partial
+   * DOM dump. So the team list often cannot be recovered from pick rows, because
+   * there are none. It used to fall back to inventing eight teams
    * called "Team 1".."Team 8", which is the failure this codebase keeps
    * repeating: a fabricated league is indistinguishable on screen from a real
    * one, and every opponent budget derived from it is fiction.

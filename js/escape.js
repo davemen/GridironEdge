@@ -6,8 +6,10 @@
  * room -- player names, manager-chosen team names, the league name lifted from
  * document.title -- or pulled from third-party news APIs. None of it was escaped,
  * and a security audit demonstrated the whole chain end to end: a POST to the
- * local sync endpoint, through the real importScrapedPayload, into nine
- * confirmed injection points across five panels.
+ * local sync endpoint of the day, through the real importScrapedPayload, into
+ * nine confirmed injection points across five panels. (That endpoint is gone --
+ * data arrives over the extension port now -- but the same chain runs from a
+ * forged window message, which is what test/xss.test.mjs drives.)
  *
  * Two helpers, because the two jobs are genuinely different:
  *

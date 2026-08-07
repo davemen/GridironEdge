@@ -39,9 +39,12 @@ which pushes it down a live port to the app page. Measured median delivery
 latency is **under a millisecond**; the previous poll could take up to three
 seconds.
 
-**In an auction room.** ESPN renders no draft board in an auction — the room
-contains your queue and one team's roster, and nothing else. So a scrape sees
-only the team whose panel is open, and the app steps the room's own dropdown
+**In an auction room.** ESPN usually renders no draft board in an auction — one
+live room, checked directly, contained your queue and one team's roster and
+nothing else. Usually, not never: the scraper accepts an auction results table
+when it finds one, and concluding otherwise from a partial DOM dump is a
+mistake this project has made twice. So a scrape often sees only the team whose
+panel is open, and the app steps the room's own dropdown
 through the league to read the rest. That happens by itself, throttled to once
 a minute, and stops after two passes that add nothing. You will see the roster
 panel cycle while it runs. It is a snapshot, not a feed.
@@ -64,7 +67,9 @@ converts the consensus into the units the engines need.
 
 Kickers and team defenses are not fantasy rows in the source data, so both are
 rebuilt from their counting stats under ESPN's default scoring by
-[`tools/kickers_defense.py`](tools/kickers_defense.py).
+[`tools/kickers_defense.py`](tools/kickers_defense.py). That script is the
+record of how, not a command to run: it imports from the out-of-repo backtest
+harness BACKTEST.md describes, so a clone cannot execute it.
 
 **When something is unknown, it says so.** An unresolvable player gets
 replacement level rather than a mid-range guess, because an invented projection
@@ -104,7 +109,7 @@ js/escape.js          HTML escaping for anything scraped or fetched
 js/engine/            the models — see lineup-rules.js for the shared rules
 chrome-extension/     the draft-room scraper
 test/                 fifteen suites
-tools/                data preparation
+tools/                packaging, install and data-prep scripts
 BACKTEST.md           what was measured, and what turned out to be noise
 audit-report.html     rolling five-dimension audit (audit/build-report.mjs)
 ```

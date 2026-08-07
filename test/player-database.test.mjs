@@ -188,5 +188,42 @@ console.log('\nthe index knows when it is stale, without walking every key');
   check('and so is a second one', Boolean(findPlayer(clone, 'Yy Test')));
 }
 
+console.log('\nthe counts the docs assert are the counts the data has');
+{
+  // "523 players from the consensus of 88 analysts" appears in README.md,
+  // CLAUDE.md, player-database.js, store.js, this suite and BACKTEST.md, and
+  // no test checked any of it -- while CLAUDE.md's own rule says not to assert
+  // a count in a comment unless a test checks it. Two counts in this repo have
+  // already drifted that way (22 mock players when there were 31, 459 players
+  // when there were 523).
+  const docs = [
+    ['README.md', readFileSync(join(ROOT, 'README.md'), 'utf8')],
+    ['CLAUDE.md', readFileSync(join(ROOT, 'CLAUDE.md'), 'utf8')],
+    ['js/player-database.js', readFileSync(join(ROOT, 'js/player-database.js'), 'utf8')],
+  ];
+  const players = proj.players.length;
+  const experts = proj.experts;
+  check(`the data holds ${players} players`, players === Object.keys(db).length,
+    `${players} in the file, ${Object.keys(db).length} in the database`);
+  docs.forEach(([name, text]) => {
+    // Backticked figures are quoted, not claimed: CLAUDE.md cites `459 players`
+    // as an example of a count that drifted, which is the rule being taught.
+    const claimed = [...text.matchAll(/(.?)\b(\d{3})\s*(?:players|-player)/g)]
+      .filter((m) => m[1] !== '`')
+      .map((m) => Number(m[2]));
+    const wrong = claimed.filter((n) => n !== players);
+    check(`${name} says ${players}, not something else`, wrong.length === 0,
+      `claims ${wrong.join(', ')} against ${players}`);
+  });
+  check('the expert count is a real field', typeof experts === 'number' && experts > 0,
+    String(experts));
+  docs.forEach(([name, text]) => {
+    const claimed = [...text.matchAll(/consensus of (\d+) analysts/g)].map((m) => Number(m[1]));
+    const wrong = claimed.filter((n) => n !== experts);
+    check(`${name}'s analyst count matches the data`, wrong.length === 0,
+      `claims ${wrong.join(', ')} against ${experts}`);
+  });
+}
+
 console.log(`\n${passed} passed, ${failed} failed`);
 if (failed) process.exit(1);

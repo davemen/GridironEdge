@@ -1,5 +1,11 @@
 # Backtesting Gridiron Edge against 2021–2025
 
+*Last checked against the code on 2026-08-07. Every claim below about what the
+app does or does not ship was verified at that date; three had gone stale and
+are marked inline. This file is the record of measurement, so it needs to be
+tied to a version of the code -- an audit could not check any of it without
+that, and the stale claims were the predictable result.*
+
 This documents what happened when the app was tested against five real NFL
 seasons: what it got right, what it got badly wrong, what was changed as a
 result, and — importantly — which of the original goals turned out not to be
@@ -164,10 +170,13 @@ v5 replaces this with marginal starting-lineup value, scored against the best
 replacement still likely to be available at your next pick (using real ADP
 dispersion). This is shipped in `js/engine/draft-assistant.js`.
 
-> One caveat on the version shipped in the app: v5's full form includes a small
-> term on expert disagreement, and the app's player schema has no ECR standard
-> deviation field. The shipped version omits that term, which in backtest is
-> worth roughly the difference between v3 (+40) and v5 (+47).
+> One caveat, corrected 2026-08-07: this used to say the app's player schema
+> had no ECR standard deviation field and that the shipped version omitted the
+> expert-disagreement term. Both are now false. All 523 players carry `ecrStd`,
+> `js/player-database.js` maps it, and `js/engine/draft-assistant.js` applies
+> `riskWeight * p.ecrStd`. The full v5 form ships. The figure the omission was
+> worth -- the difference between v3 (+40) and v5 (+47) -- is therefore no
+> longer being given up.
 
 ### A finding worth stating plainly
 
@@ -809,8 +818,11 @@ rankings, and for a single week the median genuinely is the right target for
 ordinal accuracy; my test was season-long. The tension above may simply be an
 artefact of testing the season-long analogue.
 
-Requires a `tdShare` field the app does not yet populate; without it the
-adjustment is a no-op rather than a guess.
+Requires a `tdShare` field. The app populates it from ESPN
+(`espn-client.js` `extractTdShare`, and `store.js` `setPriorSeasonScoring`), so
+the adjustment is live on an ESPN-sourced league. It is still a no-op on
+`data/projections-2026.json`, where 0 of 523 players carry the field -- which
+is a no-op rather than a guess, as intended.
 
 ---
 
@@ -860,7 +872,10 @@ playoff odds. The formats punish a private valuation differently:
 
 A valuation edge that works in one format can be actively harmful in the other.
 The adjustment is applied in `draft-assistant.js` and deliberately absent from
-`auction-advisor.js`, with the reason recorded in the file.
+`auction-advisor.js`. The reason is the paragraph above -- an auction punishes a
+discount, because a lower valuation does not win a cheaper player, it wins no
+player. This used to say the reason was "recorded in the file"; it was not, and
+grepping `auction-advisor.js` for it found nothing.
 
 > Absolute title rates in this table (23–31%) are inflated relative to the snake
 > numbers because only the seat under test uses a strong bidder while the other
@@ -1152,6 +1167,7 @@ results.
 In-repo tests for the shipped engines:
 
 ```
-node test/auction-advisor.test.mjs     # 27 checks
-node test/auction-advisor.test.mjs     # one suite on its own
+npm test                               # the gate: 15 suites
+node test/auction-advisor.test.mjs     # 42 checks, one suite on its own
+node test/perf.test.mjs                # the 360 pinned answers
 ```

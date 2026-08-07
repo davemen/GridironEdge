@@ -182,9 +182,15 @@ export function connectPort(onDraft) {
  * Ask the draft room to read every team's roster.
  *
  * An auction renders one roster at a time, so the only way to see the whole
- * board is to step the room's own dropdown through the league. That writes to
- * the page the user is drafting in, so it never happens on a timer -- this is
- * the explicit request, and it is the user who makes it.
+ * board is to step the room's own dropdown through the league.
+ *
+ * The app asks for this ITSELF, whenever ESPN reports more picks than the
+ * scrape could read -- see maybeAutoSweep in app.js. This block used to say
+ * "it never happens on a timer, this is the explicit request, and it is the
+ * user who makes it", which was false in every clause: there is no user
+ * gesture anywhere in the chain, and the only caller is automatic. It writes
+ * to the page you are drafting in, which is why the sweep itself is throttled
+ * to once a minute and gives up after two fruitless passes.
  *
  * Sent straight to the tab rather than through the service worker. Routing it
  * through the worker meant the worker had to answer asynchronously, from
@@ -211,7 +217,7 @@ export function requestRosterSweep() {
         }
         const draft = (tabs || []).find((t) => t.url && /\/draft/.test(t.url));
         if (!draft) { resolve({ ok: false, reason: 'no-draft-tab' }); return; }
-        // Sent without a callback. Nothing replies -- see below.
+        // Sent without a callback. Nothing replies -- see the block above.
         chrome.tabs.sendMessage(draft.id, { action: 'sweepRosters' });
         resolve({ ok: true, started: true });
       });

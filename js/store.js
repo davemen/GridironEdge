@@ -209,11 +209,24 @@ class Store {
    * signal found that projections have not already absorbed (r = 0.086 against
    * the residual, same sign in all five seasons 2021-2025). But a trend needs
    * history, and an import only ever shows the present. So each refresh appends
-   * one snapshot per player, and from roughly week 10 the engines can see which
-   * roles are growing rather than only which players scored.
+   * one snapshot per player, and from roughly week 10 the engines could see
+   * which roles are growing rather than only which players scored.
    *
-   * Deduplicated by scoring period so repeated refreshes in the same week do not
-   * stack, which would otherwise fake a trend out of a single data point.
+   * COULD, not can. Two things stop this working on a real league, and both are
+   * recorded here rather than left for the next reader to rediscover:
+   *
+   *   - the only caller repo-wide is loadMockLeague. A live sync goes
+   *     importScrapedPayload -> saveLeague and never comes through here, so no
+   *     history accumulates and opportunityTrend's `h.length >= 10` can never
+   *     fire outside the sandbox.
+   *   - the deduplication below is inert. `week` falls back to
+   *     `this.state.currentScoringPeriod`, which is not in defaultState and is
+   *     not written anywhere in the repo, so `week` is always null and the
+   *     guard that needs `week !== null` never runs.
+   *
+   * BACKTEST.md Part 9 identifies this as the one unpriced signal it found, so
+   * wiring it up is worth doing -- but saying it works when it does not is how
+   * a measured result turns into a claim nobody checks.
    */
   recordWeeklyMetrics(period = null) {
     const week = period ?? this.state.currentScoringPeriod ?? null;

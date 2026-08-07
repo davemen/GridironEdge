@@ -78,13 +78,22 @@ rules. Before copying a block, put it in a module:
 - `js/engine/lineup-rules.js` — starting slots, flex, playoff shape
 - `js/player-database.js` — `playerKey` is the **only** name normalizer
 - `js/engine/roster-manager.js` — `freeAgentPool` is the only free-agent pool
-- `js/bridge.js` — the only way draft data enters the app
+- `js/bridge.js` — the only way draft data enters the app from the extension.
+  (The bookmarklet path calls `importScrapedPayload` directly, from
+  `js/app.js`; there is no third.)
 
 ## No server, ever
 
 The app is an extension page. Data arrives by port and `chrome.storage`, never
 over HTTP from something the user has to run. If you find yourself adding a
 `fetch('http://localhost...')`, that is the wrong shape.
+
+One sanctioned exception, because the rule as written forbade something the
+repo maintains and an audit was right to call that out: `npm run serve` plus
+`pollHttp` in `js/bridge.js` exist so the app can be opened in an ordinary tab
+during development, where there is no extension to deliver anything. It is a
+development convenience and nothing in the shipped extension path uses it. Any
+*new* HTTP dependency is still the wrong shape.
 
 ## Don't swallow errors
 

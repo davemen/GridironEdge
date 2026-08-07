@@ -58,9 +58,11 @@ says have been made against how many were read.
 
 ### An auction room reads differently
 
-ESPN renders no draft board in an auction — the room contains exactly two
-tables, your queue and one team's roster. So a scrape sees only the team whose
-panel is open, and the app steps the room's own dropdown through the league to
+ESPN usually renders no draft board in an auction — one live room, checked
+directly, contained exactly two tables: your queue and one team's roster. The
+scraper still accepts an auction results table where one exists, because
+"there is never one" was concluded twice from partial DOM dumps and was wrong
+both times. So a scrape often sees only the team whose panel is open, and the app steps the room's own dropdown through the league to
 read the rest. That is automatic, throttled to once a minute, and it gives up
 after two passes that add nothing.
 

@@ -134,9 +134,9 @@ class ESPNClient {
    * Import data scraped from the active browser session via bookmarklet.
    */
   async importScrapedPayload(jsonPayload) {
-    // Projections load asynchronously while syncs arrive every two seconds, so
-    // the first import can otherwise land on mock data and persist made-up
-    // valuations into the store.
+    // Projections load asynchronously while syncs keep arriving -- by port and
+    // storage.onChanged, as fast as the room changes -- so the first import can
+    // otherwise land on mock data and persist made-up valuations into the store.
     await realDbReady;
     try {
       const parsed = typeof jsonPayload === 'string' ? JSON.parse(jsonPayload) : jsonPayload;
@@ -219,6 +219,10 @@ class ESPNClient {
    * as unknown rather than zero.
    */
   static get STAT_IDS() {
+    // These are ids in the player STATS table. ESPN's SCORING items use a
+    // different space -- receptions is 53 there, 41 here -- so the two cannot
+    // be read off each other, which is how a comment further down claimed a
+    // third number for the same field.
     return {
       passAttempts: 0, passYards: 3, passTds: 4,
       rushAttempts: 23, rushYards: 24, rushTds: 25,
@@ -496,7 +500,10 @@ class ESPNClient {
     // 1. Map scoring format (PPR, half-PPR, standard)
     let scoringFormat = 'Standard';
     if (scoringSettings.scoringItems) {
-      // Find receptions weight (15 is usually the ID for receptions in ESPN)
+      // Stat id 53 is receptions in ESPN's SCORING items. The comment here said
+      // 15, and STAT_IDS below says 41 -- three numbers for one field, two of
+      // them wrong. 41 is the id in the player STATS table, which is a
+      // different space; 53 is the one this list uses.
       const receptionsScoring = scoringSettings.scoringItems.find(item => item.statId === 53);
       if (receptionsScoring) {
         const pprValue = receptionsScoring.points || 0;

@@ -23,7 +23,11 @@ import csv
 import os
 from collections import defaultdict
 
-from build_data import HERE, FANTASY_WEEKS
+# build_data lives in the out-of-repo backtest harness described in
+# BACKTEST.md, not here -- so this script cannot be run straight from a clone.
+# It is committed as the record of how the K and D/ST projections were derived,
+# which the README links it for. Running it needs that harness on sys.path.
+from build_data import HERE, FANTASY_WEEKS  # noqa: E402  (see above)
 
 FG_BUCKETS = {
     "fg_made_0_19": 3.0, "fg_made_20_29": 3.0, "fg_made_30_39": 3.0,
