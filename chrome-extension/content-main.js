@@ -572,23 +572,136 @@
     return { teams, picks };
   }
 
-  function findActiveRosterTeam() {
+  /**
+   * The team named in the roster panel's own dropdown, or null.
+   *
+   * The draft room has a <select> whose selected option IS the team whose
+   * roster is on screen -- yours, until you go looking at someone else's. That
+   * is the strongest signal on the page, and it was very nearly unreachable:
+   *
+   *  - it read `sel.innerText`, which for a <select> is not reliably the option
+   *    text at all, rather than reading `options`;
+   *  - it then required that text to contain "Team 1", "Team 2" or "Team 8",
+   *    so it depended on opponents leaving ESPN's placeholder names in place.
+   *    In a league where everyone has renamed their team it can never match.
+   *
+   * It now identifies the dropdown by what it is: the one whose options are the
+   * league's own team names. The teams are already scraped, so this is a
+   * comparison against known values rather than another guess about markup.
+   * The page also carries selects for positions, NFL clubs, seasons and rounds,
+   * and this cannot be confused with any of them.
+   */
+  /**
+   * The league's team names, taken from the roster panel's own dropdown.
+   *
+   * An auction room renders no draft-results table at all -- confirmed against
+   * a live room, which contains exactly two <table> elements: the queue and one
+   * team's roster. So the team list cannot be recovered from pick rows, because
+   * there are no pick rows. It used to fall back to inventing eight teams
+   * called "Team 1".."Team 8", which is the failure this codebase keeps
+   * repeating: a fabricated league is indistinguishable on screen from a real
+   * one, and every opponent budget derived from it is fiction.
+   *
+   * The dropdown is real data. It is identified by elimination: the room's
+   * other selects are position, NFL club, season and round filters, and every
+   * one of those either leads with an "All ..." option or starts with a year.
+   */
+  function findLeagueTeamNames() {
     try {
       const selects = document.querySelectorAll('select');
       for (const sel of selects) {
         if (!sel || !sel.options || sel.options.length < 4) continue;
-        const text = sel.innerText || '';
-        if (text.includes('Team 1') || text.includes('Team 2') || text.includes('Team 8')) {
-          const activeOption = sel.options[sel.selectedIndex];
-          if (activeOption) {
-            return activeOption.innerText.trim();
+        const opts = Array.prototype.map.call(sel.options,
+          (o) => String(o.text || '').trim()).filter(Boolean);
+        if (opts.length < 4) continue;
+        const isFilter = opts.some((o) => /^all\b/i.test(o)
+          || /^round\s+\d/i.test(o)
+          || /^\d{4}\b/.test(o));
+        if (isFilter) continue;
+        return opts;
+      }
+    } catch (e) {
+      console.debug('[Gridiron Edge] read failed:', e && e.message);
+    }
+    return [];
+  }
+
+  /**
+   * The roster on screen, as picks. Player, lineup slot and price.
+   *
+   * This is the only pick data an auction room actually renders. It covers one
+   * team -- whichever the dropdown has selected -- so it is deliberately not
+   * presented as the draft board. It is enough to fill in your own roster,
+   * which was the whole of what was missing.
+   *
+   * The slot is a lineup position (BE and FLEX among them), not the player's
+   * position, so it is reported separately and never used as one.
+   */
+  function scrapeRosterPanel() {
+    try {
+      const tables = document.querySelectorAll('table');
+      for (const table of tables) {
+        const rows = table.rows;
+        if (!rows || rows.length < 3) continue;
+        const head = Array.prototype.map.call(rows[0].cells || [],
+          (c) => String(c.innerText || '').trim().toUpperCase());
+        const posCol = head.indexOf('POS');
+        const nameCol = head.indexOf('PLAYER');
+        if (posCol === -1 || nameCol === -1) continue; // the queue table has no POS
+        const priceCol = head.indexOf('$');
+
+        const out = [];
+        for (let i = 1; i < rows.length; i++) {
+          const cells = rows[i].cells;
+          if (!cells || cells.length <= nameCol) continue;
+          const name = String(cells[nameCol].innerText || '').trim();
+          if (!name || /^empty$/i.test(name) || name === '-') continue;
+          let bid = null;
+          if (priceCol > -1 && cells[priceCol]) {
+            const m = String(cells[priceCol].innerText || '').match(/\d+/);
+            if (m) bid = parseInt(m[0], 10);
           }
+          out.push({
+            playerName: name,
+            rosterSlot: String(cells[posCol].innerText || '').trim(),
+            bidAmount: bid,
+          });
+        }
+        if (out.length) return out;
+      }
+    } catch (e) {
+      console.debug('[Gridiron Edge] roster read failed:', e && e.message);
+    }
+    return [];
+  }
+
+  function findTeamSelectName(teams) {
+    if (!Array.isArray(teams) || teams.length < 2) return null;
+    const known = teams
+      .map((t) => String(t.teamName || '').trim().toLowerCase())
+      .filter(Boolean);
+    if (known.length < 2) return null;
+
+    try {
+      const selects = document.querySelectorAll('select');
+      for (const sel of selects) {
+        if (!sel || !sel.options || sel.options.length < 2) continue;
+        const opts = Array.prototype.map.call(sel.options,
+          (o) => String(o.text || '').trim());
+        const hits = opts.filter((o) => known.indexOf(o.toLowerCase()) !== -1);
+        // Most of the dropdown must be teams we already know about. A single
+        // coincidental match -- an NFL club sharing a manager's team name --
+        // is not enough.
+        if (hits.length >= 2 && hits.length >= Math.ceil(opts.length * 0.6)) {
+          const active = sel.options[sel.selectedIndex];
+          const name = active && String(active.text || '').trim();
+          if (name && known.indexOf(name.toLowerCase()) !== -1) return name;
         }
       }
     } catch (e) {
-          // Best effort: this reads the page and the page is not ours.
-          console.debug('[Gridiron Edge] read failed:', e && e.message);
-        }
+      // Best effort: this reads the page and the page is not ours.
+      console.debug('[Gridiron Edge] read failed:', e && e.message);
+    }
     return null;
   }
 
@@ -681,7 +794,7 @@
       const urlTeamId = parseInt(urlParams.get('teamId') || urlParams.get('teamid'), 10);
       const currentNom = findCurrentNomination();
 
-      const myTeamName = findActiveRosterTeam() || findMyTeamNameFromDOM();
+      const myTeamName = findMyTeamNameFromDOM();
 
       /**
        * Which team is yours, or null.
@@ -700,6 +813,14 @@
         if (!Array.isArray(teams) || !teams.length) return null;
         if (!isNaN(urlTeamId) && teams.some((t) => t.teamId === urlTeamId)) {
           return urlTeamId;
+        }
+        // The roster panel's dropdown, checked against the teams we scraped.
+        // Exact, so it is tried before the loose substring match below.
+        const selected = findTeamSelectName(teams);
+        if (selected) {
+          const lower = selected.toLowerCase();
+          const exact = teams.find((t) => (t.teamName || '').toLowerCase() === lower);
+          if (exact) return exact.teamId;
         }
         if (myTeamName) {
           const lower = myTeamName.toLowerCase();
@@ -744,7 +865,9 @@
         }
 
         const isDraftPage = window.location.pathname.includes('/draft');
-        if (lastSeenPicks.length === 0 && !(isDraftPage && currentNom)) return;
+        const rosterPanel = scrapeRosterPanel();
+        if (lastSeenPicks.length === 0 && !rosterPanel.length
+            && !(isDraftPage && currentNom)) return;
 
         const scrapedForNames = scrapeTeamsAndBudgets();
         let uniqueTeams = Array.from(new Set([
@@ -753,9 +876,18 @@
           // pick rows, which only cover teams that already own somebody.
           ...scrapedForNames.map(b => b.teamName),
           ...lastSeenPicks.map(p => p.drafterTeamName),
+          // An auction renders no pick rows at all, so neither of the above
+          // finds anything there. The roster dropdown lists the whole league.
+          ...findLeagueTeamNames(),
         ].filter(Boolean)));
+        // No invented league. Eight teams called "Team 1".."Team 8" used to be
+        // manufactured here, and a fabricated league renders exactly like a real
+        // one -- opponent budgets, inflation and every bid ceiling built on top
+        // of names nobody chose. Reporting nothing lets the page say it knows
+        // nothing, which is the truth.
         if (uniqueTeams.length === 0) {
-          uniqueTeams = ["Team 1", "Team 2", "Team 3", "Team 4", "Team 5", "Team 6", "Team 7", "Team 8"];
+          console.warn('[Gridiron Edge] No teams found on the page; sending nothing.');
+          return;
         }
 
         const scrapedBudgets = scrapeTeamsAndBudgets();
@@ -835,6 +967,30 @@
 
         const resolvedTeamId = resolveMyTeamId(teams);
 
+        // An auction room renders no results table, so finalPicks is empty
+        // there however well it is parsed. The roster panel is the one place
+        // picks actually appear -- for the team the dropdown has selected. Fold
+        // those in, attributed to that team and to no other.
+        //
+        // Only when the results table gave us nothing: where both exist the
+        // results table covers every team and this covers one, and merging them
+        // would double-count the overlap.
+        let rosterPicks = [];
+        if (!finalPicks.length && rosterPanel.length && resolvedTeamId !== null) {
+          rosterPicks = rosterPanel.map((r) => ({
+            // The room shows no pick number for a roster entry, and inventing a
+            // sequence would put these in a draft order that never happened.
+            overallPickNumber: null,
+            playerName: r.playerName,
+            // The slot is where the player is lined up (BE, FLEX), not what he
+            // plays. The database resolves the real position from the name.
+            playerPosition: null,
+            playerTeam: null,
+            drafterTeamId: resolvedTeamId,
+            bidAmount: r.bidAmount,
+          }));
+        }
+
         data = {
           isDOMScraped: true,
           leagueId,
@@ -843,8 +999,15 @@
           myTeamId: resolvedTeamId,
           teams,
           draftDetail: {
-            picks: finalPicks
+            picks: finalPicks.length ? finalPicks : rosterPicks
           },
+          // What this payload does NOT cover. An auction gives us one roster,
+          // so the app must not present it as the state of the draft: the other
+          // teams' picks are unknown, not absent. Those are different facts and
+          // the interface has to be able to tell them apart.
+          coverage: (!finalPicks.length && rosterPicks.length)
+            ? { kind: 'own-roster-only', knownTeamId: resolvedTeamId }
+            : { kind: 'full-board' },
           currentNomination: currentNom
         };
       }

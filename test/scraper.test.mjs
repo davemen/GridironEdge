@@ -61,8 +61,9 @@ globalThis.location = { href: 'https://fantasy.espn.com/football/draft?leagueId=
 const i = src.indexOf('(function');
 const j = src.lastIndexOf('})();');
 const body = src.slice(src.indexOf('\n', i) + 1, j);
-const fn = new Function(`${body}\nreturn { scrapeDraftDOM, findDraftSummaryContainer };`);
-const { scrapeDraftDOM, findDraftSummaryContainer } = fn();
+const fn = new Function(`${body}\nreturn { scrapeDraftDOM, findDraftSummaryContainer, findTeamSelectName, findLeagueTeamNames, scrapeRosterPanel };`);
+const { scrapeDraftDOM, findDraftSummaryContainer, findTeamSelectName,
+        findLeagueTeamNames, scrapeRosterPanel } = fn();
 
 console.log('\nthe scraper runs at all');
 const picks = scrapeDraftDOM() || [];
@@ -132,6 +133,141 @@ console.log('\nan auction results table is found at all');
   globalThis.document.querySelectorAll = () => [empty];
   check('the empty-queue panel is still rejected',
     findDraftSummaryContainer() === null);
+
+  globalThis.document.querySelectorAll = () => [container];
+}
+
+console.log('\nthe roster dropdown says which team is yours');
+{
+  // Every select below is copied from a live 8-team auction room. The team
+  // dropdown was previously identified by looking for the literal strings
+  // "Team 1"/"Team 2"/"Team 8" in the element's innerText -- which is not
+  // reliably the option text for a <select>, and which depends on opponents
+  // leaving ESPN's placeholder names alone. Here all eight would have had to
+  // stay default for the user's own team to be found.
+  const mkSelect = (options, selectedIndex) => ({
+    options: options.map((text) => ({ text })),
+    selectedIndex,
+    innerText: '', // what a <select> actually gave us in Safari
+  });
+  const TEAMS = [
+    { teamId: 4, teamName: 'Team 4' }, { teamId: 1, teamName: 'Team 1' },
+    { teamId: 7, teamName: 'Team 7' }, { teamId: 5, teamName: 'Team 5' },
+    { teamId: 3, teamName: 'Team 3' }, { teamId: 9, teamName: "Mac's Marauders" },
+    { teamId: 6, teamName: 'Team 6' }, { teamId: 8, teamName: 'Team 8' },
+  ];
+  const rosterSelect = mkSelect(
+    ['Team 4', 'Team 1', 'Team 7', 'Team 5', 'Team 3', "Mac's Marauders",
+     'Team 6', 'Team 8'], 5);
+  // The decoys that share the page.
+  const decoys = [
+    mkSelect(['2026 Projected', '2025 Season'], 0),
+    mkSelect(['All Pos.', 'QB', 'RB', 'WR', 'TE', 'FLEX', 'D/ST', 'K'], 0),
+    mkSelect(['All NFL Teams', 'Arizona Cardinals', 'Atlanta Falcons',
+              'Baltimore Ravens', 'Buffalo Bills', 'Carolina Panthers'], 0),
+    mkSelect(['All Rounds', 'Round 1', 'Round 2', 'Round 3'], 0),
+  ];
+
+  const withSelects = (list) => {
+    globalThis.document.querySelectorAll = (sel) =>
+      (sel === 'select' ? list : ROWS.map(mkEl));
+  };
+
+  withSelects([...decoys, rosterSelect]);
+  check('the selected team is read from the dropdown',
+    findTeamSelectName(TEAMS) === "Mac's Marauders",
+    String(findTeamSelectName(TEAMS)));
+
+  // The position and NFL-club dropdowns must never be mistaken for it.
+  withSelects(decoys);
+  check('no other dropdown on the page is mistaken for it',
+    findTeamSelectName(TEAMS) === null, String(findTeamSelectName(TEAMS)));
+
+  // And it must not answer when it has nothing to check against.
+  withSelects([...decoys, rosterSelect]);
+  check('with no teams scraped it declines to guess',
+    findTeamSelectName([]) === null);
+
+  // Viewing an opponent's roster reports that opponent, not a stale "you".
+  const viewingOther = mkSelect(
+    ['Team 4', 'Team 1', 'Team 7', 'Team 5', 'Team 3', "Mac's Marauders",
+     'Team 6', 'Team 8'], 0);
+  withSelects([...decoys, viewingOther]);
+  check('it reports whichever roster is on screen',
+    findTeamSelectName(TEAMS) === 'Team 4', String(findTeamSelectName(TEAMS)));
+
+  globalThis.document.querySelectorAll = () => [container];
+}
+
+console.log('\nan auction room, which renders no draft board at all');
+{
+  // Copied from a live 8-team auction: the room contains exactly two <table>
+  // elements -- the queue and one team's roster -- and no results table
+  // anywhere. The scraper reported "16 picks made, 0 were read" because it was
+  // hunting for a board that ESPN never draws.
+  const cell = (t) => ({ innerText: t });
+  const row = (cells) => ({ cells: cells.map(cell) });
+  const mkTable = (rows) => ({ rows, tagName: 'TABLE' });
+
+  const queueTable = mkTable([
+    row(['RANK', 'PLAYER']),
+    row(['', 'No players in queue']),
+  ]);
+  const rosterTable = mkTable([
+    row(['POS', 'PLAYER', '$', 'BYE']),
+    row(['QB', 'Empty', '-', '-']),
+    row(['RB', 'C. McCaffrey', '$46', '8']),
+    row(['RB', 'Empty', '-', '-']),
+    row(['WR', 'J. Chase', '$47', '6']),
+    row(['WR', 'Empty', '-', '-']),
+    row(['BE', 'Empty', '-', '-']),
+  ]);
+
+  globalThis.document.querySelectorAll = (sel) =>
+    (sel === 'table' ? [queueTable, rosterTable] : []);
+
+  const panel = scrapeRosterPanel();
+  check('the roster panel is read', panel.length === 2, `got ${panel.length}`);
+  check('the queue table is not mistaken for a roster',
+    panel.every((p) => p.playerName !== 'No players in queue'));
+  check('empty slots are not players',
+    panel.every((p) => !/^empty$/i.test(p.playerName)));
+  check('the price comes across as a number',
+    panel[0] && panel[0].bidAmount === 46, panel[0] && String(panel[0].bidAmount));
+  check('the abbreviated name is kept verbatim for the database to resolve',
+    panel[0] && panel[0].playerName === 'C. McCaffrey');
+  check('the lineup slot is kept separate from the position',
+    panel[0] && panel[0].rosterSlot === 'RB');
+
+  // The league roster, from the dropdown rather than from thin air.
+  const mkSelect = (options, selectedIndex) => ({
+    options: options.map((text) => ({ text })), selectedIndex, innerText: '',
+  });
+  const teamSel = mkSelect(['Team 4', 'Team 1', 'Team 7', 'Team 5', 'Team 3',
+    "Mac's Marauders", 'Team 6', 'Team 8'], 5);
+  const filters = [
+    mkSelect(['2026 Projected', '2025 Season'], 0),
+    mkSelect(['All Pos.', 'QB', 'RB', 'WR', 'TE', 'FLEX', 'D/ST', 'K'], 0),
+    mkSelect(['All NFL Teams', 'Arizona Cardinals', 'Atlanta Falcons',
+              'Baltimore Ravens', 'Buffalo Bills'], 0),
+    mkSelect(['All Rounds', 'Round 1', 'Round 2', 'Round 3'], 0),
+  ];
+  globalThis.document.querySelectorAll = (sel) =>
+    (sel === 'select' ? [...filters, teamSel] : []);
+
+  const names = findLeagueTeamNames();
+  check('the league is read from the dropdown, not invented',
+    names.length === 8 && names.indexOf("Mac's Marauders") !== -1,
+    JSON.stringify(names));
+  check('no filter dropdown is mistaken for the league',
+    names.indexOf('All Pos.') === -1 && names.indexOf('Round 1') === -1
+      && names.indexOf('2026 Projected') === -1);
+
+  // With none of it present, it must find nothing rather than manufacture a
+  // league -- the old code produced eight teams named "Team 1".."Team 8".
+  globalThis.document.querySelectorAll = () => [];
+  check('an empty page yields no teams at all', findLeagueTeamNames().length === 0);
+  check('and no roster', scrapeRosterPanel().length === 0);
 
   globalThis.document.querySelectorAll = () => [container];
 }
