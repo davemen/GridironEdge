@@ -5,19 +5,74 @@ folder you load. Converting is one command; the only real work is signing.
 
 ## Build it
 
+**Stage the package first.** Do not point the converter at the repo root. The
+repo root is the Chrome extension, but it is also a working directory — your
+synced league, the news cache, `BACKTEST.md`, the audit report and every test
+file live there, and the converter copies whatever it is given straight into a
+distributable app. Doing this the obvious way produced a 16MB app containing a
+personal league file.
+
 ```bash
+./tools/package-extension.sh          # -> ../GridironEdge-package, ~700KB
+cd ../GridironEdge-package
 xcrun safari-web-extension-converter . \
-  --app-name "Gridiron Edge" \
-  --bundle-identifier com.gridironedge.app \
+  --app-name GridironEdge \
+  --bundle-identifier com.gridironedge \
   --macos-only
 ```
 
 That produces an Xcode project. Open it, set your **Team** under Signing &
 Capabilities on both targets (the app and the `.appex`), and run.
 
+The two bundle IDs must nest: the app is `com.gridironedge.GridironEdge` and the
+extension must be `com.gridironedge.GridironEdge.Extension`. macOS refuses to
+load an embedded binary whose identifier is not a child of its host's, and the
+converter does not always get this right on its own — check both targets.
+
 Then in Safari: **Settings → Extensions**, enable Gridiron Edge, and grant it
 access to `fantasy.espn.com`. Developer mode must be on under Settings →
 Advanced.
+
+## Rebuilding after a code change
+
+Re-run the packaging script and rebuild the **existing** Xcode project:
+
+```bash
+./tools/package-extension.sh
+xcodebuild -project ../GridironEdge-Safari/GridironEdge/GridironEdge.xcodeproj \
+  -scheme GridironEdge -configuration Debug DEVELOPMENT_TEAM=<TEAM> build
+```
+
+The converter references the package folder rather than copying it, so a
+re-package is picked up by the next build. **Do not run the converter again** —
+converting under a different app name or bundle ID produces a second app, and
+Safari then lists two identical "Gridiron Edge" entries with no way to tell them
+apart.
+
+### Safari lists it twice
+
+Every registered app bundle gets its own row, and Xcode registers its build
+product in `DerivedData` alongside whatever is in `/Applications`. So one build
+plus one install looks like two extensions. Quit Safari, keep a single copy, and
+drop the rest from the LaunchServices database:
+
+```bash
+LSREG=/System/Library/Frameworks/CoreServices.framework/Versions/Current/Frameworks/LaunchServices.framework/Versions/Current/Support/lsregister
+find /Applications ~/Library/Developer/Xcode/DerivedData -maxdepth 6 -name "GridironEdge.app"
+"$LSREG" -u <path-to-each-copy-you-do-not-want>
+"$LSREG" -kill -r -domain local -domain user
+```
+
+Stale identities also leave directories behind under
+`~/Library/Application Scripts/` and `~/Library/Containers/` named for the old
+bundle ID; those are safe to delete.
+
+## Icons
+
+`python3 tools/make-icons.py` regenerates every size the extension and the app
+need, including the Xcode asset catalogue. Stdlib only — no Pillow, nothing to
+install. Sizes at or below 24px get a deliberately simplified glyph, because the
+full drawing's laces collapse into a grey smear at 16px.
 
 ## The one real difference
 
