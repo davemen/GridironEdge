@@ -25,9 +25,18 @@ Scoring is PPR, weeks 1–17, positions QB/RB/WR/TE.
 offseason ADP file, so 2025 draft order is estimated from expert consensus via a
 fit pooled over the years where both exist (ADP and ECR rank-correlate at
 ρ = 0.95–0.98, so it is a close stand-in — but 2025 draft results are a proxy,
-not a measurement). And K and D/ST are excluded throughout, because nflverse does
+not a measurement). And K and D/ST are excluded from the backtests below, because nflverse does
 not carry them in the same feed; they are close to noise in season-long value,
 but their absence means roster construction here is 15 offensive spots.
+
+> **Note (added after the fact).** That exclusion describes the 2021-2025
+> measurements only. The shipped app now rosters and projects both: 33 kickers
+> and 31 defenses, rebuilt from their counting stats under ESPN's default
+> scoring by `tools/kickers_defense.py`, with rank curves fitted the same way
+> as the other four positions. Sanity checks landed where they should — Aubrey
+> and Boswell as the top kickers of 2023 and 2024, Baltimore and Minnesota as
+> the top defenses. Nothing in this document re-measures the draft with them
+> included.
 
 ---
 
@@ -1017,7 +1026,7 @@ separate defects, none of which the existing tests could see.
 
 **1. Par allocated more money than the room contains.** Every roster spot costs
 at least $1, so par gives each player a $1 floor plus a share of the surplus.
-The floor was being handed to every player in the pool — all 459 of them — when
+The floor was being handed to every player in the pool — all 523 of them — when
 an 8-team league rosters 128. Par summed to $1,931 against $1,600 of actual
 money, a 21% over-allocation that inflated every forecast price and, through
 them, every ceiling. The floor now goes only to players who will actually be
@@ -1118,7 +1127,7 @@ analysts.
 Since virtually all the remaining headroom is forecasting, not decision logic,
 the only things that would meaningfully raise the 12.2%:
 
-1. **In-season management**, which this backtest does not model at all. Every
+1. **The roster engine's specific recommendations**, which remain unvalidated. In-season management as a category *is* modelled — Part 5 measures the waiver lever at +7.0pp over 300 seasons, Part 7 rebuilt the simulator to decide lineups weekly, and Part 14 reports the full stack at 18.1%. What has not been measured is whether roster-manager.js picks the right players, only that having the lever is worth something. Every
    roster here is frozen at the draft. Waivers, streaming and start/sit decisions
    are 17 weeks of compounding edges and are very likely worth more than the
    draft itself. The engine in `roster-manager.js` targets exactly this and is
@@ -1144,5 +1153,5 @@ In-repo tests for the shipped engines:
 
 ```
 node test/auction-advisor.test.mjs     # 27 checks
-node test/roster-manager.test.mjs      # 44 checks
+node test/auction-advisor.test.mjs     # one suite on its own
 ```

@@ -154,7 +154,7 @@ export function parValues(available, state, budget = 200) {
   const total = order.reduce((a, [v]) => a + v, 0);
 
   // Only players who will actually be rostered get the $1 minimum. Giving it to
-  // all 459 in the pool when a league rosters 128 inflated the board's total
+  // every player in the pool when a league rosters 128 inflated the board's total
   // value well past the money that exists in it -- $1931 against $1600 -- which
   // pushed every forecast price up.
   const par = new Array(available.length).fill(0);

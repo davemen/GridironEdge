@@ -91,7 +91,10 @@ export function generateTradeProposals(league) {
         acceptanceProb = Math.min(90, Math.max(25, acceptanceProb + 10));
 
         // Negotiation boundaries
-        const openOffer = `Trade ${givePlayer.name} (WR-${givePlayer.team}) for ${getPlayer.name} (RB-${getPlayer.team})`;
+        // The positions were literally "WR" and "RB" here whatever the players
+        // actually were, so a QB-for-TE offer described itself as WR-for-RB.
+        const openOffer = `Trade ${givePlayer.name} (${givePlayer.position}-${givePlayer.team})`
+          + ` for ${getPlayer.name} (${getPlayer.position}-${getPlayer.team})`;
         const counterLimit = `Include a late-round draft swap or $5 FAAB budget addition.`;
         const walkAway = `Do not accept if they demand an additional starting ${weGivePos}.`;
 
@@ -104,8 +107,13 @@ export function generateTradeProposals(league) {
           managerName: opponent.managerName,
           givePlayer,
           getPlayer,
-          myImpact: `+${Math.round((getPlayer.projectedPoints - 10) * 10) / 10}% Championship Prob (addresses key RB starting weakness)`,
-          oppImpact: `Patches starting WR gap with consistent ${givePlayer.projectedPoints} Proj points`,
+          // Both of these named a fixed position regardless of the trade, and
+          // the "% Championship Prob" was a points figure with a percent sign
+          // stuck on it. State the points, which is what was actually computed.
+          myImpact: `+${Math.round((getPlayer.projectedPoints - givePlayer.projectedPoints) * 10) / 10}`
+            + ` projected points a week at ${getPlayer.position}`,
+          oppImpact: `They get ${givePlayer.projectedPoints} projected points a week`
+            + ` at ${givePlayer.position}`,
           probability: acceptanceProb,
           risk: getPlayer.injuryStatus !== 'Healthy' ? 'High (injury concern)' : 'Low',
           negotiation: {

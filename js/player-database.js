@@ -1,7 +1,7 @@
 /**
  * Gridiron Edge — real player database.
  *
- * The app shipped with 22 mock players. Any real player nominated in a draft
+ * The app shipped with a couple of dozen mock players. Any real player nominated in a draft
  * was therefore invented on the spot with a made-up projection, which made
  * every bid ceiling, Must Buy flag and waiver score meaningless no matter how
  * cleanly the draft room was scraped. Fixing the scraper without fixing this

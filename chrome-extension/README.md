@@ -36,3 +36,38 @@ This Chrome Extension automates the process of scraping your private/public ESPN
    * Click **Sync Active League**.
    * If the local development server is running, the extension will instantly sync the data.
    * If the server is offline, it will automatically fallback to copying the JSON payload to your clipboard so you can paste it manually.
+
+## Troubleshooting
+
+**Reload the extension after any edit.** Chrome caches content scripts, so an
+edit you just made may not be running. Go to `chrome://extensions`, hit reload on
+Gridiron Edge, then refresh the ESPN tab. This is the first thing to rule out
+when a fix appears to have done nothing.
+
+**Confirm which version is actually loaded.** In the ESPN tab's console:
+
+```js
+window.__GRIDIRON_EDGE_VERSION__     // e.g. '2026.08.07-rejects'
+```
+
+If that is not the version you expect, the reload did not take and nothing else
+you observe is meaningful. (`manifest.json` carries a separate, coarser version
+for Chrome's own use; the marker above is the one that tracks code changes.)
+
+**See what the scraper actually parsed.** In the ESPN tab's console:
+
+```js
+__GRIDIRON_EDGE_DEBUG__()
+```
+
+It prints the teams and budgets it found, how many picks it parsed, how many it
+attributed to you, how many it could not attribute at all, the last dozen picks
+with their owners — and a second table of every row it *dropped*, with the
+reason. That last table is usually the answer. `window.__GRIDIRON_EDGE_LAST__`
+holds the raw payload if you want to inspect it directly.
+
+**Banners in the app tell you when something is wrong.** An amber banner means
+the app read fewer picks than ESPN reports; a red one means picks arrived that
+could not be matched to a manager. Neither is silent.
+
+**Deeper diagnostics** live in [`debug/`](debug/) as console-paste scripts.

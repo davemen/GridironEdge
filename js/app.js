@@ -12,6 +12,7 @@ import { optimizeLineup } from './engine/lineup-optimizer.js';
 import { recommendLineupStrategy } from './engine/bracket-strategy.js';
 import { evaluateWaivers, getWaiverRecommendations, freeAgentPool, CATEGORY, ACTION }
   from './engine/roster-manager.js';
+import { STARTER_SLOTS, FLEX_POS, N_FLEX, openStarterSlots } from './engine/lineup-rules.js';
 import { refreshNews, fetchLeagueNews, normalizeName, relevanceTo, EVENT_IMPACT }
   from './engine/news-monitor.js';
 import { generateTradeProposals } from './engine/trade-generator.js';
@@ -720,6 +721,87 @@ function draftMovesHtml(league, ranked, meRanked, drafting = true) {
   return html;
 }
 
+/**
+ * What a trading partner's roster actually says about them.
+ *
+ * This line used to read "Manager responds well to balanced swaps. Do not pitch
+ * one-sided proposals. Target their surplus WRs." for every opponent in every
+ * league — a personality profile of somebody the app has never met. The data to
+ * say something true is already here: which positions they are deep at and which
+ * they are thin at, measured against their own starting requirements.
+ */
+function opponentReadFor(team, league) {
+  const db = (league && league.playerDatabase) || {};
+  if (!team) return 'No roster data for this manager yet.';
+
+  const counts = {};
+  (team.roster || []).forEach((id) => {
+    const pl = db[id];
+    if (pl) counts[pl.position] = (counts[pl.position] || 0) + 1;
+  });
+  const need = openStarterSlots(counts);
+  const surplus = Object.keys(STARTER_SLOTS).filter(
+    (pos) => (counts[pos] || 0) > (STARTER_SLOTS[pos] + (FLEX_POS.includes(pos) ? N_FLEX : 0))
+  );
+  const short = Object.keys(need);
+
+  if (!short.length && !surplus.length) return 'Their roster is balanced — no obvious lever.';
+  const bits = [];
+  if (short.length) bits.push(`still needs ${short.join(', ')}`);
+  if (surplus.length) bits.push(`carries spare ${surplus.join(', ')}`);
+  return `${team.teamName} ${bits.join(' and ')}.`;
+}
+
+/** Positions a team holds more of than it can start. */
+function rosterSurplusFor(team, league) {
+  const db = (league && league.playerDatabase) || {};
+  const counts = {};
+  (team.roster || []).forEach((id) => {
+    const pl = db[id];
+    if (pl) counts[pl.position] = (counts[pl.position] || 0) + 1;
+  });
+  const spare = Object.keys(STARTER_SLOTS).filter(
+    (pos) => (counts[pos] || 0) > STARTER_SLOTS[pos] + (FLEX_POS.includes(pos) ? N_FLEX : 0)
+  );
+  return spare.length ? `Spare ${spare.join(', ')}` : 'Nothing spare';
+}
+
+/** Starting slots a team has not filled. */
+function rosterNeedFor(team, league) {
+  const db = (league && league.playerDatabase) || {};
+  const counts = {};
+  (team.roster || []).forEach((id) => {
+    const pl = db[id];
+    if (pl) counts[pl.position] = (counts[pl.position] || 0) + 1;
+  });
+  const need = Object.keys(openStarterSlots(counts));
+  return need.length ? need.join(', ') : 'Starters complete';
+}
+
+/**
+ * Game-day notes for the week, from the news feed rather than from imagination.
+ *
+ * The panel this fills used to ship three hardcoded lines — a weather report for
+ * a fixture nobody had scheduled, and a Kansas City kicker attributed to a
+ * Chargers-Broncos game. Nothing ever overwrote them, so they were permanent.
+ */
+function renderGameDayNotes(league) {
+  const host = document.getElementById('matchup-weather-news');
+  if (!host) return;
+  const myTeam = store.getMyTeam();
+  const db = (league && league.playerDatabase) || {};
+  const roster = (myTeam?.roster || []).map((id) => db[id]).filter(Boolean);
+
+  const flagged = roster.filter((p) => p.injuryStatus && p.injuryStatus !== 'Healthy');
+  if (!flagged.length) {
+    host.innerHTML = `<li>No injury flags on your roster.</li>`
+      + `<li>Weather and opponent notes arrive with the news feed once fixtures exist.</li>`;
+    return;
+  }
+  host.innerHTML = flagged.slice(0, 5).map((p) =>
+    `<li>${esc(p.name)} (${esc(p.position)}) is listed ${esc(p.injuryStatus)}.</li>`).join('');
+}
+
 // Render Dashboard (Home) View
 export function renderHomePage(league = store.getActiveLeague()) {
   if (!league) return;
@@ -854,7 +936,7 @@ export function renderHomePage(league = store.getActiveLeague()) {
     itemsHtml += `
       <div class="recommendation-item medium-confidence">
         <div class="item-action-title">Trade for ${esc(tradeRec.getPlayer.name)} <span class="badge-solid badge-gold">${tradeRec.probability}% Accept</span></div>
-        <div class="item-details">Give ${esc(tradeRec.givePlayer.name)} to ${esc(tradeRec.opponentName)}. Addresses RB/WR balance.</div>
+        <div class="item-details">Give ${esc(tradeRec.givePlayer.name)} to ${esc(tradeRec.opponentName)}. ${esc(tradeRec.myImpact)}</div>
       </div>
     `;
   }
@@ -1756,6 +1838,7 @@ export function renderMatchupPage(league = store.getActiveLeague()) {
     ? advice.strategy
     : weeklyLineupStrategy;
 
+  renderGameDayNotes(league);
   const opt = optimizeLineup(myTeam.roster, league.playerDatabase, league.rosterSettings, strategy);
   renderBracketAdvice(advice, strategy);
   const startersGrid = document.getElementById('matchup-starters-grid');
@@ -2292,15 +2375,15 @@ function drawOpponentProfile(teamId, league) {
         </div>
         <div>
           <span style="color:var(--text-muted); display:block; font-size:0.75rem; text-transform:uppercase;">Roster Strengths</span>
-          <span style="font-weight:700;">${wrCount >= 3 ? 'Wide Receiver abundance' : 'Consistent starters'}</span>
+          <span style="font-weight:700;">${esc(rosterSurplusFor(team, league))}</span>
         </div>
         <div>
           <span style="color:var(--text-muted); display:block; font-size:0.75rem; text-transform:uppercase;">Likely Waiver Needs</span>
-          <span style="font-weight:700; color:var(--accent-red);">${rbCount < 2 ? 'Running Back depth' : (qbCount === 0 ? 'Starting QB' : 'FLEX stashes')}</span>
+          <span style="font-weight:700; color:var(--accent-red);">${esc(rosterNeedFor(team, league))}</span>
         </div>
         <div style="border-top:1px solid var(--border-color); padding-top:0.75rem; font-size:0.8rem; color:var(--text-secondary);">
           <strong>Realistic Trading Strategy:</strong><br>
-          Manager responds well to balanced swaps. Do not pitch one-sided proposals. Target their surplus WRs.
+          ${esc(opponentReadFor(team, league))}
         </div>
       </div>
     </div>

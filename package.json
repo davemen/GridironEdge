@@ -1,0 +1,14 @@
+{
+  "name": "gridiron-edge",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Fantasy football draft and in-season assistant. Runs locally; no dependencies.",
+  "scripts": {
+    "test": "node --test test/*.test.mjs",
+    "coverage": "node --test --experimental-test-coverage test/*.test.mjs",
+    "serve": "python3 server.py",
+    "audit-report": "node audit/build-report.mjs"
+  },
+  "engines": { "node": ">=18" }
+}
