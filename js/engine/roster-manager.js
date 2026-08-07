@@ -494,6 +494,12 @@ function benchReason({ player, category, startProb, breakout, block, replacement
 function freeAgentPool(league, db) {
   const owned = new Set();
   league.teams.forEach((t) => (t.roster || []).forEach((id) => owned.add(id)));
+  // A drafted player is off the board whether or not we worked out who bought
+  // him. Reading only the rosters meant a pick whose owner could not be
+  // identified came back as a free agent -- which is how the app recommended
+  // claiming Josh Allen while Josh Allen was already drafted.
+  ((league.draftState && league.draftState.selections) || [])
+    .forEach((s) => { if (s && s.playerId) owned.add(String(s.playerId)); });
   return Object.values(db).filter((p) => !owned.has(p.id));
 }
 

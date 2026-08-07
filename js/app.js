@@ -428,6 +428,16 @@ function setupModals() {
   });
 }
 
+/** Players nobody has drafted and nobody owns. */
+function freeAgentsIn(league) {
+  const taken = new Set();
+  (league.teams || []).forEach(t => (t.roster || []).forEach(id => taken.add(String(id))));
+  ((league.draftState || {}).selections || []).forEach(s => {
+    if (s && s.playerId) taken.add(String(s.playerId));
+  });
+  return Object.values(league.playerDatabase || {}).filter(p => !taken.has(String(p.id)));
+}
+
 /** Says plainly when the league on screen is demo data rather than yours. */
 function renderSandboxBanner(league) {
   let el = document.getElementById('sandbox-banner');
@@ -545,32 +555,90 @@ function renderApp(state) {
 function renderHomePage(league = store.getActiveLeague()) {
   if (!league) return;
 
-  // Run simulation numbers to populate home dashboard probabilities
-  const sim = runSeasonSimulation(league, 200); // 200 runs for quick refresh
-  
-  document.getElementById('dashboard-champ-prob').innerHTML = `${sim.champPct}%`;
-  document.getElementById('dashboard-champ-bar').style.width = `${sim.champPct}%`;
-  document.getElementById('dashboard-playoff-prob').innerHTML = `${sim.playoffPct}%`;
-  
-  // Calculate standings rank
   const myTeam = store.getMyTeam();
-  const sortedTeams = [...league.teams].sort((a,b) => {
-    if(b.record.wins !== a.record.wins) return b.record.wins - a.record.wins;
-    return b.pointsScored - a.pointsScored;
-  });
-  const myRank = sortedTeams.findIndex(t => t.teamId === league.myTeamId) + 1;
-  document.getElementById('dashboard-rank').innerHTML = `#${myRank}`;
-
-  // Assessments
-  document.getElementById('home-rival').innerHTML = `${sim.rivalName}`;
-  
-  const myRoster = myTeam?.roster || [];
   const db = league.playerDatabase;
-  const wrCount = myRoster.map(id => db[id]).filter(p => p && p.position === 'WR' && p.projectedPoints > 14).length;
-  const rbCount = myRoster.map(id => db[id]).filter(p => p && p.position === 'RB' && p.projectedPoints > 13).length;
-  
-  document.getElementById('home-strength').innerHTML = wrCount >= 2 ? 'Wide Receiver depth' : 'Core Quarterback';
-  document.getElementById('home-weakness').innerHTML = rbCount < 2 ? 'Running Back rotation' : 'FLEX slot upside';
+  const hasSchedule = Array.isArray(league.schedule) && league.schedule.length > 0;
+
+  // Before a season exists, runSeasonSimulation has no fixtures and returns
+  // zero for everything, and the rank came from sorting 0-0 records -- which
+  // reported #6 directly above a standings table showing #1. Both now read the
+  // same preseason engine the standings do, so they cannot disagree.
+  const outlook = hasSchedule ? null : preseasonOutlook(league, 1500);
+  const sim = hasSchedule ? runSeasonSimulation(league, 200) : null;
+
+  const champPct = sim ? sim.champPct : (outlook ? outlook.titlePct : 0);
+  const playoffPct = sim ? sim.playoffPct : (outlook ? outlook.playoffPct : 0);
+  document.getElementById('dashboard-champ-prob').innerHTML = `${champPct}%`;
+  document.getElementById('dashboard-champ-bar').style.width = `${champPct}%`;
+  document.getElementById('dashboard-playoff-prob').innerHTML = `${playoffPct}%`;
+
+  const ranked = rankTeams(league);
+  const meRanked = ranked.find(t => t.isMe);
+  let myRank;
+  if (hasSchedule) {
+    const sortedByRecord = [...league.teams].sort((a, b) => {
+      if (b.record.wins !== a.record.wins) return b.record.wins - a.record.wins;
+      return b.pointsScored - a.pointsScored;
+    });
+    myRank = sortedByRecord.findIndex(t => t.teamId === league.myTeamId) + 1;
+  } else {
+    myRank = meRanked ? meRanked.rank : 0;
+  }
+  document.getElementById('dashboard-rank').innerHTML = myRank ? `#${myRank}` : '—';
+
+  // Mid-draft these odds are read off half-built rosters, so leading the league
+  // may only mean you have drafted more of yours so far. Say that while it is
+  // true rather than presenting a settled forecast.
+  const rosterSize = (league.rosterSettings?.startersCount || 9)
+    + (league.rosterSettings?.benchCount || 7);
+  const picksMade = ((league.draftState || {}).selections || []).length;
+  const picksTotal = (league.leagueSize || league.teams.length) * rosterSize;
+  const rankEl = document.getElementById('dashboard-rank');
+  let caveat = document.getElementById('dashboard-caveat');
+  if (!caveat && rankEl && rankEl.parentElement && rankEl.parentElement.parentElement) {
+    caveat = document.createElement('div');
+    caveat.id = 'dashboard-caveat';
+    caveat.style.cssText = 'font-size:0.72rem;color:var(--text-muted);margin-top:0.5rem;line-height:1.35;';
+    rankEl.parentElement.parentElement.appendChild(caveat);
+  }
+  if (caveat) {
+    caveat.innerHTML = hasSchedule ? ''
+      : (picksMade < picksTotal
+          ? `Preseason, draft in progress — ${picksMade} of ${picksTotal} picks made. `
+            + `Rosters are still filling, so this moves with every pick.`
+          : 'Preseason — assumes a balanced schedule until fixtures are published.');
+  }
+
+  // The most dangerous competitor is the best roster that is not yours, not
+  // whichever name the simulator happened to return.
+  const rival = ranked.find(t => !t.isMe);
+  document.getElementById('home-rival').innerHTML = rival
+    ? `${rival.teamName} <span style="font-size:0.8rem; color:var(--text-muted);">${rival.points.toFixed(1)}/wk</span>`
+    : '—';
+
+  // Strength and weakness, measured against what the rest of the league gets
+  // from the same starting slot, rather than a two-line guess about receiver
+  // counts that could call an empty roster "Core Quarterback".
+  const moves = highestImpactMoves(league, freeAgentsIn(league));
+  const worst = moves[0];
+  const bySlotGap = meRanked
+    ? meRanked.slots.filter(s => s.player).map((s) => {
+        const peers = ranked.flatMap(t => t.slots.filter(x => x.slot === s.slot).map(x => x.points));
+        const med = peers.slice().sort((a, b) => a - b)[Math.floor(peers.length / 2)] || 0;
+        return { slot: s.slot, name: s.player.name, edge: s.points - med };
+      }).sort((a, b) => b.edge - a.edge)
+    : [];
+  const best = bySlotGap[0];
+
+  document.getElementById('home-strength').innerHTML = best && best.edge > 0
+    ? `${best.slot}: ${best.name} <span style="font-size:0.8rem; color:var(--text-muted);">+${best.edge.toFixed(1)}/wk vs league</span>`
+    : (meRanked && meRanked.rostered ? 'No slot is ahead of the league yet' : 'Nothing drafted yet');
+
+  document.getElementById('home-weakness').innerHTML = worst
+    ? (worst.empty
+        ? `${worst.slot} is empty <span style="font-size:0.8rem; color:var(--text-muted);">scores zero</span>`
+        : `${worst.slot}: ${worst.current} <span style="font-size:0.8rem; color:var(--text-muted);">${worst.gap.toFixed(1)}/wk behind league</span>`)
+    : 'No slot is measurably behind the league';
 
   // Render top 3 recommendations list
   const listContainer = document.getElementById('home-recommendations');
