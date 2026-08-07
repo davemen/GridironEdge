@@ -589,9 +589,30 @@ function renderHomePage(league = store.getActiveLeague()) {
   }
   listContainer.innerHTML = itemsHtml;
 
-  // Matchup Quickview
-  const week5Match = league.schedule?.find(m => m.week === 5 && (m.team1Id === league.myTeamId || m.team2Id === league.myTeamId));
-  if (week5Match) {
+  // Matchup Quickview.
+  //
+  // A league imported from a draft room carries no schedule, no records and no
+  // scores -- there is no season yet. This card used to be left holding the
+  // placeholder markup it shipped with ("Championship Bound 114.2 vs Fumble
+  // Recovery 121.5, 45% win probability"), which read as a real matchup and was
+  // pure invention. Say what is actually true instead.
+  const sched = Array.isArray(league.schedule) ? league.schedule : [];
+  const myGames = sched.filter(m => m.team1Id === league.myTeamId || m.team2Id === league.myTeamId);
+  // The next game that has not been played, else the last one.
+  const week5Match = myGames.find(m => !m.played) || myGames[myGames.length - 1] || null;
+  const weekLabel = document.querySelector('.current-week-num');
+  if (weekLabel) weekLabel.textContent = week5Match ? ` (Week ${week5Match.week})` : '';
+
+  if (!week5Match) {
+    document.getElementById('match-my-name').innerHTML = myTeam?.teamName || '—';
+    document.getElementById('match-my-proj').innerHTML = '—';
+    document.getElementById('match-opp-name').innerHTML = '—';
+    document.getElementById('match-opp-proj').innerHTML = '—';
+    document.getElementById('matchup-strategy-hint').innerHTML =
+      '<strong>No schedule yet.</strong><br>This league was imported from a draft room, '
+      + 'which carries rosters and budgets but no fixtures, records or scores. '
+      + 'Matchup analysis starts once the season schedule is available.';
+  } else {
     const isTeam1 = week5Match.team1Id === league.myTeamId;
     const myProj = isTeam1 ? week5Match.team1Proj : week5Match.team2Proj;
     const oppProj = isTeam1 ? week5Match.team2Proj : week5Match.team1Proj;
@@ -1922,6 +1943,26 @@ function drawOpponentProfile(teamId, league) {
 // Render Championship Simulations
 function renderChampionshipPage(league = store.getActiveLeague()) {
   if (!league) return;
+
+  // The three headline percentages ship as literal numbers in the markup, and
+  // nothing overwrites them until the simulation is run. On a league imported
+  // from a draft room the simulation has no schedule to run against, so those
+  // invented figures sat on screen looking like a real forecast.
+  const sched = Array.isArray(league.schedule) ? league.schedule : [];
+  const note = document.getElementById('sim-action-plan');
+  if (!sched.length) {
+    ['sim-playoff-pct', 'sim-champ-pct', 'sim-bye-pct'].forEach((id) => {
+      const el = document.getElementById(id);
+      if (el) el.innerHTML = '—';
+    });
+    if (note) {
+      note.innerHTML = '<div class="empty-state">No season schedule yet. This league was '
+        + 'imported from a draft room, so there are no fixtures to simulate against. '
+        + 'The draft and auction tools work now; playoff odds need a schedule.</div>';
+    }
+    const threat = document.getElementById('sim-threat-assessment');
+    if (threat) threat.innerHTML = '';
+  }
 
   const btnRun = document.getElementById('btn-run-simulations');
   
