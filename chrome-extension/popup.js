@@ -429,6 +429,16 @@ function scanForEspnState() {
   }
 }
 
+/** Exactly the host in host_permissions, over https. Nothing else. */
+function isEspnUrl(raw) {
+  try {
+    const u = new URL(raw);
+    return u.protocol === 'https:' && u.hostname === 'fantasy.espn.com';
+  } catch (e) {
+    return false; // chrome://, about:blank, and anything unparseable
+  }
+}
+
 document.addEventListener('DOMContentLoaded', async () => {
   try {
     const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
@@ -437,8 +447,11 @@ document.addEventListener('DOMContentLoaded', async () => {
       return;
     }
 
-    const isEspn = tab.url.includes('fantasy.espn.com');
-    if (!isEspn) {
+    // Match the host, not the string. `includes` accepted any URL that merely
+    // mentioned the domain -- https://evil.example/?fantasy.espn.com passed it,
+    // which enabled the sync button and pointed our scraper at an attacker's
+    // page, letting it hand back whatever league it liked.
+    if (!isEspnUrl(tab.url)) {
       setStatus('Navigate to fantasy.espn.com first.');
       syncBtn.disabled = true;
       return;

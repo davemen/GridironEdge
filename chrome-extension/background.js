@@ -62,7 +62,16 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     || (sender && sender.url ? new URL(sender.url).origin : '');
   // ESPN's draft room, or our own popup. Anything else is refused: this worker
   // used to forward whatever it was handed, from wherever.
-  const ownOrigin = `chrome-extension://${chrome.runtime.id}`;
+  // Ask the runtime for our own origin rather than building it from a literal
+  // scheme. Safari serves extension pages from safari-web-extension://, so
+  // "chrome-extension://" + runtime.id matched nothing there and the popup's
+  // own syncs were refused by the worker that ships alongside it.
+  //
+  // Trimmed by hand rather than with `new URL(...).origin`: neither
+  // chrome-extension: nor safari-web-extension: is a "special" scheme, so the
+  // URL parser reports their origin as the string "null" -- which compares
+  // equal to itself and would have let any extension through.
+  const ownOrigin = chrome.runtime.getURL('').replace(/\/$/, '');
   if (origin !== TRUSTED_ORIGIN && origin !== ownOrigin) {
     console.warn('[Gridiron Edge] Refused a sync from', origin || 'an unknown sender');
     return false;

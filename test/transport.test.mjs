@@ -117,5 +117,87 @@ listeners.message.forEach((f) => f({ action: 'sync', data: { not: 'a league' } }
   { origin: 'https://fantasy.espn.com' }, () => {}));
 check('a payload that is not a league is refused', JSON.stringify(store) === beforeShape);
 
+// ...but our own pages must still be allowed through, on every engine.
+//
+// The worker built its own origin as "chrome-extension://" + runtime.id. Safari
+// serves extension pages from safari-web-extension://, so that literal matched
+// nothing there and the popup's own Sync was refused by the worker shipping
+// beside it. Deriving the origin from getURL() is what makes both engines work,
+// and the mock's getURL host deliberately differs from runtime.id so a
+// reintroduction of the concatenated form fails here.
+// Written out rather than derived, so this asserts the value instead of
+// repeating whatever the worker computes. The mock's getURL host ("test")
+// deliberately differs from runtime.id ("test-extension-id"), so the old
+// concatenated form fails here.
+const OWN = 'chrome-extension://test';
+const beforeOwn = JSON.stringify(store);
+listeners.message.forEach((f) => f(
+  { action: 'sync', data: { leagueId: 'OWN', teams: [{ id: 1 }] } },
+  { origin: OWN }, () => {}));
+check('our own extension page may sync', JSON.stringify(store) !== beforeOwn,
+  `own origin ${OWN} was refused`);
+
+// The same worker code, loaded against a Safari-shaped runtime.
+{
+  const safariListeners = [];
+  const safariStore = {};
+  const realChrome = globalThis.chrome;
+  globalThis.chrome = {
+    ...realChrome,
+    runtime: {
+      ...realChrome.runtime,
+      id: 'ABCDEF12-3456',
+      getURL: (p) => `safari-web-extension://ABCDEF12-3456/${p}`,
+      onMessage: { addListener: (f) => safariListeners.push(f) },
+      onConnect: { addListener: () => {} },
+    },
+    storage: {
+      ...realChrome.storage,
+      local: { get: (k, cb) => cb({ [k]: safariStore[k] }),
+               set: (o, cb) => { Object.assign(safariStore, o); cb && cb(); } },
+      onChanged: { addListener: () => {}, removeListener: () => {} },
+    },
+  };
+  new Function(bg)();
+  safariListeners.forEach((f) => f(
+    { action: 'sync', data: { leagueId: 'S', teams: [{ id: 1 }] } },
+    { origin: 'safari-web-extension://ABCDEF12-3456' }, () => {}));
+  check('a Safari extension page may sync', Object.keys(safariStore).length > 0);
+
+  // And the boundary still holds on that engine.
+  const beforeEvil = JSON.stringify(safariStore);
+  safariListeners.forEach((f) => f(
+    { action: 'sync', data: { leagueId: 'X', teams: [{ id: 1 }] } },
+    { origin: 'safari-web-extension://SOMEONE-ELSE' }, () => {}));
+  check('another Safari extension may not', JSON.stringify(safariStore) === beforeEvil);
+  globalThis.chrome = realChrome;
+}
+
+console.log('\nthe popup only offers to scrape ESPN itself');
+{
+  // `tab.url.includes('fantasy.espn.com')` accepted any URL that merely
+  // mentioned the host, which enabled Sync on an attacker's page and pointed
+  // the scraper at it.
+  const popup = readFileSync(join(ROOT, 'chrome-extension/popup.js'), 'utf8');
+  const m = popup.match(/function isEspnUrl[\s\S]*?\n}/);
+  check('the popup has a real host check', Boolean(m));
+  if (m) {
+    const isEspnUrl = new Function(`${m[0]}; return isEspnUrl;`)();
+    [
+      ['https://fantasy.espn.com/football/draft', true],
+      ['https://fantasy.espn.com/football/league?leagueId=1', true],
+      ['https://evil.example/?fantasy.espn.com', false],
+      ['https://fantasy.espn.com.evil.example/', false],
+      ['http://fantasy.espn.com/', false],
+      ['https://notfantasy.espn.com/', false],
+      ['about:blank', false],
+      ['', false],
+    ].forEach(([url, want]) => {
+      check(`${want ? 'accepts' : 'rejects'} ${url || '(empty)'}`,
+        isEspnUrl(url) === want);
+    });
+  }
+}
+
 console.log(`\n${passed} passed, ${failed} failed`);
 if (failed) process.exit(1);
