@@ -194,19 +194,16 @@ class ESPNClient {
     
     if (espnData.draftDetail && espnData.draftDetail.picks) {
       espnData.draftDetail.picks.forEach(p => {
-        // Try finding a matching player by name in mockPlayers
-        let match = Object.values(db).find(pl => pl.name.toLowerCase() === p.playerName.toLowerCase());
-        
-        if (!match) {
-          // Substring match
-          match = Object.values(db).find(pl => {
-            const pName = p.playerName.toLowerCase();
-            const plName = pl.name.toLowerCase();
-            return pName.includes(plName) || plName.includes(pName);
-          });
-        }
+        // Resolve the same way a nomination does. This used to be raw name
+        // comparison while only the nomination path used findPlayer, so the
+        // punctuation and naming differences that resolver exists to absorb --
+        // "Texans D/ST" against "Houston Texans" among them -- were left to a
+        // substring test that cannot bridge them.
+        let match = findPlayer(db, p.playerName, p.playerPosition);
 
         if (!match) {
+          console.warn('[Gridiron Edge] Drafted player "' + p.playerName + '" ('
+            + (p.playerPosition || '?') + ') is not in the projection set.');
           // Dynamic mock player
           const mockId = `MOCK_${p.playerName.replace(/\s+/g, '_')}`;
           match = {

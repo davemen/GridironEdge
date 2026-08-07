@@ -5,7 +5,7 @@
   // Version marker: lets a console check confirm whether Chrome is running the
   // current content script or a cached older one, which is the first thing to
   // rule out when a fix appears to have had no effect.
-  try { window.__GRIDIRON_EDGE_VERSION__ = '2026.08.05-bidfix'; } catch (e) {}
+  try { window.__GRIDIRON_EDGE_VERSION__ = '2026.08.06-dst'; } catch (e) {}
   console.log("[Gridiron Edge Sync] Main world script initialized (2026.08.05-bidfix).");
 
   let lastSyncKey = null;
@@ -140,7 +140,10 @@
       if (!container) return null;
 
       const nflTeams = new Set(['DET', 'LAR', 'ATL', 'CIN', 'SEA', 'SF', 'GB', 'KC', 'BUF', 'DAL', 'PHI', 'MIA', 'NYJ', 'NE', 'LV', 'DEN', 'LAC', 'MIN', 'CHI', 'TB', 'NO', 'CAR', 'WAS', 'NYG', 'ARI', 'JAX', 'IND', 'TEN', 'HOU', 'BAL', 'PIT', 'CLE', 'FA']);
-      const positions = new Set(['QB', 'RB', 'WR', 'TE', 'D/ST', 'K', 'FLEX']);
+      // Feeds spell a team defense several ways, and the row is thrown away
+      // entirely if the position token is not recognised.
+      const DST_ALIASES = new Set(['D/ST', 'DST', 'DEF', 'D-ST']);
+      const positions = new Set(['QB', 'RB', 'WR', 'TE', 'K', 'FLEX', ...DST_ALIASES]);
       
       const elements = container.querySelectorAll('tr, [role="row"], [class*="row" i], [class*="item" i], div');
       const selections = [];
@@ -193,10 +196,17 @@
           if (teamIdx !== -1 && posIdx !== -1) break;
         }
 
-        if (teamIdx !== -1 && posIdx !== -1) {
+        // A defense carries no separate NFL team abbreviation -- its name IS the
+        // team -- so requiring one threw every D/ST pick away before it reached
+        // the app, and the D/ST slot stayed empty however the draft went. The
+        // team requirement is relaxed for defenses only; for everyone else it
+        // still guards against a wrapper div swallowing the whole table.
+        const isDst = posIdx !== -1 && DST_ALIASES.has(parts[posIdx].toUpperCase());
+
+        if (posIdx !== -1 && (teamIdx !== -1 || isDst)) {
           seenPicks.add(pick);
-          
-          const endIdx = Math.min(teamIdx, posIdx);
+
+          const endIdx = teamIdx === -1 ? posIdx : Math.min(teamIdx, posIdx);
           const nameParts = parts.slice(nameStartIdx, endIdx);
           const playerName = nameParts.join(' ');
 
@@ -229,8 +239,9 @@
           selections.push({
             overallPickNumber: pick,
             playerName,
-            playerTeam: parts[teamIdx],
-            playerPosition: parts[posIdx],
+            playerTeam: teamIdx === -1 ? 'FA' : parts[teamIdx],
+            // Normalise so the app sees one spelling.
+            playerPosition: isDst ? 'D/ST' : parts[posIdx],
             drafterTeamName,
             bidAmount
           });
