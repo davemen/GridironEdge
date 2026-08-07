@@ -14,6 +14,7 @@ import { refreshNews, fetchLeagueNews, normalizeName, relevanceTo, EVENT_IMPACT 
   from './engine/news-monitor.js';
 import { generateTradeProposals } from './engine/trade-generator.js';
 import { runSeasonSimulation } from './engine/simulator.js';
+import { rankTeams, preseasonOutlook, highestImpactMoves } from './engine/team-strength.js';
 
 // Cache DOM elements
 const views = {
@@ -604,14 +605,33 @@ function renderHomePage(league = store.getActiveLeague()) {
   if (weekLabel) weekLabel.textContent = week5Match ? ` (Week ${week5Match.week})` : '';
 
   if (!week5Match) {
-    document.getElementById('match-my-name').innerHTML = myTeam?.teamName || '—';
-    document.getElementById('match-my-proj').innerHTML = '—';
-    document.getElementById('match-opp-name').innerHTML = '—';
-    document.getElementById('match-opp-proj').innerHTML = '—';
-    document.getElementById('matchup-strategy-hint').innerHTML =
-      '<strong>No schedule yet.</strong><br>This league was imported from a draft room, '
-      + 'which carries rosters and budgets but no fixtures, records or scores. '
-      + 'Matchup analysis starts once the season schedule is available.';
+    // No fixture, but the league is still rankable: show this roster against
+    // the strongest one in it, which is the matchup that actually matters
+    // before a season starts.
+    const ranked = rankTeams(league);
+    const me = ranked.find(t => t.isMe);
+    const rival = ranked.find(t => !t.isMe);
+    document.getElementById('match-my-name').innerHTML =
+      (myTeam?.teamName || 'My Team') + (me ? ` <span style="font-size:0.8rem; color:var(--text-muted);">#${me.rank} of ${ranked.length}</span>` : '');
+    document.getElementById('match-my-proj').innerHTML = me ? me.points.toFixed(1) : '—';
+    document.getElementById('match-opp-name').innerHTML = rival
+      ? `${rival.teamName} <span style="font-size:0.8rem; color:var(--text-muted);">league best</span>` : '—';
+    document.getElementById('match-opp-proj').innerHTML = rival ? rival.points.toFixed(1) : '—';
+
+    const hint = document.getElementById('matchup-strategy-hint');
+    if (me && rival) {
+      const gap = me.points - rival.points;
+      const holes = me.holes.length
+        ? ` You still have nothing starting at ${me.holes.join(', ')}, worth about `
+          + `${Math.round(ranked.reduce((a, t) => a + t.points, 0) / ranked.length / 9)} points a week each.`
+        : '';
+      hint.innerHTML = `<strong>Preseason, no schedule yet.</strong><br>`
+        + `Ranked on the lineup each roster can field today, you are `
+        + (gap >= 0 ? `the strongest team in the league` : `${Math.abs(gap).toFixed(1)} points a week behind the best`)
+        + `.${holes} Weekly matchup advice starts once fixtures exist.`;
+    } else {
+      hint.innerHTML = '<strong>No schedule and no roster yet.</strong><br>Connect a league to begin.';
+    }
   } else {
     const isTeam1 = week5Match.team1Id === league.myTeamId;
     const myProj = isTeam1 ? week5Match.team1Proj : week5Match.team2Proj;
@@ -632,9 +652,44 @@ function renderHomePage(league = store.getActiveLeague()) {
     }
   }
 
-  // Draw Standings Table
-  const standingsBody = document.getElementById('home-standings-table').querySelector('tbody');
+  // Draw Standings Table.
+  //
+  // With no games played there is no record to show -- but there IS a roster,
+  // and the lineup it can field is a real, computed ranking of the league.
+  // Showing 0-0 down the whole column said nothing; this says who is ahead.
+  const standingsTable = document.getElementById('home-standings-table');
+  const standingsBody = standingsTable.querySelector('tbody');
+  const standingsHead = standingsTable.querySelector('thead tr');
   standingsBody.innerHTML = '';
+
+  const played = sortedTeams.some(t => (t.record?.wins || 0) + (t.record?.losses || 0) > 0);
+  if (!played) {
+    if (standingsHead) {
+      standingsHead.innerHTML = '<th>Rank</th><th>Team</th><th>Roster</th><th>Proj / wk</th>';
+    }
+    rankTeams(league).forEach((t) => {
+      const row = document.createElement('tr');
+      if (t.isMe) {
+        row.style.background = 'var(--accent-cyan-glow)';
+        row.style.fontWeight = '700';
+      }
+      const gaps = t.holes.length
+        ? `<span style="color:var(--accent-gold); font-size:0.75rem;"> ${t.holes.length} open</span>`
+        : '';
+      row.innerHTML = `
+        <td>${t.rank}</td>
+        <td>${t.teamName} ${t.isMe ? '<span style="font-size:0.75rem; color:var(--accent-cyan);">(Me)</span>' : ''}</td>
+        <td>${t.rostered}${gaps}</td>
+        <td>${t.points.toFixed(1)}</td>
+      `;
+      standingsBody.appendChild(row);
+    });
+    return;
+  }
+
+  if (standingsHead) {
+    standingsHead.innerHTML = '<th>Rank</th><th>Team</th><th>Record</th><th>Points</th>';
+  }
   sortedTeams.forEach((t, index) => {
     const row = document.createElement('tr');
     if (t.teamId === league.myTeamId) {
@@ -1941,6 +1996,78 @@ function drawOpponentProfile(teamId, league) {
 }
 
 // Render Championship Simulations
+/**
+ * The championship page before a season exists.
+ *
+ * There is no schedule to simulate against, but there is a full league of
+ * rosters -- which is what decides a season anyway. Seasons are simulated over
+ * a balanced round robin, so the odds answer the question that can actually be
+ * answered now ("how good is this roster relative to this league") instead of
+ * the placeholder that shipped, which forecast a fixture nobody had scheduled.
+ */
+function renderPreseasonOutlook(league) {
+  const o = preseasonOutlook(league, 3000);
+  const set = (id, v) => { const el = document.getElementById(id); if (el) el.innerHTML = v; };
+  if (!o) {
+    ['sim-playoff-pct', 'sim-champ-pct', 'sim-bye-pct'].forEach((id) => set(id, '—'));
+    const note = document.getElementById('sim-action-plan');
+    if (note) note.innerHTML = '<div class="empty-state">No rosters yet — connect a league.</div>';
+    return;
+  }
+
+  set('sim-playoff-pct', o.playoffPct + '%');
+  set('sim-champ-pct', o.titlePct + '%');
+  set('sim-bye-pct', o.byePct + '%');
+
+  // Highest impact moves: where this roster loses the most points a week
+  // against the league, measured rather than asserted.
+  const drafted = new Set((league.draftState?.selections || []).map(s => s.playerId));
+  (league.teams || []).forEach(t => (t.roster || []).forEach(id => drafted.add(id)));
+  const freeAgents = Object.values(league.playerDatabase || {}).filter(p => !drafted.has(p.id));
+  const moves = highestImpactMoves(league, freeAgents);
+
+  const plan = document.getElementById('sim-action-plan');
+  if (plan) {
+    const par = (100 / o.leagueSize).toFixed(1);
+    const rows = moves.slice(0, 5).map((m) => {
+      const what = m.empty
+        ? `<strong>${m.slot} is empty</strong> — scores zero every week.`
+        : `<strong>${m.slot}: ${m.current}</strong> projects ${m.currentPoints}/wk, `
+          + `${m.gap > 0 ? `${m.gap} behind` : `${Math.abs(m.gap)} ahead of`} the league median of ${m.leagueMedian}.`;
+      const fix = m.candidate
+        ? ` Best available: <strong>${m.candidate.name}</strong> (+${m.upgrade}/wk).`
+        : '';
+      return `<div style="padding:0.75rem; background:var(--bg-surface); border:1px solid var(--border-color); border-radius:4px;">${what}${fix}</div>`;
+    }).join('');
+    plan.innerHTML = `
+      <div style="font-size:0.82rem; color:var(--text-secondary); margin-bottom:0.5rem;">
+        Preseason outlook — no fixtures exist yet, so seasons are simulated over a
+        balanced round robin. Your roster ranks <strong>#${o.rank} of ${o.leagueSize}</strong>
+        at ${o.myPoints} projected points a week, against a league best of ${o.bestPoints}
+        and a median of ${o.medianPoints}. A title is worth ${par}% to an average team here.
+      </div>
+      ${rows || '<div class="empty-state">No starting slot is measurably behind the league.</div>'}`;
+  }
+
+  // Threat assessment: the rivals actually in front of you, and by how much.
+  const threat = document.getElementById('sim-threat-assessment');
+  if (threat) {
+    threat.innerHTML = o.teams.slice(0, 6).map((t) => {
+      const bar = Math.max(2, Math.round((t.points / Math.max(1, o.bestPoints)) * 100));
+      const tone = t.isMe ? 'var(--accent-cyan)' : 'var(--text-muted)';
+      return `
+        <div style="display:flex; align-items:center; gap:0.6rem; margin-bottom:0.45rem;">
+          <span style="width:1.4rem; color:var(--text-muted); font-size:0.8rem;">${t.rank}</span>
+          <span style="flex:0 0 40%; font-weight:${t.isMe ? 700 : 400}; color:${tone};">
+            ${t.teamName}${t.isMe ? ' (you)' : ''}</span>
+          <span style="flex:1; height:8px; background:var(--bg-surface); border-radius:4px; overflow:hidden;">
+            <span style="display:block; height:100%; width:${bar}%; background:${tone};"></span></span>
+          <span style="width:4rem; text-align:right; font-size:0.82rem;">${t.points.toFixed(1)}</span>
+        </div>`;
+    }).join('');
+  }
+}
+
 function renderChampionshipPage(league = store.getActiveLeague()) {
   if (!league) return;
 
@@ -1949,20 +2076,7 @@ function renderChampionshipPage(league = store.getActiveLeague()) {
   // from a draft room the simulation has no schedule to run against, so those
   // invented figures sat on screen looking like a real forecast.
   const sched = Array.isArray(league.schedule) ? league.schedule : [];
-  const note = document.getElementById('sim-action-plan');
-  if (!sched.length) {
-    ['sim-playoff-pct', 'sim-champ-pct', 'sim-bye-pct'].forEach((id) => {
-      const el = document.getElementById(id);
-      if (el) el.innerHTML = '—';
-    });
-    if (note) {
-      note.innerHTML = '<div class="empty-state">No season schedule yet. This league was '
-        + 'imported from a draft room, so there are no fixtures to simulate against. '
-        + 'The draft and auction tools work now; playoff odds need a schedule.</div>';
-    }
-    const threat = document.getElementById('sim-threat-assessment');
-    if (threat) threat.innerHTML = '';
-  }
+  if (!sched.length) renderPreseasonOutlook(league);
 
   const btnRun = document.getElementById('btn-run-simulations');
   
