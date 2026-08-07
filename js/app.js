@@ -2003,10 +2003,20 @@ async function fetchLiveBreakingNews(rosterNames = []) {
     const items = await fetchLeagueNews({ classifiedOnly: false });
     const owned = new Set(rosterNames.map((n) => normalizeName(n)));
 
+    // "Nothing to report" and "could not reach the feed" are completely
+    // different facts and must never share a message. One means relax, the
+    // other means your recommendations are missing this morning's injuries.
     if (!items.length) {
-      newsContainer.innerHTML =
-        '<div class="empty-state">The ESPN feed returned nothing right now.</div>';
-      indicator.innerHTML = 'Live Feed';
+      newsContainer.innerHTML = `
+        <div class="empty-state">
+          <div style="color:var(--text-primary); font-weight:600; margin-bottom:0.3rem;">
+            No news right now</div>
+          <div style="font-size:0.82rem;">
+            The feed is working — ESPN has published nothing new. Recommendations
+            are current.
+          </div>
+        </div>`;
+      indicator.innerHTML = 'No news';
       indicator.style.background = '';
       return;
     }
@@ -2050,12 +2060,39 @@ async function fetchLiveBreakingNews(rosterNames = []) {
         </div>`;
     }).join('');
 
-    indicator.innerHTML = 'Live Feed';
+    const actionable = items.filter((i) => i.type).length;
+    const mineCount = scored.filter((x) => x.mine).length;
+    indicator.innerHTML = mineCount ? `${mineCount} affect you` : 'Live Feed';
     indicator.style.background = '';
+
+    // Say plainly when a full feed contains nothing that changes a decision --
+    // otherwise a wall of camp reports reads as though something is wrong.
+    if (!actionable && !mineCount) {
+      newsContainer.insertAdjacentHTML('afterbegin', `
+        <div style="padding:0.6rem 0.9rem; margin-bottom:0.6rem; border-radius:6px;
+                    background:rgba(255,255,255,0.04); font-size:0.82rem;
+                    color:var(--text-secondary);">
+          <strong style="color:var(--text-primary);">Nothing actionable.</strong>
+          ${items.length} headlines checked — no injuries, trades or depth-chart
+          changes affecting your roster or the players you could claim.
+        </div>`);
+    }
   } catch (err) {
     console.error('News feed failed:', err);
-    newsContainer.innerHTML = `<div class="empty-state" style="color:#ff1744;">
-      Could not reach the ESPN news feed. ${err.message}</div>`;
+    newsContainer.innerHTML = `
+      <div class="empty-state">
+        <div style="color:#ff1744; font-weight:600; margin-bottom:0.3rem;">
+          Could not reach the news feed</div>
+        <div style="font-size:0.82rem; color:var(--text-secondary);">
+          This is a connection failure, not quiet news — an injury from this
+          morning would not be reflected in your recommendations.
+          <br><span style="opacity:0.7;">${err.message}</span>
+        </div>
+        <button id="btn-news-retry-feed" class="btn-secondary"
+          style="margin-top:0.6rem; padding:0.25rem 0.7rem; font-size:0.8rem;">Retry</button>
+      </div>`;
+    const retry = document.getElementById('btn-news-retry-feed');
+    if (retry) retry.onclick = () => fetchLiveBreakingNews(rosterNames);
     indicator.innerHTML = 'Offline';
   }
 }
