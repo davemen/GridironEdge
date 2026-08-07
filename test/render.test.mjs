@@ -1,0 +1,156 @@
+/**
+ * Actually render every page against a realistic league.
+ *
+ * Run: node test/render.test.mjs
+ *
+ * This exists because a card went blank for several rounds and nothing caught
+ * it. The cause was a deleted variable declaration -- `myRoster` was still used
+ * a hundred lines below where it had been removed -- which is a ReferenceError
+ * at render time and completely invisible to a syntax check or an import-time
+ * boot check. It threw immediately after the container had been cleared, so the
+ * card emptied and every section below it stopped drawing, which reads exactly
+ * like "there is nothing to show".
+ *
+ * So: build a league the way a live draft produces one, call each renderer, and
+ * fail on a throw. Also assert the panels that must never be silently blank
+ * actually received content.
+ */
+import { readFileSync } from 'fs';
+import { fileURLToPath } from 'url';
+import { join } from 'path';
+
+const ROOT = join(fileURLToPath(new URL('.', import.meta.url)), '..');
+
+// ---- a DOM stub that remembers what was written to each element ------------
+const written = new Map();
+const mem = new Map();
+globalThis.localStorage = {
+  getItem: (k) => (mem.has(k) ? mem.get(k) : null),
+  setItem: (k, v) => mem.set(k, String(v)),
+  removeItem: (k) => mem.delete(k),
+};
+
+function makeEl(id) {
+  const el = {
+    id,
+    style: { cssText: '' },
+    classList: { add() {}, remove() {}, contains() { return false; } },
+    children: [], parentElement: null,
+    get innerHTML() { return written.get(id) || ''; },
+    set innerHTML(v) { written.set(id, String(v)); },
+    innerText: '', textContent: '', value: '',
+    addEventListener() {}, removeEventListener() {},
+    appendChild() {}, remove() {}, insertBefore() {}, insertAdjacentHTML() {},
+    setAttribute() {}, getAttribute() { return null; },
+    querySelector: () => makeEl(id + ':child'), querySelectorAll: () => [],
+    closest: () => null, focus() {},
+  };
+  el.parentElement = { parentElement: { appendChild() {} }, appendChild() {} };
+  return el;
+}
+const elCache = new Map();
+const getEl = (id) => {
+  if (!elCache.has(id)) elCache.set(id, makeEl(id));
+  return elCache.get(id);
+};
+globalThis.document = {
+  body: makeEl('body'), documentElement: makeEl('html'),
+  getElementById: (id) => getEl(id),
+  querySelector: (sel) => getEl(sel), querySelectorAll: () => [],
+  createElement: () => makeEl('created'), addEventListener() {},
+};
+globalThis.window = globalThis;
+globalThis.setInterval = () => 0;
+globalThis.setTimeout = (fn) => { try { fn(); } catch (e) { /* surfaced by the caller */ } return 0; };
+
+const projections = JSON.parse(readFileSync(join(ROOT, 'data/projections-2026.json'), 'utf8'));
+globalThis.fetch = async (url) => {
+  if (String(url).includes('projections')) return { ok: true, json: async () => projections };
+  // No network in a test: news and sync endpoints simply fail, which is a state
+  // the pages have to survive anyway.
+  throw new Error('network disabled in tests');
+};
+
+// The pages fire background fetches (news, sync) that are meant to fail here.
+// Their rejections are handled inside the app; this only keeps the noise out of
+// the test output.
+process.on('unhandledRejection', () => {});
+
+const { default: store } = await import(join(ROOT, 'js/store.js'));
+const { toPlayerDatabase, findPlayer } = await import(join(ROOT, 'js/player-database.js'));
+const app = await import(join(ROOT, 'js/app.js'));
+
+let passed = 0, failed = 0;
+function check(name, cond, detail = '') {
+  if (cond) { passed++; console.log(`  ok   ${name}`); }
+  else { failed++; console.log(`  FAIL ${name}${detail ? ' — ' + detail : ''}`); }
+}
+
+/** A league shaped the way a live auction draft produces one. */
+function buildLeague({ picks = 3, unattributed = 0 } = {}) {
+  const db = toPlayerDatabase(projections);
+  const board = Object.values(db).sort((a, b) => b.projectedPoints - a.projectedPoints);
+  const teams = [{ teamId: 5, teamName: "Mac's Marauders", roster: [], faabRemaining: 122,
+                   record: { wins: 0, losses: 0, ties: 0 }, pointsScored: 0, pointsAllowed: 0 }];
+  for (let i = 1; i <= 8; i++) {
+    if (i === 5) continue;
+    teams.push({ teamId: i, teamName: `Team ${i}`, roster: [], faabRemaining: 150,
+                 record: { wins: 0, losses: 0, ties: 0 }, pointsScored: 0, pointsAllowed: 0 });
+  }
+  const selections = [];
+  for (let i = 0; i < picks; i++) {
+    teams[0].roster.push(board[i].id);
+    selections.push({ pick: i + 1, playerId: board[i].id, teamId: 5, bidAmount: 40 });
+  }
+  for (let i = 0; i < unattributed; i++) {
+    selections.push({ pick: picks + i + 1, playerId: board[picks + i].id, teamId: null, bidAmount: 10 });
+  }
+  return {
+    leagueId: 'TEST', leagueName: 'Test', leagueSize: 8, myTeamId: 5,
+    scoringFormat: 'PPR', teams, schedule: [], transactionHistory: [],
+    rosterSettings: { QB: 1, RB: 2, WR: 2, TE: 1, FLEX: 1, 'D/ST': 1, K: 1, BE: 7,
+                      startersCount: 9, benchCount: 7 },
+    waiverSettings: { faabBudget: 100, waiverType: 'FAAB', processingDays: [] },
+    draftState: { draftType: 'auction', selections, currentPick: picks + unattributed + 1,
+                  currentNomination: null },
+    playerDatabase: db,
+  };
+}
+
+function load(league) {
+  written.clear();
+  store.state.leagues = { [league.leagueId]: league };
+  store.state.currentLeagueId = league.leagueId;
+  store.state.playerDatabase = league.playerDatabase;
+  store.state.activeTab = 'home';
+}
+
+const PAGES = ['renderHomePage', 'renderRosterPage', 'renderMatchupPage',
+               'renderChampionshipPage', 'renderAlertsPage', 'renderWaiversPage',
+               'renderLeaguePage', 'renderTradesPage', 'renderSettingsPage'];
+
+for (const scenario of [
+  { name: 'mid-draft, 3 players', opts: { picks: 3 } },
+  { name: 'mid-draft, 84 picks unattributed', opts: { picks: 3, unattributed: 84 } },
+  { name: 'nothing drafted yet', opts: { picks: 0 } },
+]) {
+  console.log(`\n${scenario.name}`);
+  const league = buildLeague(scenario.opts);
+  load(league);
+  for (const name of PAGES) {
+    const fn = app[name];
+    if (typeof fn !== 'function') { check(`${name} is exported`, false); continue; }
+    let err = null;
+    try { fn(league); } catch (e) { err = e; }
+    check(`${name} renders`, !err, err && `${err.constructor.name}: ${err.message}`);
+  }
+  // The card that started this. Blank here means blank on screen.
+  const moves = written.get('home-recommendations') || '';
+  check('Highest-Impact Moves is not blank', moves.trim().length > 0,
+    `got ${moves.length} chars`);
+  const champ = written.get('dashboard-champ-prob') || '';
+  check('Championship Outlook has a figure', /\d/.test(champ), `got "${champ}"`);
+}
+
+console.log(`\n${passed} passed, ${failed} failed`);
+if (failed) process.exit(1);

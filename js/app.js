@@ -671,10 +671,11 @@ function draftMovesHtml(league, ranked, meRanked, drafting = true) {
 }
 
 // Render Dashboard (Home) View
-function renderHomePage(league = store.getActiveLeague()) {
+export function renderHomePage(league = store.getActiveLeague()) {
   if (!league) return;
 
   const myTeam = store.getMyTeam();
+  const myRoster = myTeam?.roster || [];
   const db = league.playerDatabase;
   const hasSchedule = Array.isArray(league.schedule) && league.schedule.length > 0;
 
@@ -888,6 +889,14 @@ function renderHomePage(league = store.getActiveLeague()) {
   const standingsHead = standingsTable.querySelector('thead tr');
   standingsBody.innerHTML = '';
 
+  // Sorted by record, for the in-season table further down. Declared here
+  // because the preseason branch needs to know whether any game has been played.
+  const sortedTeams = [...league.teams].sort((a, b) => {
+    if ((b.record?.wins || 0) !== (a.record?.wins || 0)) {
+      return (b.record?.wins || 0) - (a.record?.wins || 0);
+    }
+    return (b.pointsScored || 0) - (a.pointsScored || 0);
+  });
   const played = sortedTeams.some(t => (t.record?.wins || 0) + (t.record?.losses || 0) > 0);
   if (!played) {
     if (standingsHead) {
@@ -1020,7 +1029,7 @@ function renderDraftReadiness(state) {
 }
 
 // Render Live Draft Command Center
-function renderDraftPage(league = store.getActiveLeague()) {
+export function renderDraftPage(league = store.getActiveLeague()) {
   if (!league) return;
   checkDraftReadiness().then(renderDraftReadiness).catch(() => {});
 
@@ -1466,7 +1475,7 @@ function renderAuctionBoard(league, db, rec) {
 }
 
 // Render Team Roster View
-function renderRosterPage(league = store.getActiveLeague()) {
+export function renderRosterPage(league = store.getActiveLeague()) {
   const myTeam = store.getMyTeam();
   if (!myTeam) return;
 
@@ -1666,7 +1675,7 @@ function renderBracketAdvice(advice, applied) {
 }
 
 // Render Matchup View
-function renderMatchupPage(league = store.getActiveLeague()) {
+export function renderMatchupPage(league = store.getActiveLeague()) {
   const myTeam = store.getMyTeam();
   if (!myTeam) return;
 
@@ -1960,7 +1969,7 @@ function newsBannerHtml(league) {
   </div>`;
 }
 
-function renderWaiversPage(league = store.getActiveLeague()) {
+export function renderWaiversPage(league = store.getActiveLeague()) {
   if (!league) return;
 
   const listContainer = document.getElementById('waiver-recommendations-list');
@@ -2060,7 +2069,7 @@ function renderWaiversPage(league = store.getActiveLeague()) {
 }
 
 // Render Trade Proposal Center
-function renderTradesPage(league = store.getActiveLeague()) {
+export function renderTradesPage(league = store.getActiveLeague()) {
   if (!league) return;
 
   const listContainer = document.getElementById('trade-proposals-list');
@@ -2140,7 +2149,7 @@ function renderTradesPage(league = store.getActiveLeague()) {
 }
 
 // Render League Teams intelligence
-function renderLeaguePage(league = store.getActiveLeague()) {
+export function renderLeaguePage(league = store.getActiveLeague()) {
   if (!league) return;
 
   const selector = document.getElementById('league-team-selector');
@@ -2311,7 +2320,7 @@ function renderPreseasonOutlook(league, runs = 3000) {
   }
 }
 
-function renderChampionshipPage(league = store.getActiveLeague()) {
+export function renderChampionshipPage(league = store.getActiveLeague()) {
   if (!league) return;
 
   // The three headline percentages ship as literal numbers in the markup, and
@@ -2416,7 +2425,7 @@ function renderChampionshipPage(league = store.getActiveLeague()) {
 }
 
 // Render Alerts View
-function renderAlertsPage(league = store.getActiveLeague()) {
+export function renderAlertsPage(league = store.getActiveLeague()) {
   const container = document.getElementById('alerts-list-container');
   container.innerHTML = '';
 
@@ -2635,7 +2644,7 @@ async function fetchLiveBreakingNews(rosterNames = [], force = false) {
 }
 
 // Render Settings Form inputs
-function renderSettingsPage(league = store.getActiveLeague()) {
+export function renderSettingsPage(league = store.getActiveLeague()) {
   if (!league) return;
 
   document.getElementById('settings-league-name').innerHTML = league.leagueName;
