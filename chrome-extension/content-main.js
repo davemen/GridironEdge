@@ -73,13 +73,23 @@
           let bid = null;
           let maxAffordable = null;
           try {
-            const amountEl = card.querySelector('.current-amount')
-              || document.querySelector('[data-testid="bidding-form"] .current-amount')
-              || document.querySelector('.current-amount');
-            if (amountEl && amountEl.innerText) {
-              const m = amountEl.innerText.match(/\$\s?([\d,]+)/);
-              if (m) bid = parseInt(m[1].replace(/,/g, ''), 10);
-            }
+            // There can be more than one ".current-amount" on the page -- bid
+            // history rows carry the same class -- and taking the first found a
+            // stale or opening value like $1 while the live offer was far
+            // higher. Collect every candidate and take the largest, preferring
+            // the one inside the bidding form when it exists.
+            const amountEls = [
+              ...document.querySelectorAll('[data-testid="bidding-form"] .current-amount'),
+              ...(card ? card.querySelectorAll('.current-amount') : []),
+              ...document.querySelectorAll('.current-amount'),
+            ];
+            const seenAmounts = [];
+            amountEls.forEach(el => {
+              const t = el && el.innerText ? el.innerText : '';
+              const m = t.match(/\$\s?([\d,]+)/);
+              if (m) seenAmounts.push(parseInt(m[1].replace(/,/g, ''), 10));
+            });
+            if (seenAmounts.length) bid = Math.max(...seenAmounts);
 
             const maxEl = card.querySelector('.manual-bid')
               || document.querySelector('[data-testid="bidding-form"] .manual-bid')
@@ -160,12 +170,27 @@
 
         if (pick === -1 || seenPicks.has(pick)) return;
 
+        // Reject rows that actually contain several players. The selector
+        // includes plain divs, so a wrapper's innerText can concatenate the
+        // whole table -- which produced player names like
+        // "Bijan Robinson ATL RB Team 3 370.8 353 $47 2 Christian McCaffrey".
+        let teamTokenCount = 0;
+        for (let i = nameStartIdx; i < parts.length; i++) {
+          if (nflTeams.has(parts[i].toUpperCase())) teamTokenCount++;
+        }
+        if (teamTokenCount > 1) return;
+
+        // Take the FIRST team and position token, not the last. Scanning the
+        // whole row and overwriting on every match meant a merged row pointed
+        // at a later player's team while the name swallowed everything before
+        // it.
         let teamIdx = -1;
         let posIdx = -1;
         for (let i = nameStartIdx; i < parts.length; i++) {
           const pUpper = parts[i].toUpperCase();
-          if (nflTeams.has(pUpper)) teamIdx = i;
-          if (positions.has(pUpper)) posIdx = i;
+          if (teamIdx === -1 && nflTeams.has(pUpper)) teamIdx = i;
+          if (posIdx === -1 && positions.has(pUpper)) posIdx = i;
+          if (teamIdx !== -1 && posIdx !== -1) break;
         }
 
         if (teamIdx !== -1 && posIdx !== -1) {
@@ -486,7 +511,14 @@
         const isDraftPage = window.location.pathname.includes('/draft');
         if (lastSeenPicks.length === 0 && !(isDraftPage && currentNom)) return;
 
-        let uniqueTeams = Array.from(new Set(lastSeenPicks.map(p => p.drafterTeamName)));
+        const scrapedForNames = scrapeTeamsAndBudgets();
+        let uniqueTeams = Array.from(new Set([
+          // The pick train lists every team whether or not they have drafted,
+          // so it is a better roster of the league than names recovered from
+          // pick rows, which only cover teams that already own somebody.
+          ...scrapedForNames.map(b => b.teamName),
+          ...lastSeenPicks.map(p => p.drafterTeamName),
+        ].filter(Boolean)));
         if (uniqueTeams.length === 0) {
           uniqueTeams = ["Team 1", "Team 2", "Team 3", "Team 4", "Team 5", "Team 6", "Team 7", "Team 8"];
         }
