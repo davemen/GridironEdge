@@ -1317,10 +1317,10 @@ export function renderDraftPage(league = store.getActiveLeague()) {
     recPanel.innerHTML = `
       <h3 style="color:var(--accent-cyan); font-size: 1.3rem; margin-bottom: 0.5rem; font-family:var(--font-family-title);">Draft ${esc(rec.primaryPick.name)} now.</h3>
       <div style="font-size: 0.95rem; color: var(--text-primary); display:flex; flex-direction:column; gap:0.4rem; margin-bottom: 1rem;">
-        <p><strong>Rationale:</strong> ${rec.whyBest}</p>
+        <p><strong>Rationale:</strong> ${esc(rec.whyBest)}</p>
         <p><strong>Expected Advantage:</strong> ${rec.advantage}</p>
         <p><strong>Risk Level:</strong> ${rec.riskLevel}</p>
-        <p><strong>Future Roster Plan:</strong> ${rec.planChange}</p>
+        <p><strong>Future Roster Plan:</strong> ${esc(rec.planChange)}</p>
       </div>
       
       <div style="border-top:1px solid var(--border-color); padding-top:0.75rem;">
@@ -1886,7 +1886,7 @@ export function renderRosterPage(league = store.getActiveLeague()) {
           <span class="player-team-pos">${esc(s.player.position)} — ${esc(s.player.team)}</span>
         </div>
       `;
-      opp = s.player.opponent ? `vs ${s.player.opponent}` : 'FA';
+      opp = s.player.opponent ? `vs ${esc(s.player.opponent)}` : 'FA';
       proj = `<span style="display:inline-flex; align-items:center;">${s.player.projectedPoints.toFixed(1)}${generateSparkline(s.player.matchProjs)}</span>`;
       badge = `<span class="badge-solid badge-cyan">Starter</span>`;
     }
@@ -1937,7 +1937,7 @@ export function renderRosterPage(league = store.getActiveLeague()) {
           <span class="player-team-pos">${esc(b.position)} — ${esc(b.team)}</span>
         </div>
       </div>
-      <span class="player-opponent">${b.opponent ? `vs ${b.opponent}` : 'FA'}</span>
+      <span class="player-opponent">${b.opponent ? `vs ${esc(b.opponent)}` : 'FA'}</span>
       <span class="player-proj" style="display:inline-flex; align-items:center;">${(b.projectedPoints || 0).toFixed(1)}${generateSparkline(b.matchProjs)}</span>
       <div class="player-status" style="text-align:right;">
         <span class="badge-solid badge-gold" style="background:transparent; border-color:var(--text-muted); color:var(--text-secondary);">Bench</span>
@@ -2084,7 +2084,7 @@ export function renderMatchupPage(league = store.getActiveLeague()) {
           <span class="player-team-pos">${esc(p.position)} — ${esc(p.team)}</span>
         </div>
       </div>
-      <span class="player-opponent">${p.opponent ? `vs ${p.opponent}` : ''}</span>
+      <span class="player-opponent">${p.opponent ? `vs ${esc(p.opponent)}` : ''}</span>
       <span class="player-proj" style="color: var(--accent-green);">${p.projectedPoints.toFixed(1)}</span>
       <div class="player-status" style="text-align:right;">
         <span class="badge-solid badge-cyan">Optimize</span>
@@ -2101,7 +2101,7 @@ export function renderMatchupPage(league = store.getActiveLeague()) {
     opt.replacementPlans.forEach(plan => {
       ratHtml += `
         <li style="border-left: 2px solid var(--accent-red); padding-left: 0.5rem; list-style:none;">
-          <strong style="color:var(--accent-red);">Replacement Backup Plan:</strong> ${plan.condition}
+          <strong style="color:var(--accent-red);">Replacement Backup Plan:</strong> ${esc(plan.condition)}
         </li>
       `;
     });
@@ -2287,10 +2287,11 @@ function newsBannerHtml(league) {
     const row = (x, tone) => `
       <div style="display:flex; gap:0.6rem; align-items:baseline; padding:0.3rem 0;
                   font-size:0.82rem; border-bottom:1px solid rgba(255,255,255,0.05);">
-        <strong style="color:${tone}; min-width:150px;">${x.player}</strong>
+        <strong style="color:${tone}; min-width:150px;">${esc(x.player)}</strong>
         <span style="color:var(--text-secondary); font-size:0.75rem;">${esc(x.position)}-${esc(x.team)}</span>
         <span style="flex:1; color:var(--text-secondary);">
-          ${x.headline || `${x.addsLast24h.toLocaleString()} managers added him in 24h`}
+          ${x.headline ? esc(x.headline)
+            : `${x.addsLast24h.toLocaleString()} managers added him in 24h`}
         </span>
         ${x.urgency === 'high' ? '<span style="color:#ff5252; font-size:0.7rem; font-weight:800;">URGENT</span>' : ''}
       </div>`;
