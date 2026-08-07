@@ -15,13 +15,13 @@
   try {
     // There is no server any more; the question is whether the worker stored
     // anything. Run this from the ESPN tab.
-    const res = { ok: true, json: async () => ({ note: 'server removed in v2.0' }) };
+    // Hop 2 was 'can this page reach the local server'. There is no server,
+  // so the check reported a hardcoded YES for a hop that no longer exists --
+  // a diagnostic that cannot fail is worse than no diagnostic. Removed.
     const j = await res.json();
-    r['2_server_reachable'] = 'YES';
-    r['3_sync_file_age_mins'] = Math.round((j.syncFileAgeSeconds || 0) / 60);
+        r['3_sync_file_age_mins'] = Math.round((j.syncFileAgeSeconds || 0) / 60);
   } catch (e) {
-    r['2_server_reachable'] = 'NO — ' + e.message;
-  }
+      }
 
   // Hop 3: does a scrape actually produce anything to send?
   const card = document.querySelector('.pickArea [data-testid="player-selected"], .pickArea');

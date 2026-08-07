@@ -1155,14 +1155,6 @@ export function renderHomePage(league = store.getActiveLeague()) {
 }
 
 /**
- * Is the local sync server up, and is the extension actually feeding it?
- *
- * A web page cannot start a process -- that is a browser security boundary with
- * no way around it. What it can do is make the failure impossible to miss,
- * because the states below look identical from the draft screen and only one of
- * them means the advice on it is live.
- */
-/**
  * Is live draft data actually reaching this page?
  *
  * The three states below look identical from the draft screen, and only one of

@@ -726,10 +726,11 @@
    * Read every team's roster by stepping the dropdown through the league.
    *
    * An auction renders one roster at a time, so this is the only way to see
-   * the whole board without the Draft Summary tab. It is deliberately NOT part
-   * of the automatic scrape: it writes to the page you are drafting in, and
-   * doing that every few seconds would flicker the roster panel through eight
-   * teams continuously while you are trying to bid. It runs only when asked.
+   * the whole board without the Draft Summary tab. It is not part of the
+   * ordinary scrape -- that runs many times a second, and this writes to the
+   * page you are drafting in. It is asked for separately and no more than once
+   * a minute; the throttle is what bounds the flicker, not any promise that it
+   * only runs when a user presses something. The app asks for it by itself.
    *
    * The selection is restored in a finally block. Leaving somebody else's
    * roster on screen mid-auction is worse than not running at all -- you would

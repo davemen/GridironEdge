@@ -6,8 +6,8 @@ clicked, submitted or sent anywhere.
 
 | File | Answers |
 |---|---|
-| `diagnose.js` | What can and cannot the scraper see on this page? Dumps the nomination card, bid controls, results table and budget rows it finds. |
-| `syncheck.js` | Is the sync loop running, and is the local server receiving? |
+| `diagnose.js` | What can and cannot the scraper see on this page? Dumps the nomination card, bid controls, budget rows and the results table where one exists — an auction room renders none. |
+| `syncheck.js` | Is the sync loop running, and did the worker store the last payload? |
 | `bidcheck.js` | What does the live bid element actually contain right now? |
 
 Before reaching for these, check `window.__GRIDIRON_EDGE_VERSION__` in the page
