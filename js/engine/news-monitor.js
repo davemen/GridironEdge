@@ -84,6 +84,62 @@ export function normalizeName(name) {
     .trim();
 }
 
+/** NFL team abbreviations, keyed by the club names ESPN writes in its tags. */
+export const TEAM_ALIASES = {
+  ARI: ['cardinals', 'arizona'], ATL: ['falcons', 'atlanta'],
+  BAL: ['ravens', 'baltimore'], BUF: ['bills', 'buffalo'],
+  CAR: ['panthers', 'carolina'], CHI: ['bears', 'chicago'],
+  CIN: ['bengals', 'cincinnati'], CLE: ['browns', 'cleveland'],
+  DAL: ['cowboys', 'dallas'], DEN: ['broncos', 'denver'],
+  DET: ['lions', 'detroit'], GB: ['packers', 'green bay'],
+  HOU: ['texans', 'houston'], IND: ['colts', 'indianapolis'],
+  JAX: ['jaguars', 'jacksonville'], KC: ['chiefs', 'kansas city'],
+  LAC: ['chargers'], LAR: ['rams'], LV: ['raiders', 'las vegas'],
+  MIA: ['dolphins', 'miami'], MIN: ['vikings', 'minnesota'],
+  NE: ['patriots', 'new england'], NO: ['saints', 'new orleans'],
+  NYG: ['giants'], NYJ: ['jets'], PHI: ['eagles', 'philadelphia'],
+  PIT: ['steelers', 'pittsburgh'], SEA: ['seahawks', 'seattle'],
+  SF: ['49ers', 'san francisco'], TB: ['buccaneers', 'tampa bay'],
+  TEN: ['titans', 'tennessee'], WAS: ['commanders', 'washington'],
+};
+
+/**
+ * Why an article matters to a specific roster, or null if it does not.
+ *
+ * Matching only on athlete tags misses most of a preseason feed, which is
+ * written about teams rather than individuals. So a player is considered hit if
+ * he is tagged, if his name appears in the text, or -- more weakly -- if the
+ * article is about his NFL club.
+ */
+export function relevanceTo(item, roster) {
+  if (!roster || !roster.length) return null;
+  const text = `${item.headline || ''} ${item.description || ''}`.toLowerCase();
+  const tagged = (item.players || []).map((n) => normalizeName(n));
+  const tags = [...(item.teams || []), item.team].filter(Boolean)
+    .map((t) => String(t).toLowerCase());
+
+  const named = [];
+  const teammates = [];
+  roster.forEach((p) => {
+    const key = normalizeName(p.name);
+    if (!key) return;
+    if (tagged.includes(key) || text.includes(key)) {
+      named.push(p.name);
+      return;
+    }
+    const aliases = TEAM_ALIASES[p.team] || [];
+    if (aliases.some((a) => tags.some((t) => t.includes(a)) || text.includes(a))) {
+      teammates.push(p.name);
+    }
+  });
+
+  if (named.length) return { strength: 'player', players: named,
+                             why: named.slice(0, 2).join(', ') };
+  if (teammates.length) return { strength: 'team', players: teammates,
+                                 why: `${teammates[0]}'s team` };
+  return null;
+}
+
 /** Which fantasy event, if any, a headline describes. */
 export function classifyHeadline(text) {
   const s = String(text || '');
@@ -133,9 +189,18 @@ export async function fetchLeagueNews({ classifiedOnly = true } = {}) {
         players.push(c.description);
       }
     });
+    // Keep every team tag, not just the last one. An article about a trade
+    // names two, and a roster is far likelier to intersect a team than a
+    // specific athlete -- ESPN tags athletes sparsely in the preseason, when
+    // most of the feed is camp coverage.
+    const teams = [];
+    (a.categories || []).forEach((c) => {
+      if (c.type === 'team' && c.description) teams.push(c.description);
+    });
     items.push({
-      type, team, players,
+      type, team, teams, players,
       headline: a.headline || '',
+      description: a.description || '',
       published: a.published || a.lastModified || null,
       source: 'ESPN',
     });

@@ -9,7 +9,7 @@ import { recommendBid, targetBoard, buildLeagueState } from './engine/auction-ad
 import { optimizeLineup } from './engine/lineup-optimizer.js';
 import { recommendLineupStrategy } from './engine/bracket-strategy.js';
 import { evaluateWaivers, getWaiverRecommendations, CATEGORY, ACTION } from './engine/roster-manager.js';
-import { refreshNews, fetchLeagueNews, normalizeName, EVENT_IMPACT }
+import { refreshNews, fetchLeagueNews, normalizeName, relevanceTo, EVENT_IMPACT }
   from './engine/news-monitor.js';
 import { generateTradeProposals } from './engine/trade-generator.js';
 import { runSeasonSimulation } from './engine/simulator.js';
@@ -2001,7 +2001,14 @@ async function fetchLiveBreakingNews(rosterNames = []) {
     // Everything, not just transactional events -- a panel that says
     // "no news" while fifty articles exist is worse than useless.
     const items = await fetchLeagueNews({ classifiedOnly: false });
-    const owned = new Set(rosterNames.map((n) => normalizeName(n)));
+    // Roster objects, not just names: relevance also matches on a player's NFL
+    // club, because a preseason feed is written about teams rather than
+    // individuals and name-matching alone finds almost nothing.
+    const myTeamNow = store.getMyTeam();
+    const dbNow = (store.getActiveLeague() || {}).playerDatabase || {};
+    const roster = (myTeamNow?.roster || [])
+      .map((id) => dbNow[id]).filter(Boolean)
+      .map((p) => ({ name: p.name, team: p.team }));
 
     // "Nothing to report" and "could not reach the feed" are completely
     // different facts and must never share a message. One means relax, the
@@ -2023,12 +2030,15 @@ async function fetchLiveBreakingNews(rosterNames = []) {
 
     // Anything touching a player you own goes first. A chronological feed makes
     // you hunt for the one line that matters.
-    const scored = items.map((it) => ({
-      item: it,
-      mine: (it.players || []).some((n) => owned.has(normalizeName(n))),
-    }));
-    // Your players first, then anything that moves a valuation, then the rest.
-    scored.sort((a, b) => (b.mine - a.mine)
+    const RANK = { player: 2, team: 1 };
+    const scored = items.map((it) => {
+      const rel = relevanceTo(it, roster);
+      return { item: it, rel, mine: !!rel };
+    });
+    // Named players first, then their clubs, then anything that moves a
+    // valuation, then everything else.
+    scored.sort((a, b) =>
+      (RANK[b.rel?.strength] || 0) - (RANK[a.rel?.strength] || 0)
       || ((b.item.type ? 1 : 0) - (a.item.type ? 1 : 0)));
 
     const tone = {
@@ -2037,7 +2047,8 @@ async function fetchLiveBreakingNews(rosterNames = []) {
       returning: '#16c784',
     };
 
-    newsContainer.innerHTML = scored.slice(0, 20).map(({ item, mine }) => {
+    newsContainer.innerHTML = scored.slice(0, 20).map(({ item, rel }) => {
+      const mine = !!rel;
       const label = (EVENT_IMPACT[item.type] || {}).label || item.type || 'news';
       const when = item.published
         ? new Date(item.published).toLocaleString([], { month: 'short', day: 'numeric',
@@ -2050,7 +2061,9 @@ async function fetchLiveBreakingNews(rosterNames = []) {
             <span style="font-size:0.68rem; font-weight:800; letter-spacing:0.5px;
                          text-transform:uppercase; color:${tone[item.type] || '#8a94a6'};">
               ${label}</span>
-            ${mine ? '<span style="font-size:0.68rem; font-weight:800; color:#ff5252;">ON YOUR ROSTER</span>' : ''}
+            ${rel ? `<span style="font-size:0.68rem; font-weight:800;
+                 color:${rel.strength === 'player' ? '#ff5252' : '#ffb020'};">
+                 ${rel.strength === 'player' ? 'YOUR PLAYER' : 'YOUR TEAM'}: ${rel.why}</span>` : ''}
             <span style="margin-left:auto; font-size:0.7rem; color:var(--text-secondary);">${when}</span>
           </div>
           <div style="font-size:0.9rem; margin-top:0.25rem;">${item.headline}</div>
@@ -2061,7 +2074,7 @@ async function fetchLiveBreakingNews(rosterNames = []) {
     }).join('');
 
     const actionable = items.filter((i) => i.type).length;
-    const mineCount = scored.filter((x) => x.mine).length;
+    const mineCount = scored.filter((x) => x.rel).length;
     indicator.innerHTML = mineCount ? `${mineCount} affect you` : 'Live Feed';
     indicator.style.background = '';
 
@@ -2073,8 +2086,9 @@ async function fetchLiveBreakingNews(rosterNames = []) {
                     background:rgba(255,255,255,0.04); font-size:0.82rem;
                     color:var(--text-secondary);">
           <strong style="color:var(--text-primary);">Nothing actionable.</strong>
-          ${items.length} headlines checked — no injuries, trades or depth-chart
-          changes affecting your roster or the players you could claim.
+          ${items.length} headlines checked — nothing mentions your players or
+          their teams, and no injuries, trades or depth-chart changes affect the
+          players you could claim.
         </div>`);
     }
   } catch (err) {
