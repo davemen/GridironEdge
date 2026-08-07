@@ -587,10 +587,10 @@ function renderApp(state) {
  * measured against what the rest of the league gets from the same slot, and the
  * prices come from the same engine the Live Draft tab uses.
  */
-function draftMovesHtml(league, ranked, meRanked) {
+function draftMovesHtml(league, ranked, meRanked, drafting = true) {
   const moves = highestImpactMoves(league, freeAgentsIn(league));
-  const isAuction = (league.draftState || {}).draftType === 'auction';
-  const nom = (league.draftState || {}).currentNomination;
+  const isAuction = drafting && (league.draftState || {}).draftType === 'auction';
+  const nom = drafting ? (league.draftState || {}).currentNomination : null;
   let html = '';
 
   // A live nomination outranks everything -- it is the only decision with a
@@ -619,9 +619,26 @@ function draftMovesHtml(league, ranked, meRanked) {
     }
   }
 
-  const top = moves.filter((m) => m.candidate).slice(0, 3);
+  // Keep the slots with no available upgrade. "Your quarterback is 8.8 points a
+  // week behind the league and nothing on the wire beats him" is the single most
+  // useful line on the page -- it says trade -- and dropping it for want of a
+  // player to name is what left this card blank on a finished roster.
+  const top = moves.slice(0, 3);
   top.forEach((m) => {
     const p = m.candidate;
+    if (!p) {
+      html += `
+        <div class="recommendation-item medium-confidence">
+          <div class="item-action-title">Upgrade ${m.slot}
+            <span class="badge-solid badge-gold">${m.gap}/wk behind</span></div>
+          <div class="item-details">
+            ${m.current || 'This slot'} projects ${m.currentPoints}/wk against a league
+            median of ${m.leagueMedian}. Nothing available beats him, so this is a
+            trade target rather than a claim.
+          </div>
+        </div>`;
+      return;
+    }
     let price = '';
     if (isAuction) {
       try {
@@ -637,7 +654,7 @@ function draftMovesHtml(league, ranked, meRanked) {
       : `${m.slot} projects ${m.currentPoints}/wk, ${m.gap} behind the league median of ${m.leagueMedian}.`;
     html += `
       <div class="recommendation-item ${m.empty ? 'high-confidence' : 'medium-confidence'}">
-        <div class="item-action-title">Target ${p.name} (${p.position})
+        <div class="item-action-title">${drafting ? 'Target' : 'Add'} ${p.name} (${p.position})
           <span class="badge-solid ${m.empty ? 'badge-green' : 'badge-gold'}">+${m.upgrade}/wk</span></div>
         <div class="item-details">${why}${price}</div>
       </div>`;
@@ -646,7 +663,8 @@ function draftMovesHtml(league, ranked, meRanked) {
   if (!html) {
     const done = meRanked && !meRanked.holes.length;
     html = `<div class="empty-state">${done
-      ? 'Every starting slot is filled. Remaining picks are bench depth — take the best player left.'
+      ? 'Every starting slot is at or above the league median, and nothing available '
+        + 'improves one. This is a strong roster — hold it.'
       : 'Nothing available improves a starting slot yet.'}</div>`;
   }
   return html;
@@ -749,9 +767,14 @@ function renderHomePage(league = store.getActiveLeague()) {
   // actions you can take -- and when both engines returned nothing the card
   // said "Roster is fully optimized" over six empty starting slots. What is
   // actually highest-impact during a draft is who to buy next and what to pay.
+  // The moves card is useful for the whole preseason, not only during the
+  // draft. It used to hand back to the waiver and trade engines the moment the
+  // last pick landed -- and preseason those have nothing to say, so the card
+  // went blank exactly when the roster was finally complete enough to assess.
   const drafting = picksMade < picksTotal;
-  const waiverRec = drafting ? null : getWaiverRecommendations(league)[0];
-  const tradeRec = drafting ? null : generateTradeProposals(league)[0];
+  const preseasonMoves = !hasSchedule;
+  const waiverRec = preseasonMoves ? null : getWaiverRecommendations(league)[0];
+  const tradeRec = preseasonMoves ? null : generateTradeProposals(league)[0];
   const activeAlert = myRoster.map(id => db[id]).find(p => p && p.injuryStatus !== 'Healthy');
 
   let itemsHtml = '';
@@ -780,7 +803,7 @@ function renderHomePage(league = store.getActiveLeague()) {
     `;
   }
 
-  if (drafting) itemsHtml = draftMovesHtml(league, ranked, meRanked) + itemsHtml;
+  if (preseasonMoves) itemsHtml = draftMovesHtml(league, ranked, meRanked, drafting) + itemsHtml;
 
   if (!itemsHtml) {
     itemsHtml = '<div class="empty-state">No current actions needed — every starting slot '
