@@ -5,7 +5,7 @@
   // Version marker: lets a console check confirm whether Chrome is running the
   // current content script or a cached older one, which is the first thing to
   // rule out when a fix appears to have had no effect.
-  try { window.__GRIDIRON_EDGE_VERSION__ = '2026.08.06-dst'; } catch (e) {}
+  try { window.__GRIDIRON_EDGE_VERSION__ = '2026.08.06-roster'; } catch (e) {}
   console.log("[Gridiron Edge Sync] Main world script initialized (2026.08.05-bidfix).");
 
   let lastSyncKey = null;
@@ -547,17 +547,41 @@
           };
         });
 
+        // Who bought the player. The drafter's name is rebuilt from whatever
+        // tokens were left over in the pick row, so it rarely matches the pick
+        // train's version character for character -- and this used to demand
+        // exact equality, then blame team 1 for every miss. That silently piled
+        // the whole draft onto one roster: if you were team 1 you owned
+        // everybody, and if you were not, your roster never filled at all.
+        const norm = (x) => String(x || '').toLowerCase().replace(/\s+/g, ' ').trim();
+        const findDrafter = (name) => {
+          const n = norm(name);
+          if (!n) return null;
+          return teams.find(t => norm(t.teamName) === n)
+            || teams.find(t => norm(t.teamName).includes(n) || n.includes(norm(t.teamName)))
+            || null;
+        };
+
+        let unattributed = 0;
         const finalPicks = lastSeenPicks.map(p => {
-          const team = teams.find(t => t.teamName === p.drafterTeamName);
+          const team = findDrafter(p.drafterTeamName);
+          if (!team) unattributed++;
           return {
             overallPickNumber: p.overallPickNumber,
             playerName: p.playerName,
             playerPosition: p.playerPosition || p.position,
             playerTeam: p.playerTeam || p.team,
-            drafterTeamId: team ? team.teamId : 1,
+            // Null, not 1. An unattributed pick still takes the player off the
+            // board, but guessing an owner corrupts that team's roster AND the
+            // budget model every bid ceiling is derived from.
+            drafterTeamId: team ? team.teamId : null,
             bidAmount: typeof p.bidAmount === 'number' ? p.bidAmount : null
           };
         });
+        if (unattributed) {
+          console.warn('[Gridiron Edge] ' + unattributed + ' of ' + finalPicks.length
+            + ' picks could not be matched to a team.');
+        }
 
         let resolvedTeamId = 1;
         if (myTeamName) {

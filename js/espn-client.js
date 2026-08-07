@@ -221,17 +221,22 @@ class ESPNClient {
         }
 
         if (match) {
+          // A pick whose owner could not be identified still belongs in the
+          // selection list -- the player is off the board either way -- but it
+          // must not be handed to a team. Attributing it to a guess corrupts
+          // that roster and the budget model the bid ceilings read from.
+          const ownerId = typeof p.drafterTeamId === 'number' ? p.drafterTeamId : null;
           selections.push({
             pick: p.overallPickNumber,
             playerId: String(match.id),
-            teamId: p.drafterTeamId,
+            teamId: ownerId,
             // Price paid, when the draft room shows it. Drives the auction
             // engine's read on which managers overpay.
             bidAmount: typeof p.bidAmount === 'number' ? p.bidAmount : undefined
           });
           
           // Dynamically populate roster for the team
-          const team = teams.find(t => t.teamId === p.drafterTeamId);
+          const team = ownerId === null ? null : teams.find(t => t.teamId === ownerId);
           if (team) {
             team.roster.push(String(match.id));
           }
