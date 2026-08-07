@@ -5,8 +5,8 @@
   // Version marker: lets a console check confirm whether Chrome is running the
   // current content script or a cached older one, which is the first thing to
   // rule out when a fix appears to have had no effect.
-  try { window.__GRIDIRON_EDGE_VERSION__ = '2026.08.07-dedupe'; } catch (e) {}
-  console.log("[Gridiron Edge Sync] Main world script initialized (2026.08.05-bidfix).");
+  try { window.__GRIDIRON_EDGE_VERSION__ = '2026.08.07-dedupe2'; } catch (e) {}
+  console.log("[Gridiron Edge Sync] Main world script initialized (" + window.__GRIDIRON_EDGE_VERSION__ + ").");
 
   let lastSyncKey = null;
 
@@ -312,8 +312,6 @@
             note('replaced a poorer row for ' + playerName, text);
             selections[prior.index] = null;      // compacted below
           }
-          seenPicks.add(ident);
-
           seenPicks.set(ident, { index: selections.length, score });
           selections.push({
             overallPickNumber: pick === -1 ? selections.length + 1 : pick,
@@ -340,7 +338,12 @@
         selections.sort((a, b) => a.overallPickNumber - b.overallPickNumber);
         return selections;
       }
-    } catch (e) {}
+    } catch (e) {
+      // Returning null in silence is how a TypeError on the very first row
+      // became "102 picks made, 0 were read" with nothing at all to go on.
+      console.error('[Gridiron Edge] Draft scrape failed:', e);
+      try { window.__GRIDIRON_EDGE_SCRAPE_ERROR__ = String((e && e.stack) || e); } catch (_) {}
+    }
     return null;
   }
 

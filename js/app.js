@@ -464,6 +464,38 @@ function renderAttributionBanner(league) {
 }
 
 /**
+ * Says when a second draft room is syncing.
+ *
+ * Two ESPN tabs both post their draft state, and whichever posted last used to
+ * become the league on screen -- so the app flipped between drafts every few
+ * seconds and showed a roster belonging to neither. The league you are watching
+ * now stays put, and the other one is offered rather than imposed.
+ */
+function renderCompetingLeagueBanner(league) {
+  const other = store.state.competingLeagueId;
+  let el = document.getElementById('competing-league-banner');
+  if (!other || other === league.leagueId) { if (el) el.remove(); return; }
+  if (!el) {
+    el = document.createElement('div');
+    el.id = 'competing-league-banner';
+    el.style.cssText = 'background:#1e3a8a;color:#fff;padding:0.6rem 1rem;font-size:0.85rem;'
+      + 'font-weight:600;text-align:center;border-bottom:1px solid #3b82f6;';
+    document.body.insertBefore(el, document.body.firstChild);
+  }
+  const name = (store.state.leagues[other] || {}).leagueName || other;
+  el.innerHTML = `A second draft room is also syncing (${name}). Showing `
+    + `<strong>${league.leagueName || league.leagueId}</strong>. `
+    + `<button id="btn-switch-league" style="margin-left:0.5rem; padding:0.15rem 0.6rem; `
+    + `font-size:0.8rem; cursor:pointer;">Switch to it</button> `
+    + `<span style="opacity:0.8;">Close the other ESPN tab to stop this.</span>`;
+  const btn = document.getElementById('btn-switch-league');
+  if (btn) btn.onclick = () => {
+    store.state.competingLeagueId = null;
+    store.setActiveLeagueId(other);
+  };
+}
+
+/**
  * Says when the app has parsed fewer picks than ESPN has actually made.
  *
  * A pick the scraper never saw is not merely absent -- the player still looks
@@ -531,6 +563,7 @@ function renderApp(state) {
   renderSandboxBanner(league);
   renderAttributionBanner(league);
   renderMissingPicksBanner(league);
+  renderCompetingLeagueBanner(league);
 
   // Re-draw active navigation tab links
   const links = navBar.querySelectorAll('.nav-link');

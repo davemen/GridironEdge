@@ -68,6 +68,10 @@ class ESPNClient {
       }
       
       const mapped = this.mapESPNLeague(parsed);
+      // Read this BEFORE saving: saveLeague sets the active league itself, so
+      // afterwards it always equals whatever just arrived and any comparison
+      // against it is vacuously true.
+      const previous = store.state.currentLeagueId;
       store.saveLeague(mapped.leagueId, mapped);
       // Saving it was not enough: the app renders whichever league is ACTIVE,
       // and this never made the imported one active. So once the sandbox had
@@ -75,11 +79,26 @@ class ESPNClient {
       // "Championship Bound", mock standings, an assessment computed on invented
       // rosters -- while every live sync landed in the store unseen. A draft you
       // are syncing is the league you are looking at.
-      if (store.state.currentLeagueId !== mapped.leagueId) {
-        console.log('[Gridiron Edge] Now showing league ' + mapped.leagueId
-          + (mapped.leagueName ? ' (' + mapped.leagueName + ')' : ''));
-        store.setActiveLeagueId(mapped.leagueId);
+      const SANDBOX = '48317-espn-mock';
+      const prevLeague = previous ? store.state.leagues[previous] : null;
+      const prevWasSandbox = !prevLeague || prevLeague.isSandbox || previous === SANDBOX;
+
+      if (previous === mapped.leagueId || !previous || prevWasSandbox) {
+        if (previous !== mapped.leagueId) {
+          console.log('[Gridiron Edge] Now showing league ' + mapped.leagueId
+            + (mapped.leagueName ? ' (' + mapped.leagueName + ')' : ''));
+        }
+        store.state.competingLeagueId = null;
+      } else {
+        // Two draft rooms open at once, both syncing. Taking whichever posted
+        // last made the app flip between drafts every few seconds and show a
+        // roster belonging to neither. Keep the league already on screen, put
+        // this one back in the drawer, and say it exists rather than swapping
+        // under you.
+        store.state.currentLeagueId = previous;
+        store.state.competingLeagueId = mapped.leagueId;
       }
+      store.save();
       return mapped;
     } catch (e) {
       console.error('Failed to import scraped payload:', e);
