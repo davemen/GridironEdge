@@ -5,7 +5,7 @@
 
 import store from './store.js';
 import { mockPlayers, mockLeague } from './mock-data.js';
-import { loadProjections, toPlayerDatabase, findPlayer } from './player-database.js';
+import { loadProjections, toPlayerDatabase, findPlayer, playerKey } from './player-database.js';
 
 // Real projections, loaded once at module init. Until this resolves the app
 // falls back to mock data, which is why consumers check realDbReady rather than
@@ -205,12 +205,14 @@ class ESPNClient {
     
     if (espnData.draftDetail && espnData.draftDetail.picks) {
       espnData.draftDetail.picks.forEach(p => {
+        try {
         // Resolve the same way a nomination does. This used to be raw name
         // comparison while only the nomination path used findPlayer, so the
         // punctuation and naming differences that resolver exists to absorb --
         // "Texans D/ST" against "Houston Texans" among them -- were left to a
         // substring test that cannot bridge them.
-        let match = findPlayer(db, p.playerName, p.playerPosition, p.playerTeam);
+        let match = findPlayer(db, p.playerName, p.playerPosition, p.playerTeam,
+                                 typeof p.bidAmount === 'number' ? p.bidAmount : undefined);
 
         if (!match) {
           console.warn('[Gridiron Edge] Drafted player "' + p.playerName + '" ('
@@ -219,6 +221,8 @@ class ESPNClient {
           const mockId = `MOCK_${p.playerName.replace(/\s+/g, '_')}`;
           match = {
             id: mockId,
+            // A record without a match key breaks every later lookup.
+            key: playerKey(p.playerName),
             name: p.playerName,
             position: p.playerPosition || 'RB',
             team: p.playerTeam || 'FA',
@@ -251,6 +255,13 @@ class ESPNClient {
           if (team) {
             team.roster.push(String(match.id));
           }
+        }
+        } catch (err) {
+          // One unresolvable pick must cost one roster slot, not the sync. This
+          // threw partway through the loop and aborted the entire import, so a
+          // single odd name emptied the whole app.
+          console.warn('[Gridiron Edge] Skipped pick "'
+            + (p && p.playerName) + '": ' + err.message);
         }
       });
     }

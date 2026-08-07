@@ -23,7 +23,7 @@ function check(name, cond, detail = '') {
   if (cond) { passed++; console.log(`  ok   ${name}`); }
   else { failed++; console.log(`  FAIL ${name}${detail ? ' — ' + detail : ''}`); }
 }
-const hit = (n, pos, team) => findPlayer(db, n, pos, team);
+const hit = (n, pos, team, bid) => findPlayer(db, n, pos, team, bid);
 
 console.log('\nthe projection set covers a whole roster');
 {
@@ -49,7 +49,9 @@ console.log('\nabbreviated first names, as ESPN writes a roster panel');
   // "B. Robinson" reaches "Bijan Robinson" by neither exact nor substring
   // match, so a real roster resolved to nothing and the page sat empty.
   check('J. Allen', hit('J. Allen', 'QB', 'BUF')?.name === 'Josh Allen');
-  check('B. Robinson', hit('B. Robinson', 'RB', 'ATL')?.name === 'Bijan Robinson');
+  // B. Robinson needs the price too -- Atlanta rosters two of them. Covered
+  // below; here just assert the abbreviation itself is understood.
+  check('B. Robinson', hit('B. Robinson', 'RB', 'ATL', 49)?.name === 'Bijan Robinson');
   check('P. Nacua', hit('P. Nacua', 'WR', 'LAR')?.name === 'Puka Nacua');
 
   // Jonathan Taylor and J'Mari Taylor share an initial, a surname AND a
@@ -60,6 +62,51 @@ console.log('\nabbreviated first names, as ESPN writes a roster panel');
     hit('J. Taylor', 'RB', 'JAC')?.name === "J'Mari Taylor");
   check('reports unknown rather than guessing when nothing separates them',
     hit('J. Taylor', 'RB') === null);
+}
+
+console.log('\nthe generator and this file must normalise names identically');
+{
+  // The generator wrote "a j brown" and this file produced "aj brown", so the
+  // key never matched and A.J. Brown could not be found at all. Keys are now
+  // re-derived here from the name, which makes the mismatch impossible rather
+  // than fixed once.
+  check('A.J. Brown resolves', hit('A.J. Brown', 'WR', 'PHI')?.name === 'A.J. Brown');
+  check('so does the unpunctuated spelling', hit('AJ Brown', 'WR', 'PHI')?.name === 'A.J. Brown');
+  check('and a name with a period mid-surname',
+    hit('Amon-Ra St. Brown', 'WR', 'DET')?.name === 'Amon-Ra St. Brown');
+}
+
+console.log('\na malformed record cannot break a lookup');
+{
+  // The mapper inserts placeholder records with no match key. Reading one threw
+  // partway through the import and aborted the entire sync, so one unknown name
+  // emptied the whole app instead of costing a single roster slot.
+  const withStub = { ...db, MOCK_X: { id: 'MOCK_X', name: 'Someone', position: 'WR' } };
+  let threw = false;
+  try { findPlayer(withStub, 'Some Other Guy', 'WR'); } catch (e) { threw = true; }
+  check('a record with no key does not throw', !threw);
+}
+
+console.log('\nnever crosses positions');
+{
+  // "Washington" contains-matches the receiver Parker Washington, who was
+  // filling a roster slot nobody drafted him into.
+  check('a defense lookup returns a defense',
+    hit('Washington', 'D/ST')?.position === 'D/ST');
+  check('a defense resolves by city as well as nickname',
+    hit('Washington', 'D/ST')?.name === 'Washington Commanders');
+  check('the receiver is still reachable as a receiver',
+    hit('Parker Washington', 'WR')?.name === 'Parker Washington');
+}
+
+console.log('\nthe price separates two players nothing else can');
+{
+  // Bijan Robinson and Brian Robinson Jr. are both Atlanta running backs, so
+  // name, position and team all fail. The money does not: nobody pays $49 for
+  // the 160th-ranked player, or $1 for the 3rd.
+  check('$49 buys Bijan', hit('B. Robinson', 'RB', 'ATL', 49)?.name === 'Bijan Robinson');
+  check('$1 buys Brian', hit('B. Robinson', 'RB', 'ATL', 1)?.name === 'Brian Robinson Jr.');
+  check('with no price it stays unknown', hit('B. Robinson', 'RB', 'ATL') === null);
 }
 
 console.log('\nteam defenses');

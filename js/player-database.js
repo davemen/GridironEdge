@@ -90,7 +90,13 @@ export function toPlayerDatabase(projections) {
     const id = `FP_${p.key.replace(/\s+/g, '_')}`;
     db[id] = {
       id,
-      key: p.key,
+      // Re-derive the match key from the name with the SAME function that
+      // normalises a scraped name. The generator and this file disagreed about
+      // periods -- it wrote "a j brown", this produces "aj brown" -- so A.J.
+      // Brown could never be found. Running both sides through one function
+      // makes that class of mismatch impossible rather than fixed once. The id
+      // still comes from the stored key, so existing rosters keep resolving.
+      key: playerKey(p.name) || p.key,
       name: p.name,
       position: p.position,
       team: p.team || 'FA',
@@ -119,10 +125,14 @@ export function toPlayerDatabase(projections) {
  * about suffixes and punctuation often enough to matter. Returns null when
  * genuinely unknown, so callers can say so instead of inventing a projection.
  */
-export function findPlayer(db, name, position, team) {
+export function findPlayer(db, name, position, team, bid) {
   if (!name) return null;
   const key = playerKey(name);
-  const all = Object.values(db);
+  // The mapper inserts placeholder records for players it could not resolve,
+  // and those carry no match key. Reading one threw partway through the import,
+  // which aborted the whole sync -- so a single unknown name emptied the entire
+  // app rather than costing one roster slot.
+  const all = Object.values(db).filter((p) => p && typeof p.key === 'string');
 
   const exact = all.find((p) => p.key === key);
   if (exact) return exact;
@@ -191,6 +201,20 @@ export function findPlayer(db, name, position, team) {
       if (byTeam.length === 1) return byTeam[0];
     }
     if (hits.length === 1) return hits[0];
+
+    // Two Atlanta running backs are called B. Robinson: Bijan, ranked 3rd
+    // overall, and Brian, ranked 160th. Name, position and team all fail to
+    // separate them -- but the price does. Nobody pays $49 for the 160th player
+    // and nobody pays $1 for the 3rd, so the money says which one this is. That
+    // is market evidence, not a guess about which name is more famous.
+    if (hits.length > 1 && typeof bid === 'number' && bid > 0) {
+      const byProj = hits.slice().sort(
+        (a, b) => (b.projectedPoints || 0) - (a.projectedPoints || 0));
+      const spread = (byProj[0].projectedPoints || 0) - (byProj[byProj.length - 1].projectedPoints || 0);
+      // Only decide this way when the candidates are far enough apart that the
+      // price is genuinely informative.
+      if (spread > 5) return bid >= 5 ? byProj[0] : byProj[byProj.length - 1];
+    }
     // Still ambiguous: guessing would attach the wrong projection to a roster
     // slot, which is worse than reporting the player as unknown.
   }
