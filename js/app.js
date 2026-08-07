@@ -1621,22 +1621,32 @@ function renderAuctionBoard(league, db, rec) {
  * the bid ceilings would all be computed against it and would look completely
  * ordinary.
  */
-function renderOwnerPrompt(league, mount) {
+function renderOwnerPrompt(league, mount, current = null) {
   if (!mount) return;
   const teams = (league && league.teams) || [];
   const box = document.createElement('div');
   box.className = 'empty-state';
 
   const h = document.createElement('h3');
-  h.textContent = 'Which team is yours?';
+  h.textContent = current ? 'Is this your team?' : 'Which team is yours?';
   box.appendChild(h);
 
   const p = document.createElement('p');
-  p.textContent = teams.length
-    ? 'The draft room did not say. An auction lists every team\'s budget the '
-      + 'same way it lists a roster, so there is nothing on the page that marks '
-      + 'one as yours. Pick it once and it will stick for this league.'
-    : 'No teams have been read from the draft room yet.';
+  if (!teams.length) {
+    p.textContent = 'No teams have been read from the draft room yet.';
+  } else if (current) {
+    // Showing the name matters. The failure this exists for is silent: a
+    // stranger's roster rendered as yours looks exactly like your own roster,
+    // and an empty one looks exactly like a draft that has not reached you yet.
+    p.textContent = `Showing ${current.teamName || 'Team ' + current.teamId}, `
+      + 'which was read from the draft room rather than chosen by you. If that '
+      + 'is not you, the roster and every bid ceiling below it are for someone '
+      + 'else. Pick yours and it will stick for this league.';
+  } else {
+    p.textContent = 'The draft room did not say. An auction lists every team\'s '
+      + 'budget the same way it lists a roster, so there is nothing on the page '
+      + 'that marks one as yours. Pick it once and it will stick for this league.';
+  }
   box.appendChild(p);
 
   if (teams.length) {
@@ -1647,6 +1657,7 @@ function renderOwnerPrompt(league, mount) {
       opt.value = String(t.teamId);
       // textContent, not markup: a team name is whatever an opponent typed.
       opt.textContent = t.teamName || `Team ${t.teamId}`;
+      if (current && t.teamId === current.teamId) opt.selected = true;
       select.appendChild(opt);
     });
     box.appendChild(select);
@@ -1682,6 +1693,20 @@ export function renderRosterPage(league = store.getActiveLeague()) {
   if (!myTeam) {
     if (rosterGridEl) rosterGridEl.innerHTML = '';
     renderOwnerPrompt(league, rosterGridEl);
+    return;
+  }
+
+  // A team we merely guessed at, whose roster is empty, is the exact shape of
+  // the bug this guards: the owner could not be identified, something was
+  // picked anyway, and the page then showed a stranger's empty roster as yours
+  // with nothing to distinguish it from "the draft has not reached me yet".
+  // Only offer this while the choice is still ours -- once you have said which
+  // team is yours, an empty roster genuinely means an empty roster.
+  const guessed = league.myTeamIdSource !== 'user';
+  const emptyRoster = !(myTeam.roster && myTeam.roster.length);
+  if (guessed && emptyRoster) {
+    if (rosterGridEl) rosterGridEl.innerHTML = '';
+    renderOwnerPrompt(league, rosterGridEl, myTeam);
     return;
   }
 
