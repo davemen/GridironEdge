@@ -640,9 +640,6 @@ function renderHomePage(league = store.getActiveLeague()) {
       + 'projections and the floor-versus-ceiling call for the week. Until then, '
       + 'roster strength and championship odds are on the Championship Plan tab.';
   } else {
-      hint.innerHTML = '<strong>No schedule and no roster yet.</strong><br>Connect a league to begin.';
-    }
-  } else {
     const isTeam1 = week5Match.team1Id === league.myTeamId;
     const myProj = isTeam1 ? week5Match.team1Proj : week5Match.team2Proj;
     const oppProj = isTeam1 ? week5Match.team2Proj : week5Match.team1Proj;
