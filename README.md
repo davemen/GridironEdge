@@ -78,7 +78,7 @@ npm test                    # or: node --test test/*.test.mjs
 npm run coverage
 ```
 
-Fourteen suites, one command. Each file's header explains the specific failure it guards
+Fifteen suites, one command. Each file's header explains the specific failure it guards
 against — most of them shipped at some point. A few worth knowing about:
 
 | Suite | Guards |
@@ -103,7 +103,7 @@ js/player-database.js name resolution (the hard part)
 js/escape.js          HTML escaping for anything scraped or fetched
 js/engine/            the models — see lineup-rules.js for the shared rules
 chrome-extension/     the draft-room scraper
-test/                 fourteen suites
+test/                 fifteen suites
 tools/                data preparation
 BACKTEST.md           what was measured, and what turned out to be noise
 audit-report.html     rolling five-dimension audit (audit/build-report.mjs)
