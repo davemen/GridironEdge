@@ -339,6 +339,11 @@ class ESPNClient {
     return {
       leagueId,
       leagueName: espnData.leagueName || 'Scraped ESPN Draft',
+      // What ESPN says has been drafted, so the app can tell when it has parsed
+      // fewer picks than the room has made rather than quietly recommending
+      // players somebody already owns.
+      picksMadeOnEspn: typeof espnData.picksMadeOnEspn === 'number'
+        ? espnData.picksMadeOnEspn : undefined,
       leagueSize: teams.length || 8,
       myTeamId: typeof espnData.myTeamId === 'number' ? espnData.myTeamId : 1,
       scoringFormat: 'PPR',

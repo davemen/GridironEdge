@@ -5,7 +5,7 @@
   // Version marker: lets a console check confirm whether Chrome is running the
   // current content script or a cached older one, which is the first thing to
   // rule out when a fix appears to have had no effect.
-  try { window.__GRIDIRON_EDGE_VERSION__ = '2026.08.07-attrib'; } catch (e) {}
+  try { window.__GRIDIRON_EDGE_VERSION__ = '2026.08.07-picks'; } catch (e) {}
   console.log("[Gridiron Edge Sync] Main world script initialized (2026.08.05-bidfix).");
 
   let lastSyncKey = null;
@@ -171,7 +171,12 @@
           }
         }
 
-        if (pick === -1 || seenPicks.has(pick)) return;
+        // A row that does not lead with a pick number used to be thrown away
+        // outright. Auction results rows frequently do not have one -- they lead
+        // with the player -- so those picks never reached the app at all, which
+        // is how an already-drafted player came back as a recommendation. Parse
+        // it anyway and number it by arrival.
+        if (pick === -1) nameStartIdx = 0;
 
         // Reject rows that actually contain several players. The selector
         // includes plain divs, so a wrapper's innerText can concatenate the
@@ -204,7 +209,6 @@
         const isDst = posIdx !== -1 && DST_ALIASES.has(parts[posIdx].toUpperCase());
 
         if (posIdx !== -1 && (teamIdx !== -1 || isDst)) {
-          seenPicks.add(pick);
 
           const endIdx = teamIdx === -1 ? posIdx : Math.min(teamIdx, posIdx);
           const nameParts = parts.slice(nameStartIdx, endIdx);
@@ -236,8 +240,15 @@
           });
           const drafterTeamName = drafterParts.join(' ') || `Team ${pick}`;
 
+          // Dedupe by who was bought, not by the leading number. That number is
+          // not always a pick number, and two rows sharing one silently dropped
+          // the second -- losing a real pick with no error anywhere.
+          const ident = (playerName + '|' + (isDst ? 'D/ST' : parts[posIdx])).toLowerCase();
+          if (!playerName || seenPicks.has(ident)) return;
+          seenPicks.add(ident);
+
           selections.push({
-            overallPickNumber: pick,
+            overallPickNumber: pick === -1 ? selections.length + 1 : pick,
             playerName,
             playerTeam: teamIdx === -1 ? 'FA' : parts[teamIdx],
             // Normalise so the app sees one spelling.
@@ -661,6 +672,18 @@
           return d;
         };
       } catch (e) { /* console access is best effort */ }
+
+      // ESPN prints its own progress ("PK 87 OF 128"). Carrying it lets the app
+      // notice when it has parsed fewer picks than the room has actually made --
+      // which is what a drafted player reappearing as a recommendation looks
+      // like from the inside.
+      try {
+        const m = (document.body.innerText || '').match(/PK\s*(\d+)\s*OF\s*(\d+)/i);
+        if (m) {
+          data.picksMadeOnEspn = parseInt(m[1], 10) - 1;   // the printed one is on the clock
+          data.rosterSpotsTotal = parseInt(m[2], 10);
+        }
+      } catch (e) { /* the counter is a nicety, not a requirement */ }
 
       const picksCount = data.draftDetail.picks.length;
       const nomName = currentNom ? currentNom.name : '';

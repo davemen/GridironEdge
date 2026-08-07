@@ -463,6 +463,32 @@ function renderAttributionBanner(league) {
     + `Run <code>__GRIDIRON_EDGE_DEBUG__()</code> in the ESPN tab's console to see why.`;
 }
 
+/**
+ * Says when the app has parsed fewer picks than ESPN has actually made.
+ *
+ * A pick the scraper never saw is not merely absent -- the player still looks
+ * available, so he comes back as a recommendation. Being told to claim someone
+ * another manager already owns is the visible symptom of a silent parse
+ * failure, and it should not be the only symptom.
+ */
+function renderMissingPicksBanner(league) {
+  const expected = league.picksMadeOnEspn;
+  const have = ((league.draftState || {}).selections || []).length;
+  let el = document.getElementById('missing-picks-banner');
+  const missing = typeof expected === 'number' ? expected - have : 0;
+  if (!(missing > 0)) { if (el) el.remove(); return; }
+  if (!el) {
+    el = document.createElement('div');
+    el.id = 'missing-picks-banner';
+    el.style.cssText = 'background:#78350f;color:#fff;padding:0.6rem 1rem;font-size:0.85rem;'
+      + 'font-weight:600;text-align:center;border-bottom:1px solid #f59e0b;';
+    document.body.insertBefore(el, document.body.firstChild);
+  }
+  el.innerHTML = `ESPN has made ${expected} picks; ${have} were read. `
+    + `The ${missing} missing still look available, so they may appear as targets `
+    + `even though somebody owns them.`;
+}
+
 /** Says plainly when the league on screen is demo data rather than yours. */
 function renderSandboxBanner(league) {
   let el = document.getElementById('sandbox-banner');
@@ -504,6 +530,7 @@ function renderApp(state) {
   // screen, so a stale one could be mistaken for a broken sync for a long time.
   renderSandboxBanner(league);
   renderAttributionBanner(league);
+  renderMissingPicksBanner(league);
 
   // Re-draw active navigation tab links
   const links = navBar.querySelectorAll('.nav-link');
