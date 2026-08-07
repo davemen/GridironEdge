@@ -7,7 +7,7 @@ import { listenForDrafts, describeSource, readLatest, requestRosterSweep } from 
 import { esc, attr, num, int } from './escape.js';
 import { findPlayer, playerKey, draftedNameKey } from './player-database.js';
 import espnClient, { realDbReady } from './espn-client.js';
-import { getDraftRecommendations, calculateAuctionBid } from './engine/draft-assistant.js';
+import { getDraftRecommendations } from './engine/draft-assistant.js';
 import { recommendBid, targetBoard, buildLeagueState } from './engine/auction-advisor.js';
 import { optimizeLineup } from './engine/lineup-optimizer.js';
 import { recommendLineupStrategy } from './engine/bracket-strategy.js';
@@ -1388,6 +1388,22 @@ export function renderDraftPage(league = store.getActiveLeague()) {
   const opponentsFaab = league.teams.filter(t => t.teamId !== league.myTeamId).map(t => t.faabRemaining);
   const maxOpponentBid = Math.max(...opponentsFaab, 0);
 
+  // Priced once for the whole table. recommendBid is the measured engine but
+  // costs milliseconds per player, and this table can hold 400+ rows, so the
+  // watchlist -- which is already computed, already cached, and already ranked
+  // by the same model -- supplies the prices it covers. Anything outside it
+  // shows a dash rather than a number from a formula known to be wrong.
+  const auctionPrices = new Map();
+  if (league.draftState?.draftType === 'auction') {
+    try {
+      targetBoard(league, 60).forEach((t) => {
+        if (t.player && typeof t.maxBid === 'number') auctionPrices.set(t.player.id, t.maxBid);
+      });
+    } catch (e) {
+      console.warn('[Gridiron Edge] Could not price the draft board:', e.message);
+    }
+  }
+
   list.forEach(p => {
     const row = document.createElement('tr');
     
@@ -1405,8 +1421,16 @@ export function renderDraftPage(league = store.getActiveLeague()) {
     if (avPct < 30) avBadge = 'badge-red';
     else if (avPct < 70) avBadge = 'badge-gold';
 
-    const bidInfo = calculateAuctionBid(p, budget, Math.max(1, remainingSpots), maxOpponentBid, league.leagueSize);
-    const targetBid = bidInfo ? bidInfo.recommendedBid : 0;
+    // One price on the page, from the engine that was measured.
+    //
+    // This column ran calculateAuctionBid -- the formula BACKTEST.md Part 4
+    // measures at -306 points a season, which "priced quarterbacks at roughly
+    // five times market and deployed only a quarter of the league's money".
+    // auction-advisor.js's header says it was replaced. It was not: it kept
+    // rendering here while recommendBid answered in the auction panel, so a
+    // live auction showed two different prices for the same player and nothing
+    // said which to trust.
+    const targetBid = auctionPrices.get(p.id);
 
     row.innerHTML = `
       <td><strong>${esc(p.name)}</strong></td>
@@ -1414,7 +1438,7 @@ export function renderDraftPage(league = store.getActiveLeague()) {
       <td>${esc(p.team)}</td>
       <td><span style="display:inline-flex; align-items:center;">${p.projectedPoints.toFixed(1)}${generateSparkline(p.matchProjs)}</span></td>
       <td>${p.adp.toFixed(1)}</td>
-      <td><strong style="color:var(--accent-green); font-weight:700;">$${targetBid}</strong></td>
+      <td><strong style="color:var(--accent-green); font-weight:700;">${typeof targetBid === 'number' ? `$${targetBid}` : '—'}</strong></td>
       <td><span class="badge-solid ${avBadge}">${avPct}%</span></td>
       <td>
         <button class="btn-primary" style="padding:0.25rem 0.5rem; font-size:0.75rem;" id="draft-btn-${p.id}">Draft</button>

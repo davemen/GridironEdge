@@ -30,7 +30,7 @@
  * elite running back is scarce at the top of the board, so it will.
  *
  * Backtested over 2021-2025 against real NFL results, real preseason ADP and
- * FantasyPros expert consensus. The previous `calculateAuctionBid()` priced
+ * FantasyPros expert consensus. The legacy `calculateAuctionBid()` priced
  * quarterbacks at roughly five times market and deployed only a quarter of the
  * league's money; replacing it is worth +306 points a season. Against a well-built static value chart the
  * result depends on the room: in an efficient one they tie (+16, t = 0.9), but
