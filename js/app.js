@@ -2081,11 +2081,12 @@ function drawOpponentProfile(teamId, league) {
  * answered now ("how good is this roster relative to this league") instead of
  * the placeholder that shipped, which forecast a fixture nobody had scheduled.
  */
-function renderPreseasonOutlook(league) {
-  const o = preseasonOutlook(league, 3000);
+function renderPreseasonOutlook(league, runs = 3000) {
+  const o = preseasonOutlook(league, runs);
   const set = (id, v) => { const el = document.getElementById(id); if (el) el.innerHTML = v; };
   if (!o) {
     ['sim-playoff-pct', 'sim-champ-pct', 'sim-bye-pct'].forEach((id) => set(id, '—'));
+    ['sim-playoff-note', 'sim-champ-note', 'sim-bye-note'].forEach((id) => set(id, ''));
     const note = document.getElementById('sim-action-plan');
     if (note) note.innerHTML = '<div class="empty-state">No rosters yet — connect a league.</div>';
     return;
@@ -2094,6 +2095,19 @@ function renderPreseasonOutlook(league) {
   set('sim-playoff-pct', o.playoffPct + '%');
   set('sim-champ-pct', o.titlePct + '%');
   set('sim-bye-pct', o.byePct + '%');
+
+  const rosterSize = (league.rosterSettings?.startersCount || 9)
+    + (league.rosterSettings?.benchCount || 7);
+  const made = ((league.draftState || {}).selections || []).length;
+  const total = (league.leagueSize || (league.teams || []).length) * rosterSize;
+  const drafting = made < total;
+  const par = (100 / o.leagueSize).toFixed(1);
+  set('sim-playoff-note', `Average finish is seed ${o.averageSeed} of ${o.leagueSize}`
+    + (drafting ? `, on a roster that is ${made} of ${total} picks into the draft.` : '.'));
+  set('sim-champ-note', `An average roster in a ${o.leagueSize}-team league wins ${par}% of the time. `
+    + `Yours projects ${o.myPoints} points a week against a league best of ${o.bestPoints}.`);
+  set('sim-bye-note', `Requires a top-two seed. Simulated over a balanced round robin, `
+    + `since the real schedule is published after the draft.`);
 
   // Highest impact moves: where this roster loses the most points a week
   // against the league, measured rather than asserted.
@@ -2230,10 +2244,24 @@ function renderChampionshipPage(league = store.getActiveLeague()) {
     }, 600);
   };
 
-  btnRun.onclick = () => triggerSimulation(1000);
-  
-  // Initial run on render
-  triggerSimulation(1000);
+  // Without a schedule runSeasonSimulation has nothing to simulate and returns
+  // zero for every figure -- and this ran it on every render, overwriting the
+  // preseason numbers a few lines above with zeros the moment they were drawn.
+  // Route both the button and the initial run to whichever engine can actually
+  // answer.
+  const runIt = () => {
+    if (!sched.length) {
+      showLoading('Simulating seasons over a balanced schedule...');
+      setTimeout(() => { renderPreseasonOutlook(league, 6000); hideLoading(); }, 50);
+    } else {
+      triggerSimulation(1000);
+    }
+  };
+  if (btnRun) {
+    btnRun.textContent = sched.length ? 'Re-run 1,000 Simulations' : 'Re-run preseason outlook';
+    btnRun.onclick = runIt;
+  }
+  runIt();
 }
 
 // Render Alerts View
@@ -2303,10 +2331,123 @@ function renderAlertsPage(league = store.getActiveLeague()) {
  * be classified into injuries, trades and depth-chart moves. This function is
  * the human-readable supplement to that, and it fails quietly.
  */
-async function fetchLiveBreakingNews(rosterNames = []) {
+/**
+ * Draw a fetched feed. Split out so a cached result renders by exactly the same
+ * path as a fresh one -- otherwise the two drift and the cached view quietly
+ * becomes a second, worse implementation.
+ */
+function renderNewsItems(items, newsContainer, indicator) {
+  // Roster objects, not just names: relevance also matches on a player's NFL
+  // club, because a preseason feed is written about teams rather than
+  // individuals and name-matching alone finds almost nothing.
+  const myTeamNow = store.getMyTeam();
+  const dbNow = (store.getActiveLeague() || {}).playerDatabase || {};
+  const roster = (myTeamNow?.roster || [])
+    .map((id) => dbNow[id]).filter(Boolean)
+    .map((p) => ({ name: p.name, team: p.team }));
+
+  // "Nothing to report" and "could not reach the feed" are completely
+  // different facts and must never share a message. One means relax, the
+  // other means your recommendations are missing this morning's injuries.
+  if (!items.length) {
+    newsContainer.innerHTML = `
+      <div class="empty-state">
+        <div style="color:var(--text-primary); font-weight:600; margin-bottom:0.3rem;">
+          No news right now</div>
+        <div style="font-size:0.82rem;">
+          The feed is working — ESPN has published nothing new. Recommendations
+          are current.
+        </div>
+      </div>`;
+    indicator.innerHTML = 'No news';
+    indicator.style.background = '';
+    return;
+  }
+
+  // Anything touching a player you own goes first. A chronological feed makes
+  // you hunt for the one line that matters.
+  const RANK = { player: 2, team: 1 };
+  const scored = items.map((it) => {
+    const rel = relevanceTo(it, roster);
+    return { item: it, rel, mine: !!rel };
+  });
+  // Named players first, then their clubs, then anything that moves a
+  // valuation, then everything else.
+  scored.sort((a, b) =>
+    (RANK[b.rel?.strength] || 0) - (RANK[a.rel?.strength] || 0)
+    || ((b.item.type ? 1 : 0) - (a.item.type ? 1 : 0)));
+
+  const tone = {
+    injury_out: '#ff5252', suspension: '#ff5252', demotion: '#ffb020',
+    injury_risk: '#ffb020', trade: '#38bdf8', promotion: '#16c784',
+    returning: '#16c784',
+  };
+
+  newsContainer.innerHTML = scored.slice(0, 20).map(({ item, rel }) => {
+    const mine = !!rel;
+    const label = (EVENT_IMPACT[item.type] || {}).label || item.type || 'news';
+    const when = item.published
+      ? new Date(item.published).toLocaleString([], { month: 'short', day: 'numeric',
+                                                     hour: 'numeric', minute: '2-digit' })
+      : '';
+    return `
+      <div class="recommendation-item" style="border-left:3px solid ${tone[item.type] || '#8a94a6'};
+           ${mine ? 'background:rgba(255,82,82,0.07);' : ''}">
+        <div style="display:flex; gap:0.6rem; align-items:baseline; flex-wrap:wrap;">
+          <span style="font-size:0.68rem; font-weight:800; letter-spacing:0.5px;
+                       text-transform:uppercase; color:${tone[item.type] || '#8a94a6'};">
+            ${label}</span>
+          ${rel ? `<span style="font-size:0.68rem; font-weight:800;
+               color:${rel.strength === 'player' ? '#ff5252' : '#ffb020'};">
+               ${rel.strength === 'player' ? 'YOUR PLAYER' : 'YOUR TEAM'}: ${rel.why}</span>` : ''}
+          <span style="margin-left:auto; font-size:0.7rem; color:var(--text-secondary);">${when}</span>
+        </div>
+        <div style="font-size:0.9rem; margin-top:0.25rem;">${item.headline}</div>
+        ${item.players && item.players.length ? `
+          <div style="font-size:0.75rem; color:var(--text-secondary); margin-top:0.2rem;">
+            ${item.players.slice(0, 3).join(' · ')}</div>` : ''}
+      </div>`;
+  }).join('');
+
+  const actionable = items.filter((i) => i.type).length;
+  const mineCount = scored.filter((x) => x.rel).length;
+  indicator.innerHTML = mineCount ? `${mineCount} affect you` : 'Live Feed';
+  indicator.style.background = '';
+
+  // Say plainly when a full feed contains nothing that changes a decision --
+  // otherwise a wall of camp reports reads as though something is wrong.
+  if (!actionable && !mineCount) {
+    newsContainer.insertAdjacentHTML('afterbegin', `
+      <div style="padding:0.6rem 0.9rem; margin-bottom:0.6rem; border-radius:6px;
+                  background:rgba(255,255,255,0.04); font-size:0.82rem;
+                  color:var(--text-secondary);">
+        <strong style="color:var(--text-primary);">Nothing actionable.</strong>
+        ${items.length} headlines checked — nothing mentions your players or
+        their teams, and no injuries, trades or depth-chart changes affect the
+        players you could claim.
+      </div>`);
+  }
+}
+
+// The news feed is fetched on render, and during a live draft the sync poll
+// re-renders every three seconds -- roughly twenty ESPN requests a minute, which
+// gets throttled and then fails. It reads as "the news broke again" because the
+// panel worked a moment earlier. Headlines do not change that fast: hold the
+// last result and reuse it.
+const NEWS_TTL_MS = 5 * 60 * 1000;
+let newsCache = { at: 0, items: null };
+let newsInFlight = null;
+
+async function fetchLiveBreakingNews(rosterNames = [], force = false) {
   const newsContainer = document.getElementById('news-list-container');
   const indicator = document.getElementById('news-refresh-indicator');
   if (!newsContainer) return;
+
+  const fresh = newsCache.items && (Date.now() - newsCache.at) < NEWS_TTL_MS;
+  if (fresh && !force) {
+    renderNewsItems(newsCache.items, newsContainer, indicator);
+    return;
+  }
 
   indicator.innerHTML = 'Syncing...';
   indicator.style.background = 'var(--accent-cyan-glow)';
@@ -2314,97 +2455,14 @@ async function fetchLiveBreakingNews(rosterNames = []) {
   try {
     // Everything, not just transactional events -- a panel that says
     // "no news" while fifty articles exist is worse than useless.
-    const items = await fetchLeagueNews({ classifiedOnly: false });
-    // Roster objects, not just names: relevance also matches on a player's NFL
-    // club, because a preseason feed is written about teams rather than
-    // individuals and name-matching alone finds almost nothing.
-    const myTeamNow = store.getMyTeam();
-    const dbNow = (store.getActiveLeague() || {}).playerDatabase || {};
-    const roster = (myTeamNow?.roster || [])
-      .map((id) => dbNow[id]).filter(Boolean)
-      .map((p) => ({ name: p.name, team: p.team }));
-
-    // "Nothing to report" and "could not reach the feed" are completely
-    // different facts and must never share a message. One means relax, the
-    // other means your recommendations are missing this morning's injuries.
-    if (!items.length) {
-      newsContainer.innerHTML = `
-        <div class="empty-state">
-          <div style="color:var(--text-primary); font-weight:600; margin-bottom:0.3rem;">
-            No news right now</div>
-          <div style="font-size:0.82rem;">
-            The feed is working — ESPN has published nothing new. Recommendations
-            are current.
-          </div>
-        </div>`;
-      indicator.innerHTML = 'No news';
-      indicator.style.background = '';
-      return;
+    // Share one request between overlapping renders rather than stacking them.
+    if (!newsInFlight) {
+      newsInFlight = fetchLeagueNews({ classifiedOnly: false })
+        .finally(() => { newsInFlight = null; });
     }
-
-    // Anything touching a player you own goes first. A chronological feed makes
-    // you hunt for the one line that matters.
-    const RANK = { player: 2, team: 1 };
-    const scored = items.map((it) => {
-      const rel = relevanceTo(it, roster);
-      return { item: it, rel, mine: !!rel };
-    });
-    // Named players first, then their clubs, then anything that moves a
-    // valuation, then everything else.
-    scored.sort((a, b) =>
-      (RANK[b.rel?.strength] || 0) - (RANK[a.rel?.strength] || 0)
-      || ((b.item.type ? 1 : 0) - (a.item.type ? 1 : 0)));
-
-    const tone = {
-      injury_out: '#ff5252', suspension: '#ff5252', demotion: '#ffb020',
-      injury_risk: '#ffb020', trade: '#38bdf8', promotion: '#16c784',
-      returning: '#16c784',
-    };
-
-    newsContainer.innerHTML = scored.slice(0, 20).map(({ item, rel }) => {
-      const mine = !!rel;
-      const label = (EVENT_IMPACT[item.type] || {}).label || item.type || 'news';
-      const when = item.published
-        ? new Date(item.published).toLocaleString([], { month: 'short', day: 'numeric',
-                                                       hour: 'numeric', minute: '2-digit' })
-        : '';
-      return `
-        <div class="recommendation-item" style="border-left:3px solid ${tone[item.type] || '#8a94a6'};
-             ${mine ? 'background:rgba(255,82,82,0.07);' : ''}">
-          <div style="display:flex; gap:0.6rem; align-items:baseline; flex-wrap:wrap;">
-            <span style="font-size:0.68rem; font-weight:800; letter-spacing:0.5px;
-                         text-transform:uppercase; color:${tone[item.type] || '#8a94a6'};">
-              ${label}</span>
-            ${rel ? `<span style="font-size:0.68rem; font-weight:800;
-                 color:${rel.strength === 'player' ? '#ff5252' : '#ffb020'};">
-                 ${rel.strength === 'player' ? 'YOUR PLAYER' : 'YOUR TEAM'}: ${rel.why}</span>` : ''}
-            <span style="margin-left:auto; font-size:0.7rem; color:var(--text-secondary);">${when}</span>
-          </div>
-          <div style="font-size:0.9rem; margin-top:0.25rem;">${item.headline}</div>
-          ${item.players && item.players.length ? `
-            <div style="font-size:0.75rem; color:var(--text-secondary); margin-top:0.2rem;">
-              ${item.players.slice(0, 3).join(' · ')}</div>` : ''}
-        </div>`;
-    }).join('');
-
-    const actionable = items.filter((i) => i.type).length;
-    const mineCount = scored.filter((x) => x.rel).length;
-    indicator.innerHTML = mineCount ? `${mineCount} affect you` : 'Live Feed';
-    indicator.style.background = '';
-
-    // Say plainly when a full feed contains nothing that changes a decision --
-    // otherwise a wall of camp reports reads as though something is wrong.
-    if (!actionable && !mineCount) {
-      newsContainer.insertAdjacentHTML('afterbegin', `
-        <div style="padding:0.6rem 0.9rem; margin-bottom:0.6rem; border-radius:6px;
-                    background:rgba(255,255,255,0.04); font-size:0.82rem;
-                    color:var(--text-secondary);">
-          <strong style="color:var(--text-primary);">Nothing actionable.</strong>
-          ${items.length} headlines checked — nothing mentions your players or
-          their teams, and no injuries, trades or depth-chart changes affect the
-          players you could claim.
-        </div>`);
-    }
+    const items = await newsInFlight;
+    newsCache = { at: Date.now(), items };
+    renderNewsItems(items, newsContainer, indicator);
   } catch (err) {
     console.error('News feed failed:', err);
     newsContainer.innerHTML = `
@@ -2420,7 +2478,7 @@ async function fetchLiveBreakingNews(rosterNames = []) {
           style="margin-top:0.6rem; padding:0.25rem 0.7rem; font-size:0.8rem;">Retry</button>
       </div>`;
     const retry = document.getElementById('btn-news-retry-feed');
-    if (retry) retry.onclick = () => fetchLiveBreakingNews(rosterNames);
+    if (retry) retry.onclick = () => fetchLiveBreakingNews(rosterNames, true);
     indicator.innerHTML = 'Offline';
   }
 }

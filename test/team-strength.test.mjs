@@ -89,6 +89,46 @@ console.log('\npreseason outlook');
     a.playoffPct > b.playoffPct, `best ${a.playoffPct}% vs worst ${b.playoffPct}%`);
 }
 
+console.log('\nmid-draft, unfilled slots are worth what is still signable');
+{
+  // At pick 16 of 128 only one team has drafted. Valuing everyone else's empty
+  // slots at zero made a three-man roster a 95% title favourite -- a statement
+  // about draft progress, not about rosters.
+  const l = buildLeague(8, 14);
+  const db = l.playerDatabase;
+  const board = Object.values(db).sort((a, b) => b.projectedPoints - a.projectedPoints);
+  l.teams.forEach((t) => { t.roster = []; });
+  l.teams[0].roster = board.slice(0, 3).map((p) => p.id);
+  l.draftState.selections = l.teams[0].roster.map((id) => ({ playerId: id, teamId: l.teams[0].teamId }));
+  l.rosterSettings = { startersCount: 9, benchCount: 7 };
+  l.leagueSize = 8;
+
+  const ranked = rankTeams(l);
+  check('it says it is projecting unfilled slots', ranked[0].projected === true);
+  check('an undrafted team is not worth zero',
+    ranked[ranked.length - 1].points > 0, `${ranked[ranked.length - 1].points}`);
+  // Every team that has drafted nothing is in exactly the same position, so
+  // they must be level. Any spread between them is an artifact.
+  const empties = ranked.filter((t) => t.rostered === 0).map((t) => t.points);
+  check('undrafted teams are level with each other',
+    empties.length > 1 && Math.max(...empties) - Math.min(...empties) < 0.01);
+  check('three elite picks still lead the league',
+    ranked[0].rostered === 3 && ranked[0].points > empties[0]);
+
+  const o = preseasonOutlook(l, 1200);
+  check('the title chance is a roster edge, not a certainty',
+    o.titlePct > 100 / 8 && o.titlePct < 90, `${o.titlePct}%`);
+
+  // Once the draft is done there is nothing left to project.
+  const full = buildLeague(8, 14);
+  full.rosterSettings = { startersCount: 9, benchCount: 7 };
+  full.leagueSize = 8;
+  full.draftState.selections = full.teams.flatMap((t) =>
+    t.roster.map((id) => ({ playerId: id, teamId: t.teamId })));
+  check('a finished draft is not projected',
+    rankTeams(full, { projectFinal: false })[0].projected === false);
+}
+
 console.log('\nhighest impact moves');
 {
   const l = buildLeague();

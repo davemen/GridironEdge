@@ -41,7 +41,7 @@ const num = (v, d = 0) => (typeof v === 'number' && isFinite(v) ? v : d);
  * The best legal starting lineup a roster can field, and what it projects.
  * Returns per-slot detail so a weakness can be named rather than just scored.
  */
-export function bestLineup(roster, db) {
+export function bestLineup(roster, db, replacement = null) {
   const players = (roster || []).map((id) => db[id]).filter(Boolean);
   const pool = {};
   players.forEach((p) => {
@@ -57,7 +57,14 @@ export function bestLineup(roster, db) {
     for (let i = 0; i < STARTER_SLOTS[pos]; i++) {
       const pick = (pool[pos] || []).find((p) => !used.has(p.id));
       if (pick) used.add(pick.id);
-      slots.push({ slot: pos, player: pick || null, points: pick ? num(pick.projectedPoints) : 0 });
+      // Mid-draft, an unfilled slot is not worth zero -- it is worth whatever
+      // the manager will still be able to sign for it. Scoring it zero makes
+      // whoever has drafted most so far look unbeatable, which at pick 16 of
+      // 128 said a three-man roster wins the title 95% of the time.
+      const fallback = replacement ? num(replacement[pos]) : 0;
+      slots.push({ slot: pos, player: pick || null,
+                   points: pick ? num(pick.projectedPoints) : fallback,
+                   projected: !pick && fallback > 0 });
     }
   });
   for (let i = 0; i < N_FLEX; i++) {
@@ -65,7 +72,11 @@ export function bestLineup(roster, db) {
     cands.sort((a, b) => num(b.projectedPoints) - num(a.projectedPoints));
     const pick = cands[0];
     if (pick) used.add(pick.id);
-    slots.push({ slot: 'FLEX', player: pick || null, points: pick ? num(pick.projectedPoints) : 0 });
+    const flexFallback = replacement
+      ? Math.max(...FLEX_POS.map((pos) => num(replacement[pos]))) : 0;
+    slots.push({ slot: 'FLEX', player: pick || null,
+                 points: pick ? num(pick.projectedPoints) : flexFallback,
+                 projected: !pick && flexFallback > 0 });
   }
 
   const points = slots.reduce((a, s) => a + s.points, 0);
@@ -74,11 +85,57 @@ export function bestLineup(roster, db) {
   return { slots, points, bench, holes, rostered: players.length };
 }
 
-/** Every team ranked by the lineup it can field today. */
-export function rankTeams(league) {
+/**
+ * What each team can still get for a slot it has not filled.
+ *
+ * Roughly the best player at that position who will not have been taken by the
+ * time everyone has signed one -- the leagueSize-th best still available. It is
+ * the level every manager can reach, so the difference between teams stays
+ * their picks rather than how far into the draft they happen to be.
+ */
+function replacementLevels(league) {
   const db = league.playerDatabase || {};
+  const taken = new Set();
+  (league.teams || []).forEach((t) => (t.roster || []).forEach((id) => taken.add(String(id))));
+  ((league.draftState || {}).selections || []).forEach((sel) => {
+    if (sel && sel.playerId) taken.add(String(sel.playerId));
+  });
+  const n = Math.max(1, league.leagueSize || (league.teams || []).length || 10);
+  const out = {};
+  Object.keys(STARTER_SLOTS).forEach((pos) => {
+    const avail = Object.values(db)
+      .filter((p) => p.position === pos && !taken.has(String(p.id)))
+      .map((p) => num(p.projectedPoints))
+      .sort((a, b) => b - a);
+    if (!avail.length) { out[pos] = 0; return; }
+    out[pos] = avail[Math.min(avail.length - 1, n - 1)];
+  });
+  return out;
+}
+
+/** Is the draft still running? */
+function draftIncomplete(league) {
+  const rosterSize = (league.rosterSettings?.startersCount || 9)
+    + (league.rosterSettings?.benchCount || 7);
+  const total = (league.leagueSize || (league.teams || []).length) * rosterSize;
+  const made = ((league.draftState || {}).selections || []).length;
+  return made < total;
+}
+
+/**
+ * Every team ranked by the lineup it can field.
+ *
+ * While the draft is running that means the lineup it will PLAUSIBLY field --
+ * unfilled slots valued at what is still signable rather than at zero. Once the
+ * draft is done the two are the same thing.
+ */
+export function rankTeams(league, options = {}) {
+  const db = league.playerDatabase || {};
+  const projectFinal = options.projectFinal !== undefined
+    ? options.projectFinal : draftIncomplete(league);
+  const replacement = projectFinal ? replacementLevels(league) : null;
   const rows = (league.teams || []).map((t) => {
-    const lineup = bestLineup(t.roster, db);
+    const lineup = bestLineup(t.roster, db, replacement);
     return {
       teamId: t.teamId,
       teamName: t.teamName,
@@ -89,6 +146,7 @@ export function rankTeams(league) {
       holes: lineup.holes,
       slots: lineup.slots,
       bench: lineup.bench,
+      projected: projectFinal,
     };
   });
   rows.sort((a, b) => b.points - a.points);
@@ -109,6 +167,7 @@ export function preseasonOutlook(league, runs = 2000, rng = Math.random) {
   const teams = rankTeams(league);
   const n = teams.length;
   if (n < 2) return null;
+  const midDraft = draftIncomplete(league);
 
   const playoffTeams = Math.min(PLAYOFF_TEAMS, Math.max(2, n >= 8 ? PLAYOFF_TEAMS : Math.floor(n / 2)));
   const byeTeams = Math.min(BYE_TEAMS, Math.max(0, playoffTeams - 2));
@@ -195,6 +254,9 @@ export function preseasonOutlook(league, runs = 2000, rng = Math.random) {
     medianPoints: Math.round(teams[Math.floor(n / 2)].points * 10) / 10,
     teams,
     assumesBalancedSchedule: true,
+    // Slots nobody has drafted yet are valued at what is still signable, so
+    // these odds compare rosters rather than draft progress.
+    projectsUnfilledSlots: midDraft,
   };
 }
 
