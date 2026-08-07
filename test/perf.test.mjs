@@ -160,5 +160,42 @@ console.log('\nthe hot path stays within budget');
   check('recommendBid stays under 12ms', rb < budget(12), `${rb.toFixed(1)}ms`);
 }
 
+console.log('\nthe watchlist is not recomputed for a bid that cannot change it');
+{
+  // targetBoard never reads currentNominationBid, yet it ran on every tick and
+  // was 96% of the draft render -- 1,514ms of blocked main thread per
+  // nomination against 458ms. Two things have to hold: a bid tick must reuse
+  // the answer, and a sale must NOT, or the board goes stale mid-auction and
+  // recommends a player somebody just bought.
+  const L = league(12, 12, 84);
+  L.draftState.currentNomination = 'X';
+  L.draftState.currentNominationBid = 1;
+
+  const first = targetBoard(L, 6);
+  L.draftState.currentNominationBid = 27;
+  const t0 = performance.now();
+  const second = targetBoard(L, 6);
+  const tickMs = performance.now() - t0;
+
+  check('a bid tick returns the identical board',
+    JSON.stringify(first) === JSON.stringify(second));
+  check('and costs almost nothing', tickMs < 2, `${tickMs.toFixed(3)}ms`);
+
+  // An UNATTRIBUTED pick: off the board, but no budget moves, because the
+  // scraper could not tell who bought him -- routine in a live auction room.
+  // Deliberately not an ordinary sale: that changes a budget too, so it would
+  // pass even if the key ignored the pick count entirely. This is the case
+  // that isolates it, and it is the case where a stale board would offer a
+  // player somebody already owns.
+  const sold = Object.values(L.playerDatabase)
+    .find((p) => !L.draftState.selections.some((s) => s.playerId === p.id));
+  L.draftState.selections.push({ pick: 85, playerId: sold.id, teamId: null, bidAmount: 9 });
+  const t1 = performance.now();
+  targetBoard(L, 6);
+  const saleMs = performance.now() - t1;
+  check('a sale forces a recompute rather than serving a stale board',
+    saleMs > 2, `${saleMs.toFixed(3)}ms -- suspiciously fast, the cache did not invalidate`);
+}
+
 console.log(`\n${passed} passed, ${failed} failed`);
 if (failed) process.exit(1);

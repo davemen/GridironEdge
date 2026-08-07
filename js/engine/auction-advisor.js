@@ -738,14 +738,50 @@ export function recommendBid(league, player, currentBid = 0, options = {}) {
  * Drives the Must Buy watchlist so the user can see what is coming before it is
  * nominated.
  */
+/**
+ * What the watchlist actually depends on.
+ *
+ * Not the live bid. targetBoard's answer is bit-identical at $1 and at $27 --
+ * it never reads currentNominationBid -- but it was recomputed on every tick,
+ * and it is 96% of the draft render: one call fans out to 146 planValue and
+ * 94,516 lineupPointsFromGroups. Over a single 27-tick nomination that is
+ * 1,514ms of blocked main thread against 458ms, and over a 192-lot auction
+ * 161s against 49s, on a page whose whole purpose is to answer before the
+ * clock runs out.
+ *
+ * It changes when a lot is sold or a budget moves, and nothing else -- so the
+ * key is the pick count, every team's remaining money, and whose roster we are
+ * answering for.
+ */
+function watchlistKey(league, limit, options) {
+  return JSON.stringify([
+    (league.draftState?.selections || []).length,
+    (league.teams || []).map((t) => t.faabRemaining),
+    league.myTeamId,
+    limit,
+    options.startingBudget || 200,
+  ]);
+}
+
+// One entry. A second draft room replaces it rather than growing without
+// bound; the cost of a miss is one recomputation, which is what happened
+// every time before.
+let watchlistCache = { key: null, value: null };
+
 export function targetBoard(league, limit = 8, options = {}) {
+  const key = watchlistKey(league, limit, options);
+  if (watchlistCache.key === key) return watchlistCache.value;
+
   const db = league.playerDatabase || {};
   const draftedIds = new Set((league.draftState?.selections || []).map((s) => s.playerId));
   const available = Object.values(db).filter((p) => !draftedIds.has(p.id));
   const state = buildLeagueState(league);
   // "How badly does THIS roster need him" has no answer without a roster, and
   // an empty watchlist is the honest one. state.me was previously teams[0].
-  if (!state.me || state.me.spotsLeft <= 0) return [];
+  if (!state.me || state.me.spotsLeft <= 0) {
+    watchlistCache = { key, value: [] };
+    return [];
+  }
 
   const par = parValues(available, state, options.startingBudget || 200);
   const shortlist = available
@@ -754,7 +790,7 @@ export function targetBoard(league, limit = 8, options = {}) {
     .slice(0, 20)
     .map(({ p }) => p);
 
-  return shortlist
+  const board = shortlist
     .map((p) => {
       const rec = recommendBid(league, p, 0, options);
       return { player: p, maxBid: rec.maxBid, mustBuy: rec.mustBuy,
@@ -763,4 +799,7 @@ export function targetBoard(league, limit = 8, options = {}) {
     .filter((r) => r.maxBid > 1)
     .sort((a, b) => (b.mustBuy - a.mustBuy) || (b.lossIfMissed - a.lossIfMissed))
     .slice(0, limit);
+
+  watchlistCache = { key, value: board };
+  return board;
 }
