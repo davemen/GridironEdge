@@ -30,6 +30,61 @@ function freshLeague() {
 
 const P = (id) => JSON.parse(JSON.stringify(mockPlayers[id]));
 
+console.log('\npar calibration and positional steering');
+{
+  const l = freshLeague();
+  const s0 = buildLeagueState(l);
+  const avail = Object.values(l.playerDatabase);
+  const par = parValues(avail, s0, 200);
+  const money = s0.leagueSize * 200;
+  const sum = par.reduce((a, b) => a + b, 0);
+  // Par is the league's money split by value. Handing the $1 minimum to every
+  // player in the pool rather than to the ones who will actually be rostered
+  // put $1931 of par against $1600 of money and inflated every forecast.
+  check('par never allocates more than the money in the room', sum <= money + 1,
+        `par $${sum.toFixed(0)} vs $${money}`);
+
+  // Fill the starting lineup at RB and WR, leaving QB and TE open.
+  const byPos = (pos) => avail.filter((p) => p.position === pos)
+    .sort((a, b) => b.projectedPoints - a.projectedPoints);
+  const filled = [...byPos('RB').slice(0, 2), ...byPos('WR').slice(0, 3)];
+  if (filled.length === 5) {
+    const l2 = freshLeague();
+    l2.draftState.selections = filled.map((p) => ({ teamId: l2.myTeamId, playerId: p.id, bidAmount: 20 }));
+    l2.teams.find((t) => t.teamId === l2.myTeamId).faabRemaining = 140;
+    const needs = buildLeagueState(l2).me.needs;
+    // The flex is one slot shared across RB/WR/TE, not one apiece.
+    check('flex counts once, not once per position', !needs.RB && !needs.WR,
+          JSON.stringify(needs));
+
+    const spare = byPos('WR')[3], hole = byPos('QB')[0];
+    if (spare && hole) {
+      const lux = recommendBid(l2, spare, 0);
+      const need = recommendBid(l2, hole, 0);
+      // Depth behind a set lineup is worth having cheap and worth nothing at a
+      // premium, while a slot you must start someone in keeps its full ceiling.
+      check('never outbids the room for depth while a starting slot is open',
+            lux.maxBid <= lux.expectedPrice, `ceiling $${lux.maxBid} vs market $${lux.expectedPrice}`);
+      // The direct A/B: the same quarterback, once while his slot is open and
+      // once after it is filled. Filling the slot must move him from "worth
+      // planning around" to "depth I take only at a discount".
+      const l3 = JSON.parse(JSON.stringify(l2));
+      l3.draftState.selections.push({ teamId: l3.myTeamId, playerId: hole.id, bidAmount: 20 });
+      const hole2 = byPos('QB')[1];
+      if (hole2) {
+        const openSlot = recommendBid(l2, hole2, 0);
+        const shutSlot = recommendBid(l3, hole2, 0);
+        check('filling a slot lowers the ceiling at that position',
+              shutSlot.maxBid < openSlot.maxBid,
+              `open $${openSlot.maxBid} -> filled $${shutSlot.maxBid}`);
+        check('depth is clamped to market once the slot is filled',
+              shutSlot.maxBid <= shutSlot.expectedPrice,
+              `ceiling $${shutSlot.maxBid} vs market $${shutSlot.expectedPrice}`);
+      }
+    }
+  }
+}
+
 console.log('\nleague state');
 {
   const l = freshLeague();
@@ -91,7 +146,16 @@ console.log('\nbid recommendation');
     ['action', 'maxBid', 'mustBuy', 'confidence', 'reason', 'expectedPrice',
      'budgetAfterWin', 'budgetToCompleteRoster', 'inflation', 'tradeoff']
       .every((k) => k in rec));
-  check('action is one of BID/HOLD/EXIT', ['BID', 'HOLD', 'EXIT'].includes(rec.action));
+  check('action is one of BID/HOLD/PASS/EXIT',
+        ['BID', 'HOLD', 'PASS', 'EXIT'].includes(rec.action));
+
+  // Bidding advice and the walk-away price are different numbers and must not
+  // collapse into one: opening at your ceiling surrenders the whole surplus.
+  check('never opens at the walk-away price when the market is below it',
+        rec.action !== 'BID' || rec.expectedPrice >= rec.maxBid
+          || rec.recommendedBid < rec.maxBid);
+  check('recommends nothing when he will sell past the ceiling',
+        rec.action !== 'PASS' || rec.recommendedBid === 0);
 
   const high = recommendBid(l, P('RB_01'), rec.maxBid + 5);
   check('exits once the bid passes the ceiling', high.action === 'EXIT');

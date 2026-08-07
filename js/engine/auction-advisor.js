@@ -48,6 +48,7 @@ const MAX_AT_POS = { QB: 3, RB: 7, WR: 7, TE: 3, 'D/ST': 2, K: 2 };
 const BENCH_WEIGHT = 0.12;       // depth is worth something, but far less than a starter
 const MUST_BUY_POINTS = 10.0;    // lineup points lost by missing him
 const PLAN_CANDIDATES = 110;    // deep enough to include the $1-3 tail a roster is finished with
+const STARTER_MARGIN = 1.25;     // hold 25% over forecast for slots you must fill
 const GAMES = 17;
 
 const num = (v, d = 0) => (typeof v === 'number' && isFinite(v) ? v : d);
@@ -117,13 +118,26 @@ export function buildLeagueState(league, parById = null) {
   };
 }
 
+/**
+ * Starting slots still to fill. The flex is ONE slot shared between running
+ * backs, receivers and tight ends -- granting each of them its own flex
+ * allowance claimed eight flex-eligible starters where the lineup has six, so a
+ * roster of two backs and three receivers still reported an open running back
+ * slot and kept a full bid ceiling for one.
+ */
 function openStarterSlots(counts) {
   const out = {};
+  let flexOpen = N_FLEX;
   Object.keys(STARTER_SLOTS).forEach((pos) => {
-    const cap = STARTER_SLOTS[pos] + (FLEX_POS.includes(pos) ? N_FLEX : 0);
     const have = counts[pos] || 0;
-    if (have < cap) out[pos] = cap - have;
+    const need = STARTER_SLOTS[pos] - have;
+    if (need > 0) out[pos] = need;
+    else if (FLEX_POS.includes(pos)) flexOpen -= Math.min(flexOpen, -need);
   });
+  // Whatever flex remains can be filled by any flex-eligible position.
+  if (flexOpen > 0) {
+    FLEX_POS.forEach((pos) => { out[pos] = (out[pos] || 0) + flexOpen; });
+  }
   return out;
 }
 
@@ -163,7 +177,11 @@ export function parValues(available, state, budget = 200) {
   const order = vor.map((v, i) => [v, i]).sort((a, b) => b[0] - a[0]).slice(0, nRostered);
   const total = order.reduce((a, [v]) => a + v, 0);
 
-  const par = new Array(available.length).fill(1);
+  // Only players who will actually be rostered get the $1 minimum. Giving it to
+  // all 459 in the pool when a league rosters 128 inflated the board's total
+  // value well past the money that exists in it -- $1931 against $1600 -- which
+  // pushed every forecast price up.
+  const par = new Array(available.length).fill(0);
   if (total > 0) {
     order.forEach(([v, i]) => {
       par[i] = Math.min(maxSingleBid, 1 + (surplus * v) / total);
@@ -299,6 +317,45 @@ export function planValue(roster, budget, spots, board, extra, detail) {
   return detail ? { value: current, spend: Math.round(spend), bought } : current;
 }
 
+/**
+ * Money that must be held back to fill the starting slots still open.
+ *
+ * The planner maximises points, and once your starters and flex are set, every
+ * further dollar can only buy bench -- worth a fraction of a starter. That makes
+ * leftover cash look almost worthless, so the planner would cheerfully pay $28
+ * for a fourth receiver worth 26 bench points while a starting quarterback slot
+ * sat empty. It is not wrong about the points; it is blind to the risk that
+ * prices move before you get back to that hole.
+ *
+ * So: read the plan's own shopping list, and ring-fence whatever it earmarked
+ * for slots you still have to start someone in. A player who fills none of those
+ * slots may only bid what is left over.
+ */
+export function starterReserve(me, board) {
+  const plan = planValue(me.roster, me.budget, me.spotsLeft, board, null, true);
+  const counts = { ...me.counts };
+  let reserve = 0;
+  let n = 0;
+  plan.bought.forEach(({ player, price }) => {
+    const pos = player.position;
+    const cap = STARTER_SLOTS[pos] || 0;
+    const flexCap = FLEX_POS.includes(pos) ? N_FLEX : 0;
+    // Counts a flex-eligible buy as filling a starting slot only while the
+    // combined starter+flex allowance is unfilled.
+    if ((counts[pos] || 0) < cap + flexCap) {
+      reserve += price;
+      n += 1;
+    }
+    counts[pos] = (counts[pos] || 0) + 1;
+  });
+  return { reserve, slots: n };
+}
+
+/** Does this player fill a starting slot I have not filled yet? */
+function fillsStarterSlot(me, player) {
+  return Boolean(me.needs[player.position]);
+}
+
 // ---------------------------------------------------------------------------
 // The recommendation
 // ---------------------------------------------------------------------------
@@ -414,16 +471,49 @@ export function recommendBid(league, player, currentBid = 0, options = {}) {
   const atMarket = Math.max(1, Math.min(Math.round(price), Math.floor(me.maxBid)));
   const lossIfMissed = Math.max(0, planIfWon(atMarket) - planMissing);
 
+  // Steer toward the holes. If he starts for me, nothing is held back. If he
+  // would ride the bench while a starting slot is still open, he may only have
+  // the money that slot does not need.
+  const fillsSlot = fillsStarterSlot(me, player);
+  // Only steer while there is somewhere to steer TO. Once every starting slot
+  // is filled, leftover money SHOULD go to the best bench available, and
+  // clamping it to market would leave you tying every auction and finishing
+  // with a row of $1 players.
+  const hasHoles = Object.keys(me.needs).length > 0;
+  let luxuryCap = null;
+  if (!fillsSlot && hasHoles) {
+    const { reserve, slots } = starterReserve(me, boardMinus);
+    // $1 apiece for the bench slots that remain after this buy and the reserved
+    // ones. The reserve carries a margin because a forecast price is not a
+    // guaranteed price -- if the room bids the last starting tight end past the
+    // forecast and the money is already spent on a fourth receiver, the slot
+    // stays empty all season.
+    const otherSpots = Math.max(0, me.spotsLeft - 1 - slots);
+    const affordCap = Math.max(0, me.budget - reserve * STARTER_MARGIN - otherSpots);
+    // And never outbid the room for bench depth while a starting slot is open.
+    // Depth is worth having at a discount and worth nothing at a premium.
+    luxuryCap = Math.min(affordCap, Math.round(price));
+    maxBid = Math.min(maxBid, luxuryCap);
+  }
+
   const mustBuyThreshold = options.mustBuyPoints || MUST_BUY_POINTS;
   const mustBuy = lossIfMissed >= mustBuyThreshold && maxBid >= Math.max(2, price * 0.8);
   if (mustBuy) {
     // A Must Buy earns a premium over par — but never past the point where the
     // rest of the roster collapses, which me.maxBid already guards.
     maxBid = Math.min(Math.floor(me.maxBid), Math.floor(maxBid * 1.15) + 1);
+    if (luxuryCap !== null) maxBid = Math.min(maxBid, luxuryCap);
   }
+
+  // If the walk-away price is already below what the player will sell for, you
+  // are not going to win him at a price worth paying. Saying BID there -- which
+  // it did whenever the current bid was zero -- invites you into an auction you
+  // should be sitting out.
+  const willBeOutbid = maxBid > 0 && price > maxBid;
 
   let action;
   if (maxBid <= 0 || currentBid >= maxBid) action = 'EXIT';
+  else if (willBeOutbid) action = 'PASS';
   else if (mustBuy || currentBid < price * 0.85) action = 'BID';
   else action = 'HOLD';
 
@@ -441,6 +531,13 @@ export function recommendBid(league, player, currentBid = 0, options = {}) {
   if (mustBuy) {
     reason = `Losing ${player.name} costs about ${Math.round(lossIfMissed)} lineup points and `
       + `nothing comparable is left at ${player.position}.`;
+  } else if (luxuryCap !== null) {
+    const open = Object.keys(me.needs).join(', ');
+    reason = `Your ${player.position} starters and flex are set — he is bench depth, `
+      + `and you still have to start ${open}. Take him at $${luxuryCap} or below, not above.`;
+  } else if (willBeOutbid) {
+    reason = `He is worth $${maxBid} to you and the room will pay about $${Math.round(price)}. `
+      + `Let him go — the difference buys more elsewhere.`;
   } else if (maxBid <= 1) {
     reason = `Replacement level at ${player.position} is close behind — your money does more elsewhere.`;
   } else {
@@ -464,9 +561,28 @@ export function recommendBid(league, player, currentBid = 0, options = {}) {
   // nothing. What you should actually put in right now is the least that still
   // wins — the market forecast plus a nudge. The ceiling stays in reserve for
   // Must Buys, where losing the player is the expensive outcome.
-  const recommendedBid = mustBuy
-    ? Math.floor(maxBid)
-    : Math.max(1, Math.min(Math.floor(maxBid), Math.round(price * 1.05) + 1));
+  // Opening at your walk-away price is never right: it captures no surplus and
+  // it is the number you should be prepared to stop at, not start at. Bid the
+  // least that still wins -- and bid nothing at all when the market is already
+  // past your ceiling, which is why these two used to collapse onto the same
+  // figure and look like a bug.
+  // What to put in RIGHT NOW is always the least that still wins. Must Buy
+  // raises the ceiling -- the point at which you stop -- it does not mean you
+  // should open at your maximum. Setting the two equal made them read as one
+  // number and told you to bid your walk-away price on the first shout, which
+  // hands the entire surplus to the seller.
+  let recommendedBid;
+  if (maxBid <= 0 || willBeOutbid) {
+    recommendedBid = 0;
+  } else if (luxuryCap !== null) {
+    // Depth you want only if it falls to you. Jumping the bid to just above
+    // market is how you win a player -- exactly what you should not do while a
+    // starting slot is still open. Stay in a dollar at a time instead.
+    recommendedBid = Math.max(1, Math.min(Math.floor(maxBid), currentBid + 1));
+  } else {
+    const nextUp = Math.max(currentBid + 1, Math.round(price * 1.05) + 1);
+    recommendedBid = Math.max(1, Math.min(Math.floor(maxBid), nextUp));
+  }
 
   return {
     ...base,

@@ -858,6 +858,9 @@ const ACTION_STYLE = {
   BID:  { color: '#16c784', label: 'BID' },
   HOLD: { color: '#ffb020', label: 'HOLD' },
   EXIT: { color: '#ff5252', label: 'EXIT' },
+  // He will sell for more than he is worth to this roster. Distinct from EXIT,
+  // which means the bidding has already passed your ceiling.
+  PASS: { color: '#ff9800', label: 'LET HIM GO' },
 };
 
 function findNominatedPlayer(db, name) {
@@ -901,7 +904,7 @@ function auctionAdvisoryHtml(rec) {
     ${mustBuyBanner}
     <div style="display:flex; flex-wrap:wrap; gap:1rem; margin-bottom:0.9rem;">
       ${stat('Current bid', '$' + rec.currentBid)}
-      ${stat('Bid now', '$' + (rec.recommendedBid ?? rec.maxBid), style.color)}
+      ${stat('Bid now', rec.recommendedBid > 0 ? '$' + rec.recommendedBid : '—', style.color)}
       ${stat('Walk-away ceiling', '$' + rec.maxBid, rec.mustBuy ? '#f59e0b' : 'var(--accent-green)')}
       ${stat('Market forecast', '$' + rec.expectedPrice)}
       ${stat('Action', style.label, style.color)}

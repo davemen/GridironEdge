@@ -1009,6 +1009,94 @@ opposition matters more than the quality of your tuning.
 
 ---
 
+## Part 16 — Three valuation bugs found by asking why two numbers matched
+
+The question that started this: *why are "bid now" and "walk away" always the
+same number, and shouldn't walk away be higher?* Chasing it turned up three
+separate defects, none of which the existing tests could see.
+
+**1. Par allocated more money than the room contains.** Every roster spot costs
+at least $1, so par gives each player a $1 floor plus a share of the surplus.
+The floor was being handed to every player in the pool — all 459 of them — when
+an 8-team league rosters 128. Par summed to $1,931 against $1,600 of actual
+money, a 21% over-allocation that inflated every forecast price and, through
+them, every ceiling. The floor now goes only to players who will actually be
+rostered; par sums to the money in the room, exactly.
+
+**2. The flex was counted once per position instead of once.** `openStarterSlots`
+gave the flex allowance to running backs, receivers *and* tight ends
+independently, claiming eight flex-eligible starting slots where the lineup has
+six. A roster of two backs and three receivers — starters and flex complete —
+still reported an open running back slot and kept a full bid ceiling for one.
+
+**3. Bidding advice and the walk-away price were the same number.** For a Must
+Buy, `recommendedBid` was *set* to the ceiling. Opening at your walk-away price
+captures no surplus at all: it is the number you should be prepared to stop at,
+not the one you start at. Must Buy now raises the ceiling and leaves the opening
+bid where it belongs — the least that still wins.
+
+A fourth issue was behavioural rather than arithmetic. When the forecast price
+already exceeded the ceiling — precisely when you should not be bidding — the
+action still read `BID`, because it tested `currentBid < price * 0.85` and
+`currentBid` was zero. There is now a `PASS` state, distinct from `EXIT`: `EXIT`
+means the bidding has passed your ceiling, `PASS` means it is going to.
+
+### Steering toward the holes
+
+Related, and asked for directly: once the starting slots and flex are filled,
+the engine should push money into the empty slots rather than into more of what
+is already set.
+
+It did not, and the reason is instructive. The planner maximises points and is
+not wrong about them — with a set lineup and nine bench slots left, leftover
+money genuinely has almost nowhere good to go, so paying $28 for a fourth
+receiver worth 26 bench points looked like a fair trade. What it could not see
+is the risk: the plan assumes it can buy the quarterback later at his *forecast*
+price, and a forecast is not a guarantee. Spend the money and miss, and the slot
+is empty all season.
+
+So the engine now reads its own shopping list, ring-fences whatever it earmarked
+for slots that still need a starter, and holds a 25% margin on top. A player who
+fills none of those slots may bid only what is left — and never above market,
+because depth is worth having at a discount and worth nothing at a premium. He
+also gets bid a dollar at a time rather than jumped to just above market, since
+jumping is how you *win* a player and winning is not the goal there.
+
+The cap lifts entirely once every starting slot is filled. At that point
+leftover money *should* buy the best bench available, and clamping it to market
+would leave you tying every auction and finishing with a row of $1 players.
+
+### Measuring it
+
+The first attempt at an A/B was confounded and worth recording as a warning. In
+the simulation, `market_values` feeds the bots' private valuations as well as
+the engine's, so fixing par moved the entire simulated market — the control
+models shifted too (the app formula fell from 1959 to 1929), and none of the
+comparison meant anything. In the real app, par is only what the engine
+*believes*; ESPN sets the price the room actually pays.
+
+Rerun with the world's prices held fixed and only the engine's beliefs varying,
+which is the change as it actually ships. 12 teams, $200, 15 spots, second-price,
+2021-2025, front-loaded room, 360 auctions per arm, common random numbers:
+
+| | Points | Rank | Titles | Win rate vs app formula |
+|---|---|---|---|---|
+| Before | 2034.4 ± 11.5 | 3.05 | 27.8% | 66.7% |
+| After | 2084.0 ± 12.1 | 2.62 | **44.4%** | 77.2% |
+
+The controls confirm the isolation held: the app formula went 1922.1 → 1936.8
+and the static VOR chart 1901.1 → 1892.0, both inside their standard errors.
+Only the engine moved.
+
++49.6 points a season, and title probability from 27.8% to 44.4% (t = 4.7)
+against a 8.3% baseline in a twelve-team league. That is the largest single
+improvement measured in this document, and unlike the tuning sweeps in Parts 12
+and 15 it survived isolation — because these were bugs, not parameters. Par
+summing to more money than exists is wrong whatever the simulation says; the
+measurement confirms how much it was costing.
+
+---
+
 ## Honest summary
 
 | Claim | Verdict |
