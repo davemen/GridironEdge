@@ -298,6 +298,9 @@ function setupSettingsControls() {
     const selectDraft = document.getElementById('settings-draft-type');
 
     league.myTeamId = parseInt(selectTeam.value);
+    // Mark it as yours, not the scraper's. importScrapedPayload checks this
+    // before letting a live update overwrite the choice.
+    league.myTeamIdSource = 'user';
     league.scoringFormat = selectScoring.value;
     league.draftState.draftType = selectDraft.value;
 
@@ -1610,13 +1613,80 @@ function renderAuctionBoard(league, db, rec) {
   };
 }
 
+/**
+ * Ask which team is the user's, when the draft room did not make it knowable.
+ *
+ * Deliberately a question rather than a default. Picking the first team would
+ * fill the page with somebody else's roster and there would be no way to tell:
+ * the bid ceilings would all be computed against it and would look completely
+ * ordinary.
+ */
+function renderOwnerPrompt(league, mount) {
+  if (!mount) return;
+  const teams = (league && league.teams) || [];
+  const box = document.createElement('div');
+  box.className = 'empty-state';
+
+  const h = document.createElement('h3');
+  h.textContent = 'Which team is yours?';
+  box.appendChild(h);
+
+  const p = document.createElement('p');
+  p.textContent = teams.length
+    ? 'The draft room did not say. An auction lists every team\'s budget the '
+      + 'same way it lists a roster, so there is nothing on the page that marks '
+      + 'one as yours. Pick it once and it will stick for this league.'
+    : 'No teams have been read from the draft room yet.';
+  box.appendChild(p);
+
+  if (teams.length) {
+    const select = document.createElement('select');
+    select.id = 'owner-prompt-team';
+    teams.forEach((t) => {
+      const opt = document.createElement('option');
+      opt.value = String(t.teamId);
+      // textContent, not markup: a team name is whatever an opponent typed.
+      opt.textContent = t.teamName || `Team ${t.teamId}`;
+      select.appendChild(opt);
+    });
+    box.appendChild(select);
+
+    const btn = document.createElement('button');
+    btn.className = 'btn-primary';
+    btn.textContent = 'That one is mine';
+    // A listener, never an inline handler.
+    btn.addEventListener('click', () => {
+      const chosen = parseInt(select.value, 10);
+      if (isNaN(chosen)) return;
+      league.myTeamId = chosen;
+      // Marks it as a decision, so the next scrape does not overwrite it.
+      league.myTeamIdSource = 'user';
+      store.saveLeague(league.leagueId, league);
+    });
+    box.appendChild(btn);
+  }
+
+  mount.appendChild(box);
+}
+
 // Render Team Roster View
 export function renderRosterPage(league = store.getActiveLeague()) {
   const myTeam = store.getMyTeam();
-  if (!myTeam) return;
+  const rosterGridEl = document.getElementById('roster-list-grid');
+
+  // An unidentified owner used to `return` here, drawing nothing: the page went
+  // blank with no explanation, and the reason -- that the scrape could not tell
+  // which of twelve teams was yours -- appeared nowhere on screen. An auction
+  // room lists every team's budget in the same shape as a roster header, so
+  // this is the normal case there, not an edge one. Ask.
+  if (!myTeam) {
+    if (rosterGridEl) rosterGridEl.innerHTML = '';
+    renderOwnerPrompt(league, rosterGridEl);
+    return;
+  }
 
   const db = league.playerDatabase;
-  const rosterGrid = document.getElementById('roster-list-grid');
+  const rosterGrid = rosterGridEl;
   rosterGrid.innerHTML = '';
 
   const myRosterIds = myTeam.roster || [];

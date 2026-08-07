@@ -152,5 +152,53 @@ console.log('\ntwo draft rooms open at once');
   check('a stale league is replaced by the live one', store.state.currentLeagueId === 'BBB');
 }
 
+console.log('\nwhich team is yours');
+{
+  // An auction room lists every team's budget in the same shape as a roster
+  // header, so the scraper often cannot tell which is yours. It used to answer
+  // "team 1" anyway, and the mapper defaulted to 1 as well -- so the app showed
+  // someone else's roster as yours with nothing on screen to say so.
+  const L = 'OWNER';
+  const noOwner = payload([pick(1, 'Josh Allen', 'QB', 'BUF', 2, 19)],
+    { leagueId: L, myTeamId: undefined });
+  let l = await espnClient.importScrapedPayload(noOwner);
+  check('an unknown owner stays unknown rather than becoming team 1',
+    l.myTeamId === null, String(l.myTeamId));
+  check('and the league says the owner is unknown',
+    l.myTeamIdSource === 'unknown', l.myTeamIdSource);
+  // The previous block leaves another live league active, and the importer
+  // deliberately refuses to switch away from one that is still being fed.
+  store.state.currentLeagueId = L;
+  check('so getMyTeam reports nothing rather than a stranger',
+    store.getMyTeam() === null);
+
+  // The user picks their team.
+  l.myTeamId = 2;
+  l.myTeamIdSource = 'user';
+  store.saveLeague(L, l);
+
+  // The regression that made picking a team look broken: saveLeague replaces
+  // the whole league, so the next scrape -- one per pick, in a room changing
+  // every second -- overwrote the choice immediately.
+  l = await espnClient.importScrapedPayload(payload(
+    [pick(1, 'Josh Allen', 'QB', 'BUF', 2, 19), pick(2, 'Bijan Robinson', 'RB', 'ATL', 2, 49)],
+    { leagueId: L, myTeamId: undefined }));
+  check('a live update does not overwrite the team you chose',
+    l.myTeamId === 2, String(l.myTeamId));
+  check('and it stays marked as your choice', l.myTeamIdSource === 'user');
+  check('the roster on screen is now yours',
+    Boolean(store.getMyTeam()) && store.getMyTeam().teamId === 2);
+
+  // A scrape that DOES know still wins over a plain guess, but not over you.
+  l = await espnClient.importScrapedPayload(payload(
+    [pick(1, 'Josh Allen', 'QB', 'BUF', 1, 19)], { leagueId: L, myTeamId: 1 }));
+  check('an explicit scrape still loses to your choice', l.myTeamId === 2);
+
+  const fresh = await espnClient.importScrapedPayload(payload(
+    [pick(1, 'Josh Allen', 'QB', 'BUF', 1, 19)], { leagueId: 'FRESH', myTeamId: 1 }));
+  check('but on a league you never set, the scrape is used',
+    fresh.myTeamId === 1 && fresh.myTeamIdSource === 'scrape');
+}
+
 console.log(`\n${passed} passed, ${failed} failed`);
 if (failed) process.exit(1);

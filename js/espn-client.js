@@ -121,6 +121,24 @@ class ESPNClient {
       }
       
       const mapped = this.mapESPNLeague(parsed);
+
+      // Which team is yours survives the update.
+      //
+      // saveLeague replaces the whole league object, so a myTeamId chosen in
+      // Settings was overwritten by whatever the next scrape guessed -- once
+      // per pick, in a room that changes every second. Picking your team
+      // appeared to work and then silently undid itself, which is the failure
+      // that reads as "my team is not showing up".
+      //
+      // A choice you made outranks anything read off the page. The scrape only
+      // fills it in when nobody has said otherwise.
+      const stored = store.state.leagues[mapped.leagueId];
+      if (stored && stored.myTeamIdSource === 'user' && typeof stored.myTeamId === 'number') {
+        mapped.myTeamId = stored.myTeamId;
+        mapped.myTeamIdSource = 'user';
+      } else {
+        mapped.myTeamIdSource = typeof mapped.myTeamId === 'number' ? 'scrape' : 'unknown';
+      }
       // Read this BEFORE saving: saveLeague sets the active league itself, so
       // afterwards it always equals whatever just arrived and any comparison
       // against it is vacuously true.
@@ -391,7 +409,12 @@ class ESPNClient {
       picksMadeOnEspn: typeof espnData.picksMadeOnEspn === 'number'
         ? espnData.picksMadeOnEspn : undefined,
       leagueSize: teams.length || 8,
-      myTeamId: typeof espnData.myTeamId === 'number' ? espnData.myTeamId : 1,
+      // Null, not 1. Defaulting to the first team is a guess wearing the
+      // clothes of a fact: it silently shows you somebody else's roster, and
+      // every bid ceiling is computed against the roster it thinks is yours.
+      // An unknown owner is a question the interface can ask; a wrong one is
+      // not something it can detect.
+      myTeamId: typeof espnData.myTeamId === 'number' ? espnData.myTeamId : null,
       scoringFormat: 'PPR',
       rosterSettings: positionLimits,
       waiverSettings: {

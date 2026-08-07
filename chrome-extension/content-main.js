@@ -592,24 +592,37 @@
     return null;
   }
 
+  /**
+   * The team name shown as yours, or null if the page does not single one out.
+   *
+   * This matched "1. Some Team" over "$200" and returned the first one it hit.
+   * In a snake room that block is your own roster header, so it worked. In an
+   * auction the budget panel lists EVERY team in exactly that shape, so it
+   * returned whichever team the DOM happened to put first -- normally team 1 --
+   * and reported it as yours with no indication it was a guess. You then saw
+   * someone else's roster, and every bid ceiling was computed against it.
+   *
+   * Finding several candidates is not weak evidence that the first is yours; it
+   * is evidence the page is listing everybody. Say so, and let the interface ask.
+   */
   function findMyTeamNameFromDOM() {
+    const candidates = [];
     try {
       const elements = document.querySelectorAll('div');
       for (const el of elements) {
         if (!el || el.children.length > 5) continue;
         const text = el.innerText ? el.innerText.trim() : '';
         if (!text || text.length > 100 || text.length < 5) continue;
-        
+
         const lines = text.split('\n');
         if (lines.length >= 2) {
           const nameLineRaw = lines[0].trim();
           if (/^\d+\.\s+/.test(nameLineRaw)) {
             const nameLine = nameLineRaw.replace(/^\d+\.\s*/, '');
             const budgetLine = lines[1].trim();
-            if (budgetLine.startsWith('$')) {
-              if (!text.toUpperCase().includes('AUTO')) {
-                return nameLine;
-              }
+            if (budgetLine.startsWith('$') && !text.toUpperCase().includes('AUTO')) {
+              if (candidates.indexOf(nameLine) === -1) candidates.push(nameLine);
+              if (candidates.length > 1) return null; // a roster, not a list
             }
           }
         }
@@ -618,7 +631,7 @@
           // Best effort: this reads the page and the page is not ours.
           console.debug('[Gridiron Edge] read failed:', e && e.message);
         }
-    return null;
+    return candidates.length === 1 ? candidates[0] : null;
   }
 
   /**
@@ -662,23 +675,49 @@
       const urlParams = new URLSearchParams(window.location.search);
       let leagueId = urlParams.get('leagueId') || urlParams.get('leagueid') || 'scraped-draft';
       let season = urlParams.get('seasonId') || urlParams.get('seasonid') || new Date().getFullYear();
-      let myTeamId = parseInt(urlParams.get('teamId') || urlParams.get('teamid') || '1', 10);
+      // NaN when the URL does not say, so "the URL named team 1" stays
+      // distinguishable from "nobody said". It used to default to 1, which made
+      // the two indistinguishable and always produced an answer.
+      const urlTeamId = parseInt(urlParams.get('teamId') || urlParams.get('teamid'), 10);
       const currentNom = findCurrentNomination();
-      
+
       const myTeamName = findActiveRosterTeam() || findMyTeamNameFromDOM();
+
+      /**
+       * Which team is yours, or null.
+       *
+       * The URL parameter wins: it is what ESPN itself used to route you into
+       * your own draft room, where the name match is inference over markup that
+       * ESPN is free to change. The order used to be the other way round, so a
+       * bad name guess overrode a correct, explicit teamId.
+       *
+       * Returning null is a real answer. Reporting a team we are not sure about
+       * silently attributes someone else's roster to you, and every bid ceiling
+       * is then computed against the wrong roster -- with nothing on screen to
+       * suggest anything is wrong.
+       */
+      function resolveMyTeamId(teams) {
+        if (!Array.isArray(teams) || !teams.length) return null;
+        if (!isNaN(urlTeamId) && teams.some((t) => t.teamId === urlTeamId)) {
+          return urlTeamId;
+        }
+        if (myTeamName) {
+          const lower = myTeamName.toLowerCase();
+          const match = teams.find((t) => {
+            const name = (t.teamName || '').toLowerCase();
+            return name === lower || lower.includes(name) || name.includes(lower);
+          });
+          if (match) return match.teamId;
+        }
+        return null;
+      }
 
       // 1. Try React store extraction
       try {
         const storeState = findStoreState();
         const extracted = extractDataFromStore(storeState);
         if (extracted) {
-          let resolvedTeamId = myTeamId;
-          if (myTeamName) {
-            const matchedTeam = extracted.teams.find(t => t.teamName.toLowerCase() === myTeamName.toLowerCase() || myTeamName.toLowerCase().includes(t.teamName.toLowerCase()) || t.teamName.toLowerCase().includes(myTeamName.toLowerCase()));
-            if (matchedTeam) {
-              resolvedTeamId = matchedTeam.teamId;
-            }
-          }
+          const resolvedTeamId = resolveMyTeamId(extracted.teams);
 
           data = {
             isDOMScraped: false,
@@ -794,16 +833,7 @@
             + ' picks could not be matched to a team.');
         }
 
-        let resolvedTeamId = 1;
-        if (myTeamName) {
-          const matchedTeam = teams.find(t => t.teamName.toLowerCase() === myTeamName.toLowerCase() || myTeamName.toLowerCase().includes(t.teamName.toLowerCase()) || t.teamName.toLowerCase().includes(myTeamName.toLowerCase()));
-          if (matchedTeam) {
-            resolvedTeamId = matchedTeam.teamId;
-          }
-        } else {
-          const matchedUrlTeam = teams.find(t => t.teamId === myTeamId);
-          if (matchedUrlTeam) resolvedTeamId = myTeamId;
-        }
+        const resolvedTeamId = resolveMyTeamId(teams);
 
         data = {
           isDOMScraped: true,
