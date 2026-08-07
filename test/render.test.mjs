@@ -39,8 +39,14 @@ function makeEl(id) {
     get innerHTML() { return written.get(id) || ''; },
     set innerHTML(v) { written.set(id, String(v)); },
     innerText: '', textContent: '', value: '',
+    // A real element has both. Without `dataset` any code doing el.dataset.x
+    // throws here but works in a browser, which is the wrong way round for a
+    // test; without recorded children, an element appended and then discarded
+    // by the same render looks identical to one that was never appended.
+    dataset: {},
     addEventListener() {}, removeEventListener() {},
-    appendChild() {}, remove() {}, insertBefore() {}, insertAdjacentHTML() {},
+    appendChild(child) { this.children.push(child); return child; },
+    remove() {}, insertBefore() {}, insertAdjacentHTML() {},
     setAttribute() {}, getAttribute() { return null; },
     querySelector: () => makeEl(id + ':child'), querySelectorAll: () => [],
     closest: () => null, focus() {},
@@ -166,6 +172,46 @@ for (const scenario of [
     `got ${moves.length} chars`);
   const champ = written.get('dashboard-champ-prob') || '';
   check('Championship Outlook has a figure', /\d/.test(champ), `got "${champ}"`);
+}
+
+console.log('\nan auction the app can only partly see');
+{
+  // ESPN reports more picks than were read: an auction room renders one team's
+  // roster and no results table, so this is its normal state rather than an
+  // error. The banner has to say so, and the offer to scan the rest has to
+  // actually reach the page -- the first version mounted it into a panel that
+  // the rest of that render then rebuilt, so it was appended and discarded and
+  // never appeared. An assertion on "was it created" would have passed.
+  const league = buildLeague({});
+  league.picksMadeOnEspn = 46;
+  league.draftState = league.draftState || {};
+  league.draftState.selections = [{ playerId: 1 }, { playerId: 2 }];
+  load(league);
+
+  let err = null;
+  try { app.renderMissingPicksBanner(league); } catch (e) { err = e; }
+  check('the banner renders with a partly-read board', !err,
+    err && `${err.constructor.name}: ${err.message}`);
+
+  const banner = document.getElementById('missing-picks-banner');
+  check('the banner says how many were read',
+    /46 picks; 2 were read/.test(banner.textContent), banner.textContent);
+  const scan = banner.children.find((c) => c.id === 'missing-picks-scan');
+  check('the scan button survives the render that created it', Boolean(scan),
+    `banner has ${banner.children.length} children`);
+  check('and it is labelled', scan && scan.textContent === 'Scan all rosters',
+    scan && scan.textContent);
+
+  // A complete board must not offer it.
+  const full = buildLeague({});
+  full.picksMadeOnEspn = 2;
+  full.draftState = full.draftState || {};
+  full.draftState.selections = [{ playerId: 1 }, { playerId: 2 }];
+  const before = document.getElementById('missing-picks-banner').children.length;
+  load(full);
+  app.renderMissingPicksBanner(full);
+  check('a complete board adds no scan button',
+    document.getElementById('missing-picks-banner').children.length === before);
 }
 
 console.log(`\n${passed} passed, ${failed} failed`);
