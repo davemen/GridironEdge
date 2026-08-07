@@ -717,7 +717,8 @@ function draftMovesHtml(league, ranked, meRanked, drafting = true) {
   // clock on it.
   if (nom) {
     const nomPlayer = findNominatedPlayer(league.playerDatabase || {},
-      typeof nom === 'object' ? nom.name : nom);
+      typeof nom === 'object' ? nom.name : nom,
+      league.draftState?.currentNominationId);
     if (nomPlayer) {
       try {
         const bid = (league.draftState || {}).currentNominationBid || 0;
@@ -1458,16 +1459,26 @@ const ACTION_STYLE = {
   PASS: { color: '#ff9800', label: 'LET HIM GO' },
 };
 
-function findNominatedPlayer(db, name) {
+/**
+ * The player on the block.
+ *
+ * Prefer the id the mapper already resolved. This was a fourth name resolver,
+ * separate from findPlayer, and it ignored position and club entirely: an
+ * exact name match, then a bare substring match in database order. So a
+ * nominee whose scraped name did not match exactly -- an abbreviation, an
+ * injury tag, a suffix -- fell through to substring and could land on a
+ * different player, who was then priced and recommended as though he were the
+ * one being auctioned. Two players sharing a surname is all it takes.
+ *
+ * The name fallback stays for a league stored before ids were carried, but it
+ * now requires the whole name rather than accepting any substring overlap.
+ */
+function findNominatedPlayer(db, name, id) {
+  if (id && db[id]) return db[id];
   if (!name) return null;
   const target = String(name).toLowerCase().trim();
-  const all = Object.values(db);
-  return all.find(p => p.name.toLowerCase() === target)
-      || all.find(p => {
-           const n = p.name.toLowerCase();
-           return n.includes(target) || target.includes(n);
-         })
-      || null;
+  if (!target) return null;
+  return Object.values(db).find((p) => p.name.toLowerCase() === target) || null;
 }
 
 /** The live advisory card. Re-rendered on every bid change. */
@@ -1589,7 +1600,8 @@ function renderAuctionBoard(league, db, rec) {
     return;
   }
 
-  const nominated = findNominatedPlayer(db, league.draftState.currentNomination);
+  const nominated = findNominatedPlayer(db, league.draftState.currentNomination,
+    league.draftState.currentNominationId);
 
   // Targets worth planning around, whether or not one is on the block.
   let watchlist = [];

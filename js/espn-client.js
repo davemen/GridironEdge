@@ -356,6 +356,16 @@ class ESPNClient {
     }
 
     let currentNomination = null;
+    // The RESOLVED player's id, not just his name.
+    //
+    // The draft page had to re-find the nominee from the name alone, with its
+    // own resolver that ignored position and team and fell back to a substring
+    // match -- so a name that resolved to a stub, or shared a surname with
+    // someone else, could land on the wrong player and price him. The lookup
+    // has already been done correctly here, by findPlayer, with the position
+    // and club the room supplied; carrying its answer means it is not guessed
+    // at a second time.
+    let currentNominationId = null;
     let currentNominationBid = null;
     let currentNominationMax = null;
     if (espnData.currentNomination) {
@@ -363,6 +373,7 @@ class ESPNClient {
       const match = resolveNomination(db, espnData.currentNomination);
       if (match && match.isUnknownPlayer) db[match.id] = match;
       currentNomination = match ? match.name : null;
+      currentNominationId = match ? String(match.id) : null;
       // Carry the live bid alongside the name so the advisor can price against
       // what the player is actually going for right now.
       currentNominationBid = typeof espnData.currentNomination === 'object'
@@ -382,6 +393,7 @@ class ESPNClient {
       currentPick: selections.length + 1,
       selections: selections,
       currentNomination: currentNomination,
+      currentNominationId: currentNominationId,
       currentNominationBid: currentNominationBid,
       currentNominationMax: currentNominationMax
     };
@@ -521,6 +533,7 @@ class ESPNClient {
 
     let currentNomination = null;
     let currentNominationBid = null;
+    let currentNominationId = null;
     let currentNominationMax = null;
     if (espnData.currentNomination) {
       
@@ -528,6 +541,7 @@ class ESPNClient {
       // function -- so the resolution happens after it exists, not before.
       const match = resolveNomination(realDb || {}, espnData.currentNomination);
       currentNomination = match ? match.name : null;
+      currentNominationId = match ? String(match.id) : null;
       // Carry the live bid alongside the name so the advisor can price against
       // what the player is actually going for right now.
       currentNominationBid = typeof espnData.currentNomination === 'object'
@@ -547,6 +561,7 @@ class ESPNClient {
       currentPick: selections.length + 1,
       selections: selections,
       currentNomination: currentNomination,
+      currentNominationId: currentNominationId,
       currentNominationBid: currentNominationBid,
       currentNominationMax: currentNominationMax
     };
