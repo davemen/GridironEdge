@@ -1,14 +1,54 @@
-// Isolated world content script for Gridiron Edge ESPN Sync extension
-// Listens for postMessage events from the main-world script and forwards them to the service worker
+/**
+ * Isolated-world half of the sync bridge.
+ *
+ * The MAIN-world script scrapes the draft room and postMessages the result here;
+ * this forwards it to the service worker, which POSTs it to the local server.
+ *
+ * That makes this listener a trust boundary, and it was not treating itself as
+ * one: the only check was `event.source !== window`, which any script running in
+ * the same frame satisfies trivially. Combined with all_frames, any third-party
+ * tag or ad on the page could post a GRIDIRON_EDGE_SYNC message and have the
+ * extension write attacker-chosen JSON into the file the app renders.
+ *
+ * Now: the origin must be ESPN, the message must arrive from this exact window,
+ * and the payload must look like a league before it goes anywhere.
+ */
 
 (function() {
+  const TRUSTED_ORIGIN = 'https://fantasy.espn.com';
+
+  /**
+   * Enough shape to reject anything that is not a scrape result. This is not a
+   * schema validator -- it is a gate that stops arbitrary objects reaching disk.
+   */
+  function looksLikeAScrape(data) {
+    if (!data || typeof data !== 'object' || Array.isArray(data)) return false;
+    if (typeof data.leagueId !== 'string' && typeof data.leagueId !== 'number') return false;
+    if (!Array.isArray(data.teams) || data.teams.length === 0) return false;
+    const picks = data.draftDetail && data.draftDetail.picks;
+    if (picks !== undefined && !Array.isArray(picks)) return false;
+    // A draft payload is tens of kilobytes; anything far past that is not ours.
+    try {
+      if (JSON.stringify(data).length > 5 * 1024 * 1024) return false;
+    } catch (e) {
+      return false;   // circular or otherwise unserialisable
+    }
+    return true;
+  }
+
   console.log("[Gridiron Edge Sync] Isolated script initialized. Listening for messages from page context...");
 
   window.addEventListener('message', (event) => {
-    // Only trust messages from the same window
+    // Same frame AND the right site. event.source alone proves almost nothing:
+    // every script in this frame shares this window.
     if (event.source !== window) return;
+    if (event.origin !== TRUSTED_ORIGIN) return;
 
     if (event.data && event.data.type === 'GRIDIRON_EDGE_SYNC') {
+      if (!looksLikeAScrape(event.data.data)) {
+        console.warn('[Gridiron Edge Sync] Ignored a sync message that is not a league payload.');
+        return;
+      }
       try {
         // Test if context is valid
         if (!chrome.runtime || !chrome.runtime.id) {
@@ -44,14 +84,21 @@
     banner.style.zIndex = '999999';
     banner.style.border = '2px solid rgba(255,255,255,0.2)';
     
-    banner.innerHTML = `
-      <div style="display:flex; align-items:center; gap:12px;">
-        <span>🔄 Gridiron Edge Sync Extension reloaded.</span>
-        <button onclick="window.location.reload();" style="background:#ffffff; color:#d50000; border:none; padding:6px 12px; border-radius:4px; font-weight:700; cursor:pointer; font-size:12px; transition:opacity 0.2s;">
-          Refresh Page to Sync
-        </button>
-      </div>
-    `;
+    // Built rather than templated, and the handler is bound rather than inlined:
+    // an inline onclick in an extension-injected banner is the same hazard the
+    // app was just cleaned of.
+    const row = document.createElement('div');
+    row.style.cssText = 'display:flex; align-items:center; gap:12px;';
+    const label = document.createElement('span');
+    label.textContent = '🔄 Gridiron Edge Sync Extension reloaded.';
+    const btn = document.createElement('button');
+    btn.textContent = 'Refresh Page to Sync';
+    btn.style.cssText = 'background:#ffffff; color:#d50000; border:none; padding:6px 12px;'
+      + 'border-radius:4px; font-weight:700; cursor:pointer; font-size:12px;';
+    btn.addEventListener('click', () => window.location.reload());
+    row.appendChild(label);
+    row.appendChild(btn);
+    banner.appendChild(row);
     document.body.appendChild(banner);
   }
 })();

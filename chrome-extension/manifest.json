@@ -1,11 +1,10 @@
 {
   "manifest_version": 3,
   "name": "Gridiron Edge ESPN Sync",
-  "version": "1.1",
+  "version": "1.2",
   "description": "Scrapes and synchronizes your active ESPN fantasy league roster and standings with Gridiron Edge.",
   "permissions": [
     "activeTab",
-    "tabs",
     "scripting",
     "clipboardWrite"
   ],
@@ -26,7 +25,7 @@
         "content-isolated.js"
       ],
       "run_at": "document_idle",
-      "all_frames": true
+      "all_frames": false
     },
     {
       "matches": [
@@ -37,7 +36,7 @@
         "content-main.js"
       ],
       "run_at": "document_idle",
-      "all_frames": true,
+      "all_frames": false,
       "world": "MAIN"
     }
   ],

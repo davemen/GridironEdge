@@ -1,6 +1,24 @@
 const statusEl = document.getElementById('status');
 const syncBtn = document.getElementById('sync-btn');
 
+/**
+ * Write a status line as text, never as markup.
+ *
+ * These strings carry error text that originates in the MAIN world of the ESPN
+ * page, where a page script can shape an Error message. MV3's CSP stops that
+ * becoming script execution, but building markup out of page-controlled text is
+ * one relaxation away from worse, and textContent costs nothing.
+ */
+function setStatus(text, color) {
+  const el = document.getElementById('status');
+  if (!el) return;
+  el.textContent = '';
+  const span = document.createElement('span');
+  if (color) span.style.color = color;
+  span.textContent = text;
+  el.appendChild(span);
+}
+
 // Scraper function that runs in the context of the active ESPN tab
 async function scrapeEspnData() {
   try {
@@ -310,42 +328,6 @@ function scanForEspnState() {
       return null;
     }
 
-    function scrapeTeamsAndBudgets() {
-      const teams = [];
-      try {
-        const elements = document.querySelectorAll('div');
-        const seenTeams = new Set();
-        
-        elements.forEach(el => {
-          if (!el || el.children.length > 5) return;
-          const text = el.innerText ? el.innerText.trim() : '';
-          if (!text || text.length > 100 || text.length < 5) return;
-          
-          const lines = text.split('\n');
-          if (lines.length >= 2) {
-            const nameLineRaw = lines[0].trim();
-            if (/^\d+\.\s+/.test(nameLineRaw)) {
-              const nameLine = nameLineRaw.replace(/^\d+\.\s*/, '');
-              const budgetLine = lines[1].trim();
-              
-              if (budgetLine.startsWith('$')) {
-                const budgetVal = parseInt(budgetLine.replace('$', ''), 10);
-                if (!isNaN(budgetVal) && budgetVal >= 0 && budgetVal <= 260) {
-                  if (nameLine.length > 2 && nameLine.length < 30 && !seenTeams.has(nameLine)) {
-                    seenTeams.add(nameLine);
-                    teams.push({
-                      teamName: nameLine,
-                      budget: budgetVal
-                    });
-                  }
-                }
-              }
-            }
-          }
-        });
-      } catch (e) {}
-      return teams;
-    }
 
     const rawState = findStoreState();
     
@@ -360,170 +342,27 @@ function scanForEspnState() {
      * Now it accepts either signature: round labelling for a snake, or a column
      * of dollar amounts for an auction.
      */
-    function findDraftSummaryContainer() {
-      const containers = document.querySelectorAll('div, table, tbody');
-      let best = null;
-      for (const el of containers) {
-        if (!el || el.children.length === 0) continue;
-        const text = el.innerText ? el.innerText.trim() : '';
-        if (text.length >= 15000 || text.includes('No players in queue')) continue;
-        if (!text.includes('PLAYER') || !text.includes('TEAM')) continue;
-
-        const isSnake = /\bRound\s+1\b/.test(text);
-        // Several "$45"-style tokens is what an auction results table looks like.
-        const priceTokens = (text.match(/\$\d+/g) || []).length;
-        const isAuction = priceTokens >= 3;
-        if (!isSnake && !isAuction) continue;
-
-        // Prefer the tightest container that still holds the results, so we do
-        // not scrape a whole page wrapper.
-        if (!best || text.length < best.innerText.trim().length) best = el;
-      }
-      return best;
-    }
 
     // Fallback: If no React/Redux store state is found, scrape the HTML DOM for draft summary
+    // The DOM fallback used to be a second, independent copy of the draft-room
+    // scraper that lives in content-main.js. The two drifted: the auction fix
+    // landed only here, the duplicate-row fix only there, so each carried the
+    // bug the other had already fixed. content-main.js runs in this same MAIN
+    // world on every draft page and caches its last payload, so read that rather
+    // than scraping the page a second time with a different parser.
     if (!rawState) {
-      const container = findDraftSummaryContainer();
-      if (!container) {
-        return { success: false, error: 'Could not find the draft results table. Open the Draft Summary tab (snake) or the results panel showing bid amounts (auction).' };
+      const fromContentScript = window.__GRIDIRON_EDGE_LAST__;
+      if (fromContentScript && Array.isArray(fromContentScript.teams)
+          && fromContentScript.teams.length) {
+        return { success: true, data: fromContentScript, source: 'content-script' };
       }
-
-      const nflTeams = new Set(['DET', 'LAR', 'ATL', 'CIN', 'SEA', 'SF', 'GB', 'KC', 'BUF', 'DAL', 'PHI', 'MIA', 'NYJ', 'NE', 'LV', 'DEN', 'LAC', 'MIN', 'CHI', 'TB', 'NO', 'CAR', 'WAS', 'NYG', 'ARI', 'JAX', 'IND', 'TEN', 'HOU', 'BAL', 'PIT', 'CLE', 'FA']);
-      const positions = new Set(['QB', 'RB', 'WR', 'TE', 'D/ST', 'K', 'FLEX']);
-      
-      const elements = container.querySelectorAll('tr, [role="row"], [class*="row" i], [class*="item" i], div');
-      const selections = [];
-      const seenPicks = new Set();
-
-      elements.forEach(el => {
-        if (!el || typeof el.innerText !== 'string') return;
-        const text = el.innerText.trim();
-        if (el.children.length > 8 || text.length > 150 || text.length < 10) return;
-        const parts = text.split(/[\s\n]+/).map(p => p.trim()).filter(Boolean);
-        if (parts.length < 3) return;
-        
-        let pick = -1;
-        let nameStartIdx = 1;
-        
-        const firstPartNum = parseInt(parts[0], 10);
-        if (!isNaN(firstPartNum) && firstPartNum > 0 && firstPartNum <= 300) {
-          pick = firstPartNum;
-          nameStartIdx = 1;
-        } else if (parts[0].toLowerCase() === 'pick' || parts[0].toLowerCase() === 'pk') {
-          const secondPartNum = parseInt(parts[1], 10);
-          if (!isNaN(secondPartNum) && secondPartNum > 0 && secondPartNum <= 300) {
-            pick = secondPartNum;
-            nameStartIdx = 2;
-          }
-        }
-
-        if (pick === -1 || seenPicks.has(pick)) return;
-
-        let teamIdx = -1;
-        let posIdx = -1;
-        for (let i = nameStartIdx; i < parts.length; i++) {
-          const pUpper = parts[i].toUpperCase();
-          if (nflTeams.has(pUpper)) teamIdx = i;
-          if (positions.has(pUpper)) posIdx = i;
-        }
-
-        if (teamIdx !== -1 && posIdx !== -1) {
-          seenPicks.add(pick);
-          
-          const endIdx = Math.min(teamIdx, posIdx);
-          const nameParts = parts.slice(nameStartIdx, endIdx);
-          const playerName = nameParts.join(' ');
-
-          const maxIdx = Math.max(teamIdx, posIdx);
-          const remaining = parts.slice(maxIdx + 1);
-          const drafterParts = remaining.filter(p => {
-            if (p === '-' || p.startsWith('$') || p.startsWith('-$')) return false;
-            const num = parseFloat(p);
-            if (!isNaN(num)) {
-              if (p.includes('.') || num > 32) return false;
-            }
-            return true;
-          });
-          const drafterTeamName = drafterParts.join(' ') || `Team ${pick}`;
-
-          selections.push({
-            overallPickNumber: pick,
-            playerName,
-            playerTeam: parts[teamIdx],
-            playerPosition: parts[posIdx],
-            drafterTeamName
-          });
-        }
-      });
-
-      const currentNom = findCurrentNomination();
-      const isDraftPage = window.location.pathname.includes('/draft');
-
-      if (selections.length > 0 || (isDraftPage && currentNom)) {
-        if (selections.length > 0) {
-          selections.sort((a, b) => a.overallPickNumber - b.overallPickNumber);
-        }
-        
-        let uniqueTeams = Array.from(new Set(selections.map(p => p.drafterTeamName)));
-        if (uniqueTeams.length === 0) {
-          uniqueTeams = ["Team 1", "Team 2", "Team 3", "Team 4", "Team 5", "Team 6", "Team 7", "Team 8"];
-        }
-
-        const scrapedBudgets = scrapeTeamsAndBudgets();
-
-        const teams = uniqueTeams.map((tName, index) => {
-          const budgetMatch = scrapedBudgets.find(b => b.teamName.toLowerCase() === tName.toLowerCase() || tName.toLowerCase().includes(b.teamName.toLowerCase()) || b.teamName.toLowerCase().includes(tName.toLowerCase()));
-          const budget = budgetMatch ? budgetMatch.budget : 200;
-          return {
-            teamId: index + 1,
-            teamName: tName,
-            managerName: `Manager ${index + 1}`,
-            faabRemaining: budget
-          };
-        });
-
-        const finalPicks = selections.map(p => {
-          const team = teams.find(t => t.teamName === p.drafterTeamName);
-          return {
-            overallPickNumber: p.overallPickNumber,
-            playerName: p.playerName,
-            playerPosition: p.playerPosition || p.position,
-            playerTeam: p.playerTeam || p.team,
-            drafterTeamId: team ? team.teamId : 1
-          };
-        });
-
-        let resolvedTeamId = 1;
-        if (myTeamName) {
-          const matchedTeam = teams.find(t => t.teamName.toLowerCase() === myTeamName.toLowerCase() || myTeamName.toLowerCase().includes(t.teamName.toLowerCase()) || t.teamName.toLowerCase().includes(myTeamName.toLowerCase()));
-          if (matchedTeam) {
-            resolvedTeamId = matchedTeam.teamId;
-          }
-        } else {
-          const matchedUrlTeam = teams.find(t => t.teamId === myTeamId);
-          if (matchedUrlTeam) resolvedTeamId = myTeamId;
-        }
-
-        return {
-          success: true,
-          isDOMScraped: true,
-          data: {
-            isDOMScraped: true,
-            leagueId,
-            season,
-            leagueName: document.title || 'ESPN Mock Draft Room',
-            myTeamId: resolvedTeamId,
-            teams,
-            draftDetail: {
-              picks: finalPicks
-            },
-            currentNomination: currentNom
-          }
-        };
-      }
-
-      return { success: false, error: 'Could not find ESPN draft state in window, React store, or page DOM.' };
+      return {
+        success: false,
+        error: 'No draft state yet. The page scraper runs every two seconds on a '
+             + 'draft page - open the draft room, wait a moment, then try again. '
+             + 'If it persists, check window.__GRIDIRON_EDGE_VERSION__ in the page '
+             + 'console to confirm the extension actually reloaded.',
+      };
     }
 
     // Extract only necessary parts of the state to avoid serialization errors or excessive payload size
@@ -576,22 +415,22 @@ document.addEventListener('DOMContentLoaded', async () => {
   try {
     const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
     if (!tab || !tab.url) {
-      statusEl.innerHTML = 'No active tab detected.';
+      setStatus('No active tab detected.');
       return;
     }
 
     const isEspn = tab.url.includes('fantasy.espn.com');
     if (!isEspn) {
-      statusEl.innerHTML = 'Navigate to fantasy.espn.com first.';
+      setStatus('Navigate to fantasy.espn.com first.');
       syncBtn.disabled = true;
       return;
     }
 
-    statusEl.innerHTML = 'ESPN tab detected. Ready to sync.';
+    setStatus('ESPN tab detected. Ready to sync.');
     syncBtn.disabled = false;
 
     syncBtn.onclick = async () => {
-      statusEl.innerHTML = 'Scraping ESPN session...';
+      setStatus('Scraping ESPN session...');
       syncBtn.disabled = true;
 
       try {
@@ -613,7 +452,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         // Step 2: Fallback to scanning React Redux store in all frames inside the MAIN world
         if (!payload) {
-          statusEl.innerHTML = 'API redirected. Scanning page state...';
+          setStatus('API redirected. Scanning page state...');
           const scanResults = await chrome.scripting.executeScript({
             target: { tabId: tab.id, allFrames: true },
             func: scanForEspnState,
@@ -639,7 +478,7 @@ document.addEventListener('DOMContentLoaded', async () => {
               scanResults.forEach(r => { if (r.result && r.result.error) errors.push(r.result.error); });
             }
             const errorText = errors.length > 0 ? errors.join(' | ') : 'Could not find ESPN draft state in window or React store.';
-            statusEl.innerHTML = `<span style="color:#ff1744;">Error: ${errorText}</span>`;
+            setStatus('Error: ' + errorText, '#ff1744');
             return;
           }
         }
@@ -655,7 +494,7 @@ document.addEventListener('DOMContentLoaded', async () => {
           if (!data.settings.leagueId) data.settings.leagueId = queryLeagueId;
         }
 
-        statusEl.innerHTML = 'Sending to local server...';
+        setStatus('Sending to local server...');
 
         try {
           // Attempt local server POST sync
@@ -666,22 +505,22 @@ document.addEventListener('DOMContentLoaded', async () => {
           });
 
           if (response.ok) {
-            statusEl.innerHTML = '<span style="color:#00e676;">Success! Synced with Gridiron Edge.</span>';
+            setStatus('Success! Synced with Gridiron Edge.', '#00e676');
           } else {
             throw new Error(`Server returned status: ${response.status}`);
           }
         } catch (serverErr) {
           // Fallback: Copy to clipboard
           await navigator.clipboard.writeText(JSON.stringify(data));
-          statusEl.innerHTML = '<span style="color:#00e5ff;">Copied to clipboard! (Local server offline)</span>';
+          setStatus('Copied to clipboard! (Local server offline)', '#00e5ff');
         }
       } catch (err) {
-        statusEl.innerHTML = `<span style="color:#ff1744;">Error: ${err.message}</span>`;
+        setStatus('Error: ' + err.message, '#ff1744');
       } finally {
         syncBtn.disabled = false;
       }
     };
   } catch (e) {
-    statusEl.innerHTML = `<span style="color:#ff1744;">Failed: ${e.message}</span>`;
+    setStatus('Failed: ' + e.message, '#ff1744');
   }
 });
