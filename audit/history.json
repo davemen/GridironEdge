@@ -1626,6 +1626,407 @@
      "notChecked": "Runtime behaviour in a browser or a live draft room; the auction-scraping regression is a code-level certainty but was not reproduced against real markup. server.py. BACKTEST's measured claims quoted in engine comments \u2014 the single most valuable thing not done. index.html structure. css/, tools/, the manifest and background scripts."
     }
    }
+  },
+  {
+   "round": 3,
+   "date": "2026-08-07",
+   "commit": "47a028b",
+   "categories": {
+    "security": {
+     "score": 52,
+     "justification": "Three live HTML-injection sinks PROVEN by driving the real mappers and renderers: a team name (whatever another manager typed) reached #match-my-name/#match-opp-name through innerHTML verbatim; the championship action plan rendered player names, injury status and a rival team name raw; ESPN's news-API player tags were unescaped beside an already-escaped headline. All three passed test/xss.test.mjs because two sit behind a non-empty schedule the payload never supplied \u2014 a panel that never rendered was mistaken for a panel that rendered safely. Both postMessage boundaries were proven forgeable in headless Chrome: a forged GRIDIRON_EDGE_SWEEP_REQUEST drove the roster dropdown through every option, and 8 forged messages produced 8 concurrent sweeps. Verified clean: the whole live DOM-scrape path (11 renderers, snake and auction, 16 hostile picks \u2014 0 raw survivors), no secrets across 121 commits, no eval/new Function, no double-escaping, popup host check correct.",
+     "findings": [
+      {
+       "severity": "high",
+       "title": "GRIDIRON_EDGE_SYNC postMessage boundary is forgeable by any script on the page",
+       "where": "chrome-extension/content-isolated.js:47-71",
+       "evidence": "A verbatim copy of the shipped file accepted a forged sync in headless Chrome and forwarded attacker JSON to background.js, which then accepted it as ESPN-origin. The file's own header claims this threat is closed.",
+       "fix": "Nonce the channel, or drop the postMessage hop and inject via chrome.scripting.executeScript."
+      },
+      {
+       "severity": "high",
+       "title": "Team name rendered unescaped into innerHTML on the home matchup card",
+       "where": "js/app.js:1070,1072",
+       "evidence": "A nickname of <img src=x onerror=...> reached the sink verbatim through the real importScrapedPayload and renderHomePage.",
+       "fix": "FIXED \u2014 both are textContent now."
+      },
+      {
+       "severity": "high",
+       "title": "Championship action plan rendered unescaped; embeds rival team name, player names, injury status",
+       "where": "js/app.js:2719-2720",
+       "evidence": "PoC printed 'Offer Zamir White to Rival <img src=x onerror=...>' raw inside #sim-action-plan.",
+       "fix": "FIXED \u2014 esc() on both interpolations."
+      },
+      {
+       "severity": "high",
+       "title": "GRIDIRON_EDGE_SWEEP_REQUEST forgeable and unthrottled",
+       "where": "chrome-extension/content-main.js:1317-1325",
+       "evidence": "Forged request drove the page <select> through every option (12 synthetic events); 8 forged messages produced 96 events and 8 racing sweeps.",
+       "fix": "PARTIAL \u2014 in-flight guard and 60s floor added. Still forgeable; needs to run from the isolated world."
+      },
+      {
+       "severity": "medium",
+       "title": "No content_security_policy declared",
+       "where": "manifest.json",
+       "evidence": "MV3's default blocks script execution but not img-src/connect-src, so an injected <img src=https://attacker/> could still exfiltrate.",
+       "fix": "FIXED \u2014 CSP added constraining img/connect/frame/form."
+      },
+      {
+       "severity": "medium",
+       "title": "Third-party news-feed player tags unescaped",
+       "where": "js/app.js:2933",
+       "evidence": "Stubbed ESPN news API returned a hostile category description; it reached #news-list-container raw.",
+       "fix": "FIXED \u2014 .map(esc)."
+      },
+      {
+       "severity": "medium",
+       "title": "The XSS test cannot reach two of the three real sinks and asserts they are absent",
+       "where": "test/xss.test.mjs",
+       "evidence": "npm test reported 'no rendered target contains raw injected markup' while raw markup was rendering.",
+       "fix": "FIXED \u2014 schedule set on the imported league; reverting an escape now fails by name."
+      },
+      {
+       "severity": "low",
+       "title": "`tabs` permission broader than needed",
+       "where": "manifest.json",
+       "evidence": "Both tabs.query calls are covered by existing host permissions.",
+       "fix": "Remove `tabs`."
+      },
+      {
+       "severity": "low",
+       "title": "Worker's payload gate omits the size cap the content script has",
+       "where": "chrome-extension/background.js:48-54",
+       "evidence": "content-isolated caps at 5MB; background.js's copy does not, and is reachable directly.",
+       "fix": "One shared looksLikeAScrape including the cap."
+      },
+      {
+       "severity": "low",
+       "title": "Full parsed draft published to the page's global scope",
+       "where": "chrome-extension/content-main.js:1139",
+       "evidence": "window.__GRIDIRON_EDGE_LAST__ is readable by every ad and analytics tag on ESPN.",
+       "fix": "Compute the debug answer on demand; drop the persistent snapshot."
+      }
+     ]
+    },
+    "tests": {
+     "score": 38,
+     "justification": "26 semantic mutations, 7 killed \u2014 a 27% mutation score. Baseline 14 suites / 424 checks pass in ~2.4s; coverage 59.49% lines, with simulator.js at 1.80% and 0% functions and all of chrome-extension/ uninstrumented. Survivors are not obscure: reverting the scraper's dedupe to first-row-wins passes 30/30 scraper checks; weakening esc() to angle-brackets-only passes all 12 xss checks; deleting findPlayer's position guard changes 615 of 1200 lookups and passes everything; replacing runSeasonSimulation with a zero stub passes, because the only assertion is that the champ figure contains a digit and '0%' does.",
+     "findings": [
+      {
+       "severity": "critical",
+       "title": "Scraper best-row-wins dedupe unverified: the fixture only ever puts the rich row first",
+       "where": "test/scraper.test.mjs:28-38",
+       "evidence": "Reverting to first-wins passed 30/30. Reversing the fixture row order under the mutation lost the drafter, pick number and bid.",
+       "fix": "Add a panel-first ordering scenario."
+      },
+      {
+       "severity": "critical",
+       "title": "esc() can be weakened to angle-brackets-only and every XSS assertion still passes",
+       "where": "js/escape.js:37",
+       "evidence": "Removing the quote/backtick escapes passed all 12 checks \u2014 the quote payload never reaches a recorded sink.",
+       "fix": "Unit-test esc() against a character table."
+      },
+      {
+       "severity": "critical",
+       "title": "findPlayer's position guard can be deleted: a receiver fills a QB slot",
+       "where": "js/player-database.js:248-252",
+       "evidence": "615 of 1200 (surname, position) lookups changed; findPlayer('Nacua','QB') went from null to Puka Nacua [WR].",
+       "fix": "Assert cross-position lookups resolve to null."
+      },
+      {
+       "severity": "high",
+       "title": "Both halves of freeAgentPool's drafted-player bar are unprotected",
+       "where": "js/engine/roster-manager.js:509-527",
+       "evidence": "Removing the name bar, and skipping unattributed picks, both passed all 14 suites.",
+       "fix": "Call freeAgentPool directly and assert pool membership."
+      },
+      {
+       "severity": "high",
+       "title": "Either transport can be broken individually and the delivery test still passes",
+       "where": "js/bridge.js:70,141",
+       "evidence": "Disabling the port, or the storage listener, each passed \u2014 listenForDrafts subscribes to both.",
+       "fix": "Assert each route delivers on its own."
+      },
+      {
+       "severity": "high",
+       "title": "The DOM stub cannot distinguish appended from appended-then-destroyed",
+       "where": "test/render.test.mjs:39-48",
+       "evidence": "Appending `el.innerHTML = el.innerHTML` after appendChild passed \u2014 the setters left children untouched.",
+       "fix": "FIXED \u2014 innerHTML/textContent are one content and clear children; remove() empties."
+      },
+      {
+       "severity": "high",
+       "title": "Replacement level asserted with a threshold, not a value",
+       "where": "js/espn-client.js:37",
+       "evidence": "Changing WR replacement from 4.5 to 8.9 passed, because the assertion is <= 9.0.",
+       "fix": "Assert the exact contract per position."
+      },
+      {
+       "severity": "high",
+       "title": "simulator.js is effectively untested \u2014 it can be replaced by a zero stub",
+       "where": "js/engine/simulator.js",
+       "evidence": "Returning all-zeros passed; render.test only checks the champ figure contains a digit.",
+       "fix": "Seeded test asserting a better roster gets a strictly higher champPct."
+      },
+      {
+       "severity": "medium",
+       "title": "lineup-optimizer's core decisions unasserted",
+       "where": "js/engine/lineup-optimizer.js:83-86,110-111",
+       "evidence": "Inverting floor/ceiling, and dropping the top RB from the starters, both passed.",
+       "fix": "Assert slot counts and that the top RB always starts."
+      },
+      {
+       "severity": "medium",
+       "title": "Tuning constants outside auction-advisor.js are unasserted",
+       "where": "js/engine/news-monitor.js:51",
+       "evidence": "Inverting EVENT_IMPACT.demotion passed, though the file says getting it backwards recommends the wrong player.",
+       "fix": "Assert the sign of every applied delta."
+      }
+     ]
+    },
+    "performance": {
+     "score": 52,
+     "justification": "Live Draft render blocks the main thread p50 31ms, p90 83ms, p99 144ms, max 225ms; 367 of 1536 simulated renders exceed 50ms. Every scraper sync was delivered TWICE \u2014 40 onDraft callbacks for 20 syncs, proven with the repo's own transport mock \u2014 so a full auction cost 57.5s of blocked main thread. targetBoard (99-132ms) is recomputed on every bid tick although its output is provably identical across five different bids; caching it is a measured 17.6-20.2x speedup. The scraper's cheap probe never fired in a live room because it fingerprinted the countdown clock: 20 of 20 clock-only mutation batches ran the full 5x-document scan for zero output. Verified good: the name index memoizes correctly (0 rebuilds over 200 lookups), engine heap is flat over 300 renders, the scraper coalesces on rAF with a 120ms floor.",
+     "findings": [
+      {
+       "severity": "critical",
+       "title": "targetBoard recomputed on every render although its answer cannot have changed",
+       "where": "js/engine/auction-advisor.js:722",
+       "evidence": "Byte-identical output across bids of 1/5/12/25/40. Removing it drops the render from 101.3ms to 5.50ms.",
+       "fix": "Memoize on selections + budgets."
+      },
+      {
+       "severity": "critical",
+       "title": "Every sync imported and rendered twice \u2014 port and storage both deliver",
+       "where": "js/bridge.js:208-213",
+       "evidence": "40 callbacks for 20 syncs, measured on the repo's own mock.",
+       "fix": "FIXED \u2014 deduped on a shared changeKey(); test now asserts exactly 20."
+      },
+      {
+       "severity": "critical",
+       "title": "The cheap probe never short-circuits because it fingerprints the countdown clock",
+       "where": "chrome-extension/content-main.js:857-871",
+       "evidence": "Clock-only mutations: 20/20 full scans, 379,460 innerText reads, 0 payloads produced.",
+       "fix": "FIXED \u2014 digits stripped from the counter term only."
+      },
+      {
+       "severity": "high",
+       "title": "planValue re-evaluates the whole lineup for every board candidate",
+       "where": "js/engine/auction-advisor.js:349-374",
+       "evidence": "One targetBoard = 234 planValue calls, 269,479 lineupPointsFromGroups calls, 9.0 MB garbage.",
+       "fix": "Compute the marginal gain incrementally."
+      },
+      {
+       "severity": "high",
+       "title": "Three whole-document div walks per scan, one computed and thrown away",
+       "where": "chrome-extension/content-main.js:157,500,820",
+       "evidence": "5 walks, 15,623 nodes, 18,973 innerText reads per scan; scrapeTeamsAndBudgets called twice identically.",
+       "fix": "PARTIAL \u2014 the duplicate call is removed; the walks are not yet merged."
+      },
+      {
+       "severity": "high",
+       "title": "The auction panel, including the bid input being typed in, is rebuilt on every sync",
+       "where": "js/app.js:1623-1673",
+       "evidence": "One innerHTML replaces the panel, twice per sync; the value resets from scrapedBid so a half-typed override is lost.",
+       "fix": "Split the static frame from the advisory."
+      },
+      {
+       "severity": "high",
+       "title": "The perf budget sanctions a 250ms render and measures the same body twice",
+       "where": "test/perf.test.mjs:158,160",
+       "evidence": "targetBoard budget 250ms vs 158.1ms worst; only the 0-pick state is timed; fastest(fn,3) takes the min.",
+       "fix": "Budget from a 16ms frame; time three draft states; assert median."
+      },
+      {
+       "severity": "medium",
+       "title": "The roster sweep can hold the draft room for 11 seconds",
+       "where": "chrome-extension/content-main.js:724-772",
+       "evidence": "12 teams with unchanged signatures = 11,025ms and 193 synchronous panel reads.",
+       "fix": "Compare each team against its own previous signature."
+      },
+      {
+       "severity": "medium",
+       "title": "chrome.storage.local.set writes the whole draft on every sync",
+       "where": "chrome-extension/background.js:88",
+       "evidence": "3,000 syncs at 200 picks serialized 80MB; four full passes over the payload per sync.",
+       "fix": "Debounce the write; keep the port immediate."
+      },
+      {
+       "severity": "medium",
+       "title": "The Home tab re-runs a 1500-iteration Monte Carlo on every update",
+       "where": "js/app.js:882",
+       "evidence": "31.0ms per call at 96 picks, on every render.",
+       "fix": "Key it on the same signature as targetBoard."
+      }
+     ]
+    },
+    "documentation": {
+     "score": 44,
+     "justification": "Verified true: 523 players and 88 analysts in the projection set, exactly 14 suites, the +306/+125 headline figures match BACKTEST.md including the caveat, and every documented command runs. But chrome-extension/README.md still instructs the user to run `python3 server.py` and load a directory containing no manifest \u2014 it was last written 54 minutes before the server was deleted and never revisited across the 15 commits that rewrote the architecture. README documents a toolbar-popup Sync button that cannot be opened (no default_popup; the icon opens index.html), making popup.js 554 lines of unreachable code that the packaging script still ships. Two headers that CLAUDE.md restates as project rules claim consolidations that never landed.",
+     "findings": [
+      {
+       "severity": "critical",
+       "title": "chrome-extension/README.md documents the deleted Python server and the wrong install target",
+       "where": "chrome-extension/README.md:3,18,27-38",
+       "evidence": "'Ensure the Gridiron Edge server is running: python3 server.py'. server.py was deleted; the manifest is at the repo root, so loading that directory fails.",
+       "fix": "Rewrite for the current world; drop package.json's `serve` script."
+      },
+      {
+       "severity": "critical",
+       "title": "README documents a toolbar-popup Sync button that cannot be opened",
+       "where": "README.md:42-43",
+       "evidence": "No default_popup in the manifest; background.js binds action.onClicked to open index.html, which is mutually exclusive with a popup.",
+       "fix": "Delete popup.js/popup.html or wire the popup; correct README."
+      },
+      {
+       "severity": "critical",
+       "title": "'Never invent a number' is promised in README and violated by shipped hardcoded analysis",
+       "where": "README.md:60-63 vs js/app.js:1940",
+       "evidence": "'Our Wide Receiver room is deep and healthy...' rendered unconditionally, including on an empty roster.",
+       "fix": "FIXED \u2014 computed from the roster now."
+      },
+      {
+       "severity": "critical",
+       "title": "lineup-rules.js claims a consolidation that did not land; the drift it describes is still live",
+       "where": "js/engine/lineup-rules.js:1-18",
+       "evidence": "Only 4 files import it; simulator.js and lineup-optimizer.js still carry their own copies. PLAYOFF_TEAMS=6 vs simulator.js playoffSize=4.",
+       "fix": "PARTIAL \u2014 simulator now uses PLAYOFF_TEAMS/BYE_TEAMS; the slot literals remain."
+      },
+      {
+       "severity": "high",
+       "title": "roster-manager.js claims freeAgentPool is the only pool; the weaker variant is still there",
+       "where": "js/engine/roster-manager.js:494-501",
+       "evidence": "js/app.js renderPreseasonOutlook still builds an id-only pool with no name barring.",
+       "fix": "Call freeAgentPool."
+      },
+      {
+       "severity": "high",
+       "title": "The auction formula documented as 'replaced' is still live and renders a dollar figure",
+       "where": "js/engine/auction-advisor.js:32-36",
+       "evidence": "calculateAuctionBid still exists in draft-assistant.js and app.js renders its target bid. Both models ship on the same screen.",
+       "fix": "Route through recommendBid or correct the docs."
+      },
+      {
+       "severity": "high",
+       "title": "README claims nothing leaves the machine while the app calls two third-party APIs",
+       "where": "README.md:45",
+       "evidence": "news-monitor.js fetches site.api.espn.com and api.sleeper.app.",
+       "fix": "State the three read-only endpoints."
+      },
+      {
+       "severity": "high",
+       "title": "SAFARI.md claims the isolated-world fallback is unit-tested; no test exercises it",
+       "where": "SAFARI.md:107-109",
+       "evidence": "transport.test.mjs stubs the tab hooks as inert no-ops. The roster sweep has zero test coverage.",
+       "fix": "Say so, or add the test."
+      },
+      {
+       "severity": "high",
+       "title": "Two contradictory doc comments stacked on one function",
+       "where": "js/app.js:1140-1154",
+       "evidence": "The first still asks whether the deleted local server is up. Same pattern in bridge.js and content-main.js.",
+       "fix": "PARTIAL \u2014 the bridge.js one is fixed."
+      },
+      {
+       "severity": "medium",
+       "title": "The roster sweep is documented nowhere for users",
+       "where": "README.md:34-45",
+       "evidence": "No mention of the scan, that it writes to the page, or the three coverage kinds.",
+       "fix": "Add an 'In an auction room' subsection."
+      }
+     ]
+    },
+    "readability": {
+     "score": 62,
+     "justification": "The comment discipline is genuinely unusual and most engine code is careful, but the repo's central claim is false in a way a new engineer would trust: lineup-rules.js says the six lineup representations were consolidated, yet simulator.js, lineup-optimizer.js and app.js still carry their own and none import the module. Two crash/wrong-value paths were unambiguous: espn-client.js called mapESPNPosition without `this.`, and auction-advisor fell back to teams[0] when myTeamId is null \u2014 which espn-client deliberately produces \u2014 so the auction board printed another manager's budget and every ceiling against his roster.",
+     "findings": [
+      {
+       "severity": "critical",
+       "title": "Auction bid ceilings computed against another manager's team when the owner is unknown",
+       "where": "js/engine/auction-advisor.js:111",
+       "evidence": "`me: byId.get(league.myTeamId) || teams[0]`. renderAuctionBoard had no owner guard, though renderRosterPage does.",
+       "fix": "FIXED \u2014 returns null; the board asks who you are."
+      },
+      {
+       "severity": "critical",
+       "title": "ReferenceError kills the entire ESPN-API import path",
+       "where": "js/espn-client.js:602",
+       "evidence": "`mapESPNPosition(...)` without `this.`, in the exact branch that handles a player with no projection.",
+       "fix": "FIXED."
+      },
+      {
+       "severity": "critical",
+       "title": "Playoff field size has two live values writing to the same three spans",
+       "where": "js/engine/simulator.js:221",
+       "evidence": "playoffSize=4 vs PLAYOFF_TEAMS=6; the same roster reads 0% or a positive number depending on which page drew last.",
+       "fix": "FIXED."
+      },
+      {
+       "severity": "critical",
+       "title": "Championship probability generated from constants, not from any team's strength",
+       "where": "js/engine/simulator.js:234-264",
+       "evidence": "Six Normal draws with hardcoded means; none reads a roster, a projection or the seed's identity.",
+       "fix": "OUTSTANDING \u2014 the home page headline is noise."
+      },
+      {
+       "severity": "high",
+       "title": "Four live copies of the starting lineup; the module claiming to be the only definition is unused by two",
+       "where": "js/engine/simulator.js:30-40",
+       "evidence": "slotList(), STARTERS_COUNT, OFFENSE and rosterSize() have zero importers repo-wide.",
+       "fix": "Migrate all four."
+      },
+      {
+       "severity": "high",
+       "title": "Scraper maps ESPN lineup-slot ids onto defaultPositionId, so positions come back wrong",
+       "where": "chrome-extension/content-main.js:562",
+       "evidence": "A tight end is labelled WR; QB, WR and K fall through to a literal 'RB'.",
+       "fix": "OUTSTANDING \u2014 use the defaultPositionId table."
+      },
+      {
+       "severity": "high",
+       "title": "ESPN proTeamId table internally inconsistent and wrong from id 10 up",
+       "where": "chrome-extension/content-main.js:566",
+       "evidence": "'HOU' is produced by both 10 and 34; the abbreviation separates two players with the same surname.",
+       "fix": "Replace with ESPN's actual table."
+      },
+      {
+       "severity": "high",
+       "title": "Championship page rebuilds a weaker free-agent pool inline",
+       "where": "js/app.js:2593",
+       "evidence": "Skips the name barring, so it can offer a player another manager owns.",
+       "fix": "Call freeAgentPool."
+      },
+      {
+       "severity": "high",
+       "title": "Draft rationale prints an invented 80% snap share for every player",
+       "where": "js/engine/draft-assistant.js:303",
+       "evidence": "The database carries no metrics field, so the fallback fires every time.",
+       "fix": "OUTSTANDING \u2014 omit the clause when unknown."
+      },
+      {
+       "severity": "high",
+       "title": "An unreadable budget is reported as $200",
+       "where": "chrome-extension/content-main.js:993",
+       "evidence": "The comment 26 lines above says this silent fallback is what made the market model run blind.",
+       "fix": "Carry null and exclude from inflation."
+      },
+      {
+       "severity": "medium",
+       "title": "popup.js is a second, diverged copy of the scraper",
+       "where": "chrome-extension/popup.js:204-262",
+       "evidence": "The 32-branch D/ST map appears twice in popup.js and again in content-main.js; ~90 lines of dead team identification.",
+       "fix": "Delete or wire the popup."
+      },
+      {
+       "severity": "medium",
+       "title": "Simulator's current week is a constant under a comment saying it is derived",
+       "where": "js/engine/simulator.js:154-155",
+       "evidence": "`// Determine current week from schedule` above `const currentWeek = 5;`",
+       "fix": "Derive it, or return null."
+      }
+     ]
+    }
+   }
   }
  ]
 }

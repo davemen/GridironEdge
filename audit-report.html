@@ -143,7 +143,7 @@
 <div class="wrap">
   <header class="top">
     <h1>Gridiron Edge — 5-point audit</h1>
-    <p class="sub">Round 2 · 2026-08-07 · commit <code>61b88ce</code>
+    <p class="sub">Round 3 · 2026-08-07 · commit <code>47a028b</code>
       · five independent agents, one per dimension</p>
     <div class="verdict" data-pass="no">
       ✕ 5 of 5 categories below 90
@@ -151,1219 +151,768 @@
   </header>
 
   <div class="grid">
-  <section class="card" data-status="serious">
+  <section class="card" data-status="critical">
     <div class="card-top">
       <h2>Security</h2>
       <div class="score-row">
-        <span class="score">62</span><span class="of">/100</span>
-        <span class="delta up">+31</span>
+        <span class="score">52</span><span class="of">/100</span>
+        <span class="delta down">-10</span>
       </div>
     </div>
-    <div class="status-line"><span class="dot">▲</span> Well below
-      · 19 open findings</div>
+    <div class="status-line"><span class="dot">✕</span> Critical
+      · 10 open findings</div>
     
   <svg class="spark" viewBox="0 0 260 72" role="img"
-       aria-label="Score by round: 31, 62 out of 100. Target 90.">
+       aria-label="Score by round: 31, 62, 52 out of 100. Target 90.">
     <line x1="10" y1="14.4" x2="250" y2="14.4"
           stroke="var(--grid)" stroke-width="1" stroke-dasharray="3 3"/>
     <text x="250" y="10.4" class="spark-note"
           text-anchor="end">target 90</text>
-    <path d="M10.0 40.4 L250.0 26.7"
+    <path d="M10.0 40.4 L130.0 26.7 L250.0 31.1"
          fill="none" stroke="var(--status)" stroke-width="2"
          stroke-linecap="round" stroke-linejoin="round"/>
     <circle cx="10.0" cy="40.4" r="4.5"
             fill="var(--status)" stroke="var(--surface-1)" stroke-width="2">
       <title>Round 1: 31/100</title>
     </circle>
-    <circle cx="250.0" cy="26.7" r="4.5"
+    <circle cx="130.0" cy="26.7" r="4.5"
             fill="var(--status)" stroke="var(--surface-1)" stroke-width="2">
       <title>Round 2: 62/100</title>
     </circle>
+    <circle cx="250.0" cy="31.1" r="4.5"
+            fill="var(--status)" stroke="var(--surface-1)" stroke-width="2">
+      <title>Round 3: 52/100</title>
+    </circle>
     <text x="10.0" y="68" class="spark-axis"
-       text-anchor="start">R1</text><text x="250.0" y="68" class="spark-axis"
-       text-anchor="end">R2</text>
+       text-anchor="start">R1</text><text x="130.0" y="68" class="spark-axis"
+       text-anchor="middle">R2</text><text x="250.0" y="68" class="spark-axis"
+       text-anchor="end">R3</text>
   </svg>
   </section>
-  <section class="card" data-status="serious">
+  <section class="card" data-status="critical">
     <div class="card-top">
       <h2>Test coverage</h2>
       <div class="score-row">
-        <span class="score">61</span><span class="of">/100</span>
-        <span class="delta up">+7</span>
+        <span class="score">38</span><span class="of">/100</span>
+        <span class="delta down">-23</span>
       </div>
     </div>
-    <div class="status-line"><span class="dot">▲</span> Well below
-      · 19 open findings</div>
+    <div class="status-line"><span class="dot">✕</span> Critical
+      · 10 open findings</div>
     
   <svg class="spark" viewBox="0 0 260 72" role="img"
-       aria-label="Score by round: 54, 61 out of 100. Target 90.">
+       aria-label="Score by round: 54, 61, 38 out of 100. Target 90.">
     <line x1="10" y1="14.4" x2="250" y2="14.4"
           stroke="var(--grid)" stroke-width="1" stroke-dasharray="3 3"/>
     <text x="250" y="10.4" class="spark-note"
           text-anchor="end">target 90</text>
-    <path d="M10.0 30.2 L250.0 27.2"
+    <path d="M10.0 30.2 L130.0 27.2 L250.0 37.3"
          fill="none" stroke="var(--status)" stroke-width="2"
          stroke-linecap="round" stroke-linejoin="round"/>
     <circle cx="10.0" cy="30.2" r="4.5"
             fill="var(--status)" stroke="var(--surface-1)" stroke-width="2">
       <title>Round 1: 54/100</title>
     </circle>
-    <circle cx="250.0" cy="27.2" r="4.5"
+    <circle cx="130.0" cy="27.2" r="4.5"
             fill="var(--status)" stroke="var(--surface-1)" stroke-width="2">
       <title>Round 2: 61/100</title>
     </circle>
+    <circle cx="250.0" cy="37.3" r="4.5"
+            fill="var(--status)" stroke="var(--surface-1)" stroke-width="2">
+      <title>Round 3: 38/100</title>
+    </circle>
     <text x="10.0" y="68" class="spark-axis"
-       text-anchor="start">R1</text><text x="250.0" y="68" class="spark-axis"
-       text-anchor="end">R2</text>
+       text-anchor="start">R1</text><text x="130.0" y="68" class="spark-axis"
+       text-anchor="middle">R2</text><text x="250.0" y="68" class="spark-axis"
+       text-anchor="end">R3</text>
   </svg>
   </section>
-  <section class="card" data-status="serious">
+  <section class="card" data-status="critical">
     <div class="card-top">
       <h2>Performance</h2>
       <div class="score-row">
-        <span class="score">55</span><span class="of">/100</span>
-        <span class="delta up">+13</span>
+        <span class="score">52</span><span class="of">/100</span>
+        <span class="delta down">-3</span>
       </div>
     </div>
-    <div class="status-line"><span class="dot">▲</span> Well below
-      · 15 open findings</div>
+    <div class="status-line"><span class="dot">✕</span> Critical
+      · 10 open findings</div>
     
   <svg class="spark" viewBox="0 0 260 72" role="img"
-       aria-label="Score by round: 42, 55 out of 100. Target 90.">
+       aria-label="Score by round: 42, 55, 52 out of 100. Target 90.">
     <line x1="10" y1="14.4" x2="250" y2="14.4"
           stroke="var(--grid)" stroke-width="1" stroke-dasharray="3 3"/>
     <text x="250" y="10.4" class="spark-note"
           text-anchor="end">target 90</text>
-    <path d="M10.0 35.5 L250.0 29.8"
+    <path d="M10.0 35.5 L130.0 29.8 L250.0 31.1"
          fill="none" stroke="var(--status)" stroke-width="2"
          stroke-linecap="round" stroke-linejoin="round"/>
     <circle cx="10.0" cy="35.5" r="4.5"
             fill="var(--status)" stroke="var(--surface-1)" stroke-width="2">
       <title>Round 1: 42/100</title>
     </circle>
-    <circle cx="250.0" cy="29.8" r="4.5"
+    <circle cx="130.0" cy="29.8" r="4.5"
             fill="var(--status)" stroke="var(--surface-1)" stroke-width="2">
       <title>Round 2: 55/100</title>
     </circle>
+    <circle cx="250.0" cy="31.1" r="4.5"
+            fill="var(--status)" stroke="var(--surface-1)" stroke-width="2">
+      <title>Round 3: 52/100</title>
+    </circle>
     <text x="10.0" y="68" class="spark-axis"
-       text-anchor="start">R1</text><text x="250.0" y="68" class="spark-axis"
-       text-anchor="end">R2</text>
+       text-anchor="start">R1</text><text x="130.0" y="68" class="spark-axis"
+       text-anchor="middle">R2</text><text x="250.0" y="68" class="spark-axis"
+       text-anchor="end">R3</text>
   </svg>
   </section>
-  <section class="card" data-status="serious">
+  <section class="card" data-status="critical">
     <div class="card-top">
       <h2>Documentation</h2>
       <div class="score-row">
-        <span class="score">66</span><span class="of">/100</span>
-        <span class="delta up">+8</span>
+        <span class="score">44</span><span class="of">/100</span>
+        <span class="delta down">-22</span>
       </div>
     </div>
-    <div class="status-line"><span class="dot">▲</span> Well below
-      · 22 open findings</div>
+    <div class="status-line"><span class="dot">✕</span> Critical
+      · 10 open findings</div>
     
   <svg class="spark" viewBox="0 0 260 72" role="img"
-       aria-label="Score by round: 58, 66 out of 100. Target 90.">
+       aria-label="Score by round: 58, 66, 44 out of 100. Target 90.">
     <line x1="10" y1="14.4" x2="250" y2="14.4"
           stroke="var(--grid)" stroke-width="1" stroke-dasharray="3 3"/>
     <text x="250" y="10.4" class="spark-note"
           text-anchor="end">target 90</text>
-    <path d="M10.0 28.5 L250.0 25.0"
+    <path d="M10.0 28.5 L130.0 25.0 L250.0 34.6"
          fill="none" stroke="var(--status)" stroke-width="2"
          stroke-linecap="round" stroke-linejoin="round"/>
     <circle cx="10.0" cy="28.5" r="4.5"
             fill="var(--status)" stroke="var(--surface-1)" stroke-width="2">
       <title>Round 1: 58/100</title>
     </circle>
-    <circle cx="250.0" cy="25.0" r="4.5"
+    <circle cx="130.0" cy="25.0" r="4.5"
             fill="var(--status)" stroke="var(--surface-1)" stroke-width="2">
       <title>Round 2: 66/100</title>
     </circle>
+    <circle cx="250.0" cy="34.6" r="4.5"
+            fill="var(--status)" stroke="var(--surface-1)" stroke-width="2">
+      <title>Round 3: 44/100</title>
+    </circle>
     <text x="10.0" y="68" class="spark-axis"
-       text-anchor="start">R1</text><text x="250.0" y="68" class="spark-axis"
-       text-anchor="end">R2</text>
+       text-anchor="start">R1</text><text x="130.0" y="68" class="spark-axis"
+       text-anchor="middle">R2</text><text x="250.0" y="68" class="spark-axis"
+       text-anchor="end">R3</text>
   </svg>
   </section>
   <section class="card" data-status="serious">
     <div class="card-top">
       <h2>Readability</h2>
       <div class="score-row">
-        <span class="score">61</span><span class="of">/100</span>
-        <span class="delta up">+3</span>
+        <span class="score">62</span><span class="of">/100</span>
+        <span class="delta up">+1</span>
       </div>
     </div>
     <div class="status-line"><span class="dot">▲</span> Well below
-      · 25 open findings</div>
+      · 12 open findings</div>
     
   <svg class="spark" viewBox="0 0 260 72" role="img"
-       aria-label="Score by round: 58, 61 out of 100. Target 90.">
+       aria-label="Score by round: 58, 61, 62 out of 100. Target 90.">
     <line x1="10" y1="14.4" x2="250" y2="14.4"
           stroke="var(--grid)" stroke-width="1" stroke-dasharray="3 3"/>
     <text x="250" y="10.4" class="spark-note"
           text-anchor="end">target 90</text>
-    <path d="M10.0 28.5 L250.0 27.2"
+    <path d="M10.0 28.5 L130.0 27.2 L250.0 26.7"
          fill="none" stroke="var(--status)" stroke-width="2"
          stroke-linecap="round" stroke-linejoin="round"/>
     <circle cx="10.0" cy="28.5" r="4.5"
             fill="var(--status)" stroke="var(--surface-1)" stroke-width="2">
       <title>Round 1: 58/100</title>
     </circle>
-    <circle cx="250.0" cy="27.2" r="4.5"
+    <circle cx="130.0" cy="27.2" r="4.5"
             fill="var(--status)" stroke="var(--surface-1)" stroke-width="2">
       <title>Round 2: 61/100</title>
     </circle>
+    <circle cx="250.0" cy="26.7" r="4.5"
+            fill="var(--status)" stroke="var(--surface-1)" stroke-width="2">
+      <title>Round 3: 62/100</title>
+    </circle>
     <text x="10.0" y="68" class="spark-axis"
-       text-anchor="start">R1</text><text x="250.0" y="68" class="spark-axis"
-       text-anchor="end">R2</text>
+       text-anchor="start">R1</text><text x="130.0" y="68" class="spark-axis"
+       text-anchor="middle">R2</text><text x="250.0" y="68" class="spark-axis"
+       text-anchor="end">R3</text>
   </svg>
   </section></div>
 
-  <h2 class="section">Findings — round 2</h2>
+  <h2 class="section">Findings — round 3</h2>
   
   <details class="cat-detail" open>
     <summary><span class="sum-name">Security</span>
-      <span class="sum-score" data-status="serious">62/100</span></summary>
-    <p class="just">The server hardening is real and verified live on an isolated copy — loopback binding, path allowlist, per-origin CORS, body cap, shape check, atomic writes, no exception disclosure. The extension bridge and service worker now genuinely validate origin and sender. But XSS is not closed: an independent PoC produced three raw-markup injections in two panels plus a fourth proven at the string level, and the repo's own xss suite passes 12/12 while they are live because its fetch mock never exercises the news path. There is still no CSP, and the escaping refactor itself broke the live-draft panel by double-escaping generated markup.</p>
+      <span class="sum-score" data-status="critical">52/100</span></summary>
+    <p class="just">Three live HTML-injection sinks PROVEN by driving the real mappers and renderers: a team name (whatever another manager typed) reached #match-my-name/#match-opp-name through innerHTML verbatim; the championship action plan rendered player names, injury status and a rival team name raw; ESPN's news-API player tags were unescaped beside an already-escaped headline. All three passed test/xss.test.mjs because two sit behind a non-empty schedule the payload never supplied — a panel that never rendered was mistaken for a panel that rendered safely. Both postMessage boundaries were proven forgeable in headless Chrome: a forged GRIDIRON_EDGE_SWEEP_REQUEST drove the roster dropdown through every option, and 8 forged messages produced 8 concurrent sweeps. Verified clean: the whole live DOM-scrape path (11 renderers, snake and auction, 16 hostile picks — 0 raw survivors), no secrets across 121 commits, no eval/new Function, no double-escaping, popup host check correct.</p>
     <ul class="findings">
     <li class="finding high">
       <div class="f-head">
         <span class="sev sev-high">high</span>
-        <span class="f-title">News headline injected unescaped into the waiver panel</span>
+        <span class="f-title">GRIDIRON_EDGE_SYNC postMessage boundary is forgeable by any script on the page</span>
         
       </div>
-      <div class="f-where">js/app.js:2076</div>
-      <div class="f-body"><span class="lbl">Evidence</span> PoC recorded the sink write containing raw &lt;img src=q onerror=alert(1)&gt;. app.js:2728 escapes the same field correctly — the inconsistency is the bug.</div>
-      <div class="f-body"><span class="lbl">Fix</span> esc() the headline; use int() for the fallback count.</div>
+      <div class="f-where">chrome-extension/content-isolated.js:47-71</div>
+      <div class="f-body"><span class="lbl">Evidence</span> A verbatim copy of the shipped file accepted a forged sync in headless Chrome and forwarded attacker JSON to background.js, which then accepted it as ESPN-origin. The file's own header claims this threat is closed.</div>
+      <div class="f-body"><span class="lbl">Fix</span> Nonce the channel, or drop the postMessage hop and inject via chrome.scripting.executeScript.</div>
     </li>
     <li class="finding high">
       <div class="f-head">
         <span class="sev sev-high">high</span>
-        <span class="f-title">Player name injected unescaped into the waiver news row</span>
+        <span class="f-title">Team name rendered unescaped into innerHTML on the home matchup card</span>
         
       </div>
-      <div class="f-where">js/app.js:2073</div>
-      <div class="f-body"><span class="lbl">Evidence</span> &lt;strong ...&gt;${x.player}&lt;/strong&gt; with no esc, while the very next line escapes position and team.</div>
-      <div class="f-body"><span class="lbl">Fix</span> esc(x.player).</div>
+      <div class="f-where">js/app.js:1070,1072</div>
+      <div class="f-body"><span class="lbl">Evidence</span> A nickname of &lt;img src=x onerror=...&gt; reached the sink verbatim through the real importScrapedPayload and renderHomePage.</div>
+      <div class="f-body"><span class="lbl">Fix</span> FIXED — both are textContent now.</div>
     </li>
     <li class="finding high">
       <div class="f-head">
         <span class="sev sev-high">high</span>
-        <span class="f-title">Article athlete tags joined into markup unescaped</span>
+        <span class="f-title">Championship action plan rendered unescaped; embeds rival team name, player names, injury status</span>
         
       </div>
-      <div class="f-where">js/app.js:2731</div>
-      <div class="f-body"><span class="lbl">Evidence</span> ${item.players.slice(0,3).join(' · ')} into news-list-container.innerHTML; two lines above, headline and why are escaped.</div>
-      <div class="f-body"><span class="lbl">Fix</span> map(esc) before join.</div>
+      <div class="f-where">js/app.js:2719-2720</div>
+      <div class="f-body"><span class="lbl">Evidence</span> PoC printed 'Offer Zamir White to Rival &lt;img src=x onerror=...&gt;' raw inside #sim-action-plan.</div>
+      <div class="f-body"><span class="lbl">Fix</span> FIXED — esc() on both interpolations.</div>
     </li>
     <li class="finding high">
       <div class="f-head">
         <span class="sev sev-high">high</span>
-        <span class="f-title">Simulator action plan injects player and manager names unescaped</span>
+        <span class="f-title">GRIDIRON_EDGE_SWEEP_REQUEST forgeable and unthrottled</span>
         
       </div>
-      <div class="f-where">js/app.js:2517</div>
-      <div class="f-body"><span class="lbl">Evidence</span> Drove the real runSeasonSimulation with a hostile roster: returned title containing raw markup. Reachable from the Championship page whenever a starter is Out.</div>
-      <div class="f-body"><span class="lbl">Fix</span> esc() both, or return structured fields.</div>
-    </li>
-    <li class="finding high">
-      <div class="f-head">
-        <span class="sev sev-high">high</span>
-        <span class="f-title">Unescaped err.message in the news-failure panel</span>
-        
-      </div>
-      <div class="f-where">js/app.js:2798</div>
-      <div class="f-body"><span class="lbl">Evidence</span> V8's JSON parse error echoes the response body, so a hostile news response becomes markup. Proven end to end. Same pattern at app.js:955.</div>
-      <div class="f-body"><span class="lbl">Fix</span> esc(err.message) at both sites.</div>
-    </li>
-    <li class="finding high">
-      <div class="f-head">
-        <span class="sev sev-high">high</span>
-        <span class="f-title">The escaping refactor broke the live-draft recommendation panel</span>
-        
-      </div>
-      <div class="f-where">js/app.js:1430</div>
-      <div class="f-body"><span class="lbl">Evidence</span> esc(stat(...)) double-escapes — stat() returns HTML. The Action tile renders its own div markup as visible text. Every sibling call is correctly unwrapped.</div>
-      <div class="f-body"><span class="lbl">Fix</span> Unwrap it; escape style.label inside stat() instead.</div>
+      <div class="f-where">chrome-extension/content-main.js:1317-1325</div>
+      <div class="f-body"><span class="lbl">Evidence</span> Forged request drove the page &lt;select&gt; through every option (12 synthetic events); 8 forged messages produced 96 events and 8 racing sweeps.</div>
+      <div class="f-body"><span class="lbl">Fix</span> PARTIAL — in-flight guard and 60s floor added. Still forgeable; needs to run from the isolated world.</div>
     </li>
     <li class="finding medium">
       <div class="f-head">
         <span class="sev sev-medium">medium</span>
-        <span class="f-title">Draft rationale strings injected unescaped</span>
+        <span class="f-title">No content_security_policy declared</span>
         
       </div>
-      <div class="f-where">js/app.js:1252</div>
-      <div class="f-body"><span class="lbl">Evidence</span> whyBest/advantage/riskLevel/planChange interpolate topPick.position from the scraped payload with no whitelist. Snake path only.</div>
-      <div class="f-body"><span class="lbl">Fix</span> esc() all four; validate playerPosition against the known set.</div>
+      <div class="f-where">manifest.json</div>
+      <div class="f-body"><span class="lbl">Evidence</span> MV3's default blocks script execution but not img-src/connect-src, so an injected &lt;img src=https://attacker/&gt; could still exfiltrate.</div>
+      <div class="f-body"><span class="lbl">Fix</span> FIXED — CSP added constraining img/connect/frame/form.</div>
     </li>
     <li class="finding medium">
       <div class="f-head">
         <span class="sev sev-medium">medium</span>
-        <span class="f-title">No Content-Security-Policy anywhere</span>
+        <span class="f-title">Third-party news-feed player tags unescaped</span>
         
       </div>
-      <div class="f-where">index.html:1-10, server.py:94</div>
-      <div class="f-body"><span class="lbl">Evidence</span> Confirmed absent from the markup and from every server response. Each sink above is therefore unmediated execution on the origin holding the league data.</div>
-      <div class="f-body"><span class="lbl">Fix</span> Send a CSP header from end_headers(), plus nosniff.</div>
+      <div class="f-where">js/app.js:2933</div>
+      <div class="f-body"><span class="lbl">Evidence</span> Stubbed ESPN news API returned a hostile category description; it reached #news-list-container raw.</div>
+      <div class="f-body"><span class="lbl">Fix</span> FIXED — .map(esc).</div>
     </li>
     <li class="finding medium">
       <div class="f-head">
         <span class="sev sev-medium">medium</span>
-        <span class="f-title">Any Chrome extension may read the league file and overwrite /sync</span>
+        <span class="f-title">The XSS test cannot reach two of the three real sinks and asserts they are absent</span>
         
       </div>
-      <div class="f-where">server.py:43,61</div>
-      <div class="f-body"><span class="lbl">Evidence</span> origin.startswith('chrome-extension://') matches every extension id. A probe with a fabricated id got 200 and rewrote the temp copy's league file.</div>
-      <div class="f-body"><span class="lbl">Fix</span> Pin the exact extension id; add a shared token.</div>
-    </li>
-    <li class="finding medium">
-      <div class="f-head">
-        <span class="sev sev-medium">medium</span>
-        <span class="f-title">No Host header validation (DNS rebinding)</span>
-        
-      </div>
-      <div class="f-where">server.py:79-154</div>
-      <div class="f-body"><span class="lbl">Evidence</span> curl -H 'Host: attacker.test' returned 200 with the full league body. Read-only, since POST still checks Origin.</div>
-      <div class="f-body"><span class="lbl">Fix</span> Reject any Host not in the loopback set with 421.</div>
-    </li>
-    <li class="finding medium">
-      <div class="f-head">
-        <span class="sev sev-medium">medium</span>
-        <span class="f-title">Popup host gate is a substring test</span>
-        
-      </div>
-      <div class="f-where">chrome-extension/popup.js:446</div>
-      <div class="f-body"><span class="lbl">Evidence</span> tab.url.includes('fantasy.espn.com') is satisfied by https://evil.test/?ref=fantasy.espn.com; the popup then injects and POSTs whatever that page puts in __GRIDIRON_EDGE_LAST__.</div>
-      <div class="f-body"><span class="lbl">Fix</span> Parse the URL and compare hostname exactly.</div>
-    </li>
-    <li class="finding medium">
-      <div class="f-head">
-        <span class="sev sev-medium">medium</span>
-        <span class="f-title">allFrames:true re-opens the frame boundary the manifest closed</span>
-        
-      </div>
-      <div class="f-where">chrome-extension/popup.js:462,480</div>
-      <div class="f-body"><span class="lbl">Evidence</span> The manifest sets all_frames:false, but both executeScript calls pass allFrames:true and take the first frame reporting success.</div>
-      <div class="f-body"><span class="lbl">Fix</span> Drop allFrames, or filter to frameId 0.</div>
+      <div class="f-where">test/xss.test.mjs</div>
+      <div class="f-body"><span class="lbl">Evidence</span> npm test reported 'no rendered target contains raw injected markup' while raw markup was rendering.</div>
+      <div class="f-body"><span class="lbl">Fix</span> FIXED — schedule set on the imported league; reverting an escape now fails by name.</div>
     </li>
     <li class="finding low">
       <div class="f-head">
         <span class="sev sev-low">low</span>
-        <span class="f-title">Quota failure is recorded but still never surfaced</span>
+        <span class="f-title">`tabs` permission broader than needed</span>
         
       </div>
-      <div class="f-where">js/store.js:62-74</div>
-      <div class="f-body"><span class="lbl">Evidence</span> persistFailed and persistError are written and read nowhere; the docstring claims the failure 'is surfaced rather than swallowed'.</div>
-      <div class="f-body"><span class="lbl">Fix</span> Read it in a banner; assert it in the store suite.</div>
+      <div class="f-where">manifest.json</div>
+      <div class="f-body"><span class="lbl">Evidence</span> Both tabs.query calls are covered by existing host permissions.</div>
+      <div class="f-body"><span class="lbl">Fix</span> Remove `tabs`.</div>
     </li>
     <li class="finding low">
       <div class="f-head">
         <span class="sev sev-low">low</span>
-        <span class="f-title">The XSS suite passes while four sinks are live</span>
+        <span class="f-title">Worker's payload gate omits the size cap the content script has</span>
         
       </div>
-      <div class="f-where">test/xss.test.mjs:61</div>
-      <div class="f-body"><span class="lbl">Evidence</span> Its fetch mock throws for anything but projections, so the news paths never execute; it also stubs insertAdjacentHTML and setAttribute as no-ops.</div>
-      <div class="f-body"><span class="lbl">Fix</span> Mock the news endpoints with hostile payloads; record every sink type.</div>
+      <div class="f-where">chrome-extension/background.js:48-54</div>
+      <div class="f-body"><span class="lbl">Evidence</span> content-isolated caps at 5MB; background.js's copy does not, and is reachable directly.</div>
+      <div class="f-body"><span class="lbl">Fix</span> One shared looksLikeAScrape including the cap.</div>
     </li>
     <li class="finding low">
       <div class="f-head">
         <span class="sev sev-low">low</span>
-        <span class="f-title">postMessage targetOrigin is '*'</span>
+        <span class="f-title">Full parsed draft published to the page's global scope</span>
         
       </div>
-      <div class="f-where">chrome-extension/content-main.js:831</div>
-      <div class="f-body"><span class="lbl">Evidence</span> Broadcasts the full scraped draft to any listener in the frame. The receiver does check origin, so not currently exploitable.</div>
-      <div class="f-body"><span class="lbl">Fix</span> Target https://fantasy.espn.com explicitly.</div>
-    </li>
-    <li class="finding low">
-      <div class="f-head">
-        <span class="sev sev-low">low</span>
-        <span class="f-title">Sender check uses sender.url and skips shape validation</span>
-        
-      </div>
-      <div class="f-where">chrome-extension/background.js:13</div>
-      <div class="f-body"><span class="lbl">Evidence</span> sender.origin is the field Chrome guarantees; the worker also forwards without re-running looksLikeAScrape.</div>
-      <div class="f-body"><span class="lbl">Fix</span> Check sender.origin and re-validate the payload.</div>
-    </li>
-    <li class="finding low">
-      <div class="f-head">
-        <span class="sev sev-low">low</span>
-        <span class="f-title">The duplicated scraper is only half collapsed</span>
-        
-      </div>
-      <div class="f-where">chrome-extension/popup.js:76-142,204-262</div>
-      <div class="f-body"><span class="lbl">Evidence</span> findCurrentNomination, the store search and the 32-club map are still duplicated, and content-main's copy has bid parsing the popup's lacks.</div>
-      <div class="f-body"><span class="lbl">Fix</span> Move the shared helpers into one file loaded by both.</div>
-    </li>
-    <li class="finding low">
-      <div class="f-head">
-        <span class="sev sev-low">low</span>
-        <span class="f-title">Attacker-controlled leagueId written to the server log unfiltered</span>
-        
-      </div>
-      <div class="f-where">server.py:200</div>
-      <div class="f-body"><span class="lbl">Evidence</span> Newlines and ANSI escapes forge log lines in the operator's terminal.</div>
-      <div class="f-body"><span class="lbl">Fix</span> repr() it or strip to a safe character class.</div>
-    </li>
-    <li class="finding low">
-      <div class="f-head">
-        <span class="sev sev-low">low</span>
-        <span class="f-title">localStorage restore validates only the top level</span>
-        
-      </div>
-      <div class="f-where">js/store.js:25-45</div>
-      <div class="f-body"><span class="lbl">Evidence</span> leagues[x].teams may be any type; renderers index into it. This turns each sink above into a persistent rather than reflected injection.</div>
-      <div class="f-body"><span class="lbl">Fix</span> Validate each restored league against the same predicate the server uses.</div>
+      <div class="f-where">chrome-extension/content-main.js:1139</div>
+      <div class="f-body"><span class="lbl">Evidence</span> window.__GRIDIRON_EDGE_LAST__ is readable by every ad and analytics tag on ESPN.</div>
+      <div class="f-body"><span class="lbl">Fix</span> Compute the debug answer on demand; drop the persistent snapshot.</div>
     </li></ul>
-    <p class="meta"><span class="lbl">Verified</span> Ran a copy of the server in a scratch directory on port 8931 and probed 30 paths across five traversal encodings, CORS for six origin classes, Host spoofing, POST origin enforcement, oversize and malformed bodies, and OPTIONS preflight. Wrote an independent XSS PoC instrumenting innerHTML/outerHTML/insertAdjacentHTML/setAttribute across all ten renderers with hostile news responses: 173 sink writes, 3 raw survivors, 44 correctly escaped. Drove the real runSeasonSimulation to prove the actionPlan strings carry markup. Confirmed no secrets across twelve git-history patterns and no dependencies.</p>
-    <p class="meta"><span class="lbl">Not checked</span> Did not load the extension into a real Chrome profile, so the popup host bypass and the allFrames issue come from the code path rather than an executed attack. Did not stand up a DNS-rebinding domain. Never POSTed to the live server or touched the real league file. The snake-draft branch was not reached dynamically.</p>
+    
+    
   </details>
   <details class="cat-detail" open>
     <summary><span class="sum-name">Test coverage</span>
-      <span class="sum-score" data-status="serious">61/100</span></summary>
-    <p class="just">Real progress — npm test exists, 13 suites and 350 assertions run green in 1.8s, and mutation testing confirms escape.js, store.js, player-database.js, the scraper's Set/Map crash and pick attribution are genuinely defended. But the bar is engine correctness: inflating every auction bid ceiling by 15% left all 350 assertions passing, while perf.test.mjs's header claims outputs are pinned and no pinned value exists. The documented coverage command fails reproducibly, this week's own dedup fix has no regression test, and a live XSS sink was proven that the xss suite structurally cannot see. Mutation kill rate 42%.</p>
+      <span class="sum-score" data-status="critical">38/100</span></summary>
+    <p class="just">26 semantic mutations, 7 killed — a 27% mutation score. Baseline 14 suites / 424 checks pass in ~2.4s; coverage 59.49% lines, with simulator.js at 1.80% and 0% functions and all of chrome-extension/ uninstrumented. Survivors are not obscure: reverting the scraper's dedupe to first-row-wins passes 30/30 scraper checks; weakening esc() to angle-brackets-only passes all 12 xss checks; deleting findPlayer's position guard changes 615 of 1200 lookups and passes everything; replacing runSeasonSimulation with a zero stub passes, because the only assertion is that the champ figure contains a digit and '0%' does.</p>
     <ul class="findings">
     <li class="finding critical">
       <div class="f-head">
         <span class="sev sev-critical">critical</span>
-        <span class="f-title">perf.test.mjs pins nothing; the auction engine has no output regression test</span>
+        <span class="f-title">Scraper best-row-wins dedupe unverified: the fixture only ever puts the rich row first</span>
         
       </div>
-      <div class="f-where">test/perf.test.mjs:83-98</div>
-      <div class="f-body"><span class="lbl">Evidence</span> The header claims pinned outputs. The only assertion is a string-format regex. Mutating maxBid to Math.round(lo*1.15) left the full suite passing while a mid-tier WR moved 29 -&gt; 33.</div>
-      <div class="f-body"><span class="lbl">Fix</span> Serialise recommendBid and targetBoard output for ~30 pairs into a checked-in golden fixture and assert exact equality.</div>
+      <div class="f-where">test/scraper.test.mjs:28-38</div>
+      <div class="f-body"><span class="lbl">Evidence</span> Reverting to first-wins passed 30/30. Reversing the fixture row order under the mutation lost the drafter, pick number and bid.</div>
+      <div class="f-body"><span class="lbl">Fix</span> Add a panel-first ordering scenario.</div>
     </li>
     <li class="finding critical">
       <div class="f-head">
         <span class="sev sev-critical">critical</span>
-        <span class="f-title">npm run coverage fails, reproducibly</span>
+        <span class="f-title">esc() can be weakened to angle-brackets-only and every XSS assertion still passes</span>
         
       </div>
-      <div class="f-where">package.json:9</div>
-      <div class="f-body"><span class="lbl">Evidence</span> 3/3 runs: perf.test.mjs fails under instrumentation because the 12ms budget was written for uninstrumented runs. The command documented in the README is red.</div>
-      <div class="f-body"><span class="lbl">Fix</span> Skip the timing budgets when NODE_V8_COVERAGE is set, or split them into their own script.</div>
+      <div class="f-where">js/escape.js:37</div>
+      <div class="f-body"><span class="lbl">Evidence</span> Removing the quote/backtick escapes passed all 12 checks — the quote payload never reaches a recorded sink.</div>
+      <div class="f-body"><span class="lbl">Fix</span> Unit-test esc() against a character table.</div>
     </li>
     <li class="finding critical">
       <div class="f-head">
         <span class="sev sev-critical">critical</span>
-        <span class="f-title">The duplicate-row dedup fix has no regression test</span>
+        <span class="f-title">findPlayer's position guard can be deleted: a receiver fills a QB slot</span>
         
       </div>
-      <div class="f-where">chrome-extension/content-main.js:325</div>
-      <div class="f-body"><span class="lbl">Evidence</span> Reverting to first-wins left the whole suite passing: the fixture lists the rich row before the bare panel rows, so first-wins accidentally produces the right answer. The replace-branch is never exercised.</div>
-      <div class="f-body"><span class="lbl">Fix</span> Order the fixture so the poor row comes first; assert the drafter and pick number survive.</div>
+      <div class="f-where">js/player-database.js:248-252</div>
+      <div class="f-body"><span class="lbl">Evidence</span> 615 of 1200 (surname, position) lookups changed; findPlayer('Nacua','QB') went from null to Puka Nacua [WR].</div>
+      <div class="f-body"><span class="lbl">Fix</span> Assert cross-position lookups resolve to null.</div>
     </li>
     <li class="finding high">
       <div class="f-head">
         <span class="sev sev-high">high</span>
-        <span class="f-title">auctionAdvisoryHtml — the live-bid panel — is never rendered by any test</span>
+        <span class="f-title">Both halves of freeAgentPool's drafted-player bar are unprotected</span>
         
       </div>
-      <div class="f-where">js/app.js:1399-1459</div>
-      <div class="f-body"><span class="lbl">Evidence</span> Every fixture sets currentNomination: null. Deleting the ACTION_STYLE line reproduces the round-1 ReferenceError class and the suite passes.</div>
-      <div class="f-body"><span class="lbl">Fix</span> Add a scenario with a populated nomination and assert the panel gets a dollar figure.</div>
+      <div class="f-where">js/engine/roster-manager.js:509-527</div>
+      <div class="f-body"><span class="lbl">Evidence</span> Removing the name bar, and skipping unattributed picks, both passed all 14 suites.</div>
+      <div class="f-body"><span class="lbl">Fix</span> Call freeAgentPool directly and assert pool membership.</div>
     </li>
     <li class="finding high">
       <div class="f-head">
         <span class="sev sev-high">high</span>
-        <span class="f-title">draft-assistant has 95% line coverage and zero behavioural assertions</span>
+        <span class="f-title">Either transport can be broken individually and the delivery test still passes</span>
         
       </div>
-      <div class="f-where">js/engine/draft-assistant.js</div>
-      <div class="f-body"><span class="lbl">Evidence</span> No test imports it. Changing topPick to the WORST ranked player left the suite passing. High line coverage here is a false signal.</div>
-      <div class="f-body"><span class="lbl">Fix</span> Assert the recommendation beats the alternatives on VORP and that a drafted player never appears.</div>
+      <div class="f-where">js/bridge.js:70,141</div>
+      <div class="f-body"><span class="lbl">Evidence</span> Disabling the port, or the storage listener, each passed — listenForDrafts subscribes to both.</div>
+      <div class="f-body"><span class="lbl">Fix</span> Assert each route delivers on its own.</div>
     </li>
     <li class="finding high">
       <div class="f-head">
         <span class="sev sev-high">high</span>
-        <span class="f-title">simulator.js is entirely unexecuted</span>
+        <span class="f-title">The DOM stub cannot distinguish appended from appended-then-destroyed</span>
+        
+      </div>
+      <div class="f-where">test/render.test.mjs:39-48</div>
+      <div class="f-body"><span class="lbl">Evidence</span> Appending `el.innerHTML = el.innerHTML` after appendChild passed — the setters left children untouched.</div>
+      <div class="f-body"><span class="lbl">Fix</span> FIXED — innerHTML/textContent are one content and clear children; remove() empties.</div>
+    </li>
+    <li class="finding high">
+      <div class="f-head">
+        <span class="sev sev-high">high</span>
+        <span class="f-title">Replacement level asserted with a threshold, not a value</span>
+        
+      </div>
+      <div class="f-where">js/espn-client.js:37</div>
+      <div class="f-body"><span class="lbl">Evidence</span> Changing WR replacement from 4.5 to 8.9 passed, because the assertion is &lt;= 9.0.</div>
+      <div class="f-body"><span class="lbl">Fix</span> Assert the exact contract per position.</div>
+    </li>
+    <li class="finding high">
+      <div class="f-head">
+        <span class="sev sev-high">high</span>
+        <span class="f-title">simulator.js is effectively untested — it can be replaced by a zero stub</span>
         
       </div>
       <div class="f-where">js/engine/simulator.js</div>
-      <div class="f-body"><span class="lbl">Evidence</span> 1.80% line, 0.00% function. Mutating the early return to fixed 50% values passed. Bare Math.random with no rng seam.</div>
-      <div class="f-body"><span class="lbl">Fix</span> Add an rng parameter mirroring preseasonOutlook, and assert monotonicity plus seeded reproducibility.</div>
-    </li>
-    <li class="finding high">
-      <div class="f-head">
-        <span class="sev sev-high">high</span>
-        <span class="f-title">lineup-optimizer and trade-generator can return nonsense silently</span>
-        
-      </div>
-      <div class="f-where">js/engine/lineup-optimizer.js:24</div>
-      <div class="f-body"><span class="lbl">Evidence</span> Making an Out player score +100 — starting someone who cannot play — passed. So did making trade-generator return an empty array.</div>
-      <div class="f-body"><span class="lbl">Fix</span> Direct suites: an Out player is never started; the flex is filled once; proposals improve the proposer.</div>
-    </li>
-    <li class="finding high">
-      <div class="f-head">
-        <span class="sev sev-high">high</span>
-        <span class="f-title">server.py has zero tests and is a trust boundary</span>
-        
-      </div>
-      <div class="f-where">server.py</div>
-      <div class="f-body"><span class="lbl">Evidence</span> No Python test exists anywhere. The file's own header documents four security properties, none asserted.</div>
-      <div class="f-body"><span class="lbl">Fix</span> Add a stdlib unittest suite covering the allowlist, CORS, body cap and malformed-body handling.</div>
-    </li>
-    <li class="finding high">
-      <div class="f-head">
-        <span class="sev sev-high">high</span>
-        <span class="f-title">popup.js is still a duplicated, diverged second scraper with zero tests</span>
-        
-      </div>
-      <div class="f-where">chrome-extension/popup.js</div>
-      <div class="f-body"><span class="lbl">Evidence</span> The consolidation commit touched no extension file. Six helpers still duplicated, three verified diverged by byte length.</div>
-      <div class="f-body"><span class="lbl">Fix</span> Extract the shared helpers; until then assert the two copies match.</div>
+      <div class="f-body"><span class="lbl">Evidence</span> Returning all-zeros passed; render.test only checks the champ figure contains a digit.</div>
+      <div class="f-body"><span class="lbl">Fix</span> Seeded test asserting a better roster gets a strictly higher champPct.</div>
     </li>
     <li class="finding medium">
       <div class="f-head">
         <span class="sev sev-medium">medium</span>
-        <span class="f-title">looksLikeAScrape, a security gate added this round, has no tests</span>
+        <span class="f-title">lineup-optimizer's core decisions unasserted</span>
         
       </div>
-      <div class="f-where">chrome-extension/content-isolated.js:23-37</div>
-      <div class="f-body"><span class="lbl">Evidence</span> No test exercises it; extension files do not appear in the coverage report at all.</div>
-      <div class="f-body"><span class="lbl">Fix</span> Extract and test against null, arrays, missing fields, circular and oversized payloads.</div>
+      <div class="f-where">js/engine/lineup-optimizer.js:83-86,110-111</div>
+      <div class="f-body"><span class="lbl">Evidence</span> Inverting floor/ceiling, and dropping the top RB from the starters, both passed.</div>
+      <div class="f-body"><span class="lbl">Fix</span> Assert slot counts and that the top RB always starts.</div>
     </li>
     <li class="finding medium">
       <div class="f-head">
         <span class="sev sev-medium">medium</span>
-        <span class="f-title">A vacuous assertion in the store suite</span>
+        <span class="f-title">Tuning constants outside auction-advisor.js are unasserted</span>
         
       </div>
-      <div class="f-where">test/store.test.mjs:83</div>
-      <div class="f-body"><span class="lbl">Evidence</span> getActiveLeague() returns null anyway via `|| null`, so the check passes whether or not the clearing block exists. Deleting it passed.</div>
-      <div class="f-body"><span class="lbl">Fix</span> Assert store.state.currentLeagueId === null directly.</div>
-    </li>
-    <li class="finding medium">
-      <div class="f-head">
-        <span class="sev sev-medium">medium</span>
-        <span class="f-title">Four checks can still vanish silently</span>
-        
-      </div>
-      <div class="f-where">test/auction-advisor.test.mjs:51,61,74</div>
-      <div class="f-body"><span class="lbl">Evidence</span> Flipping the guard condition took the file from 42 passed to 38 passed, exit 0, with no signal.</div>
-      <div class="f-body"><span class="lbl">Fix</span> Assert the fixture precondition, and add else-branches.</div>
-    </li>
-    <li class="finding medium">
-      <div class="f-head">
-        <span class="sev sev-medium">medium</span>
-        <span class="f-title">process.exit(0) still masks late async failures in four files</span>
-        
-      </div>
-      <div class="f-where">test/roster-manager.test.mjs:202</div>
-      <div class="f-body"><span class="lbl">Evidence</span> Injecting a late rejection before the exit call: the exit(0) form reported pass, the if(failed) form reported fail. Nine files converted, four not.</div>
-      <div class="f-body"><span class="lbl">Fix</span> Use if (failed) process.exit(1) everywhere.</div>
-    </li>
-    <li class="finding medium">
-      <div class="f-head">
-        <span class="sev sev-medium">medium</span>
-        <span class="f-title">The rng seam exists and is still unused</span>
-        
-      </div>
-      <div class="f-where">test/team-strength.test.mjs</div>
-      <div class="f-body"><span class="lbl">Evidence</span> preseasonOutlook takes rng; no test passes it. Assertions survive because they are loose inequalities, which is also why they kill no mutants.</div>
-      <div class="f-body"><span class="lbl">Fix</span> Pass a seeded PRNG and pin exact outputs.</div>
-    </li>
-    <li class="finding medium">
-      <div class="f-head">
-        <span class="sev sev-medium">medium</span>
-        <span class="f-title">elCache still leaks across scenarios</span>
-        
-      </div>
-      <div class="f-where">test/render.test.mjs:51</div>
-      <div class="f-body"><span class="lbl">Evidence</span> written is cleared per scenario; elCache is not, so textContent, value and cssText persist.</div>
-      <div class="f-body"><span class="lbl">Fix</span> elCache.clear() inside load().</div>
-    </li>
-    <li class="finding medium">
-      <div class="f-head">
-        <span class="sev sev-medium">medium</span>
-        <span class="f-title">No CI</span>
-        
-      </div>
-      <div class="f-where">(repo root)</div>
-      <div class="f-body"><span class="lbl">Evidence</span> No .github. The suite runs only when someone remembers, which is how the coverage command reached a reproducibly-red state unnoticed.</div>
-      <div class="f-body"><span class="lbl">Fix</span> Add a workflow running the suite and coverage on push.</div>
-    </li>
-    <li class="finding low">
-      <div class="f-head">
-        <span class="sev sev-low">low</span>
-        <span class="f-title">renderNewsItems and the news fetch functions are unexecuted</span>
-        
-      </div>
-      <div class="f-where">js/app.js:2662-2753</div>
-      <div class="f-body"><span class="lbl">Evidence</span> Every test's fetch rejects for non-projection URLs, so only the error branch runs. The rule the code implements — that 'no news' and 'feed down' are different facts — is asserted nowhere.</div>
-      <div class="f-body"><span class="lbl">Fix</span> Stub a canned articles fixture and assert all three states.</div>
-    </li>
-    <li class="finding low">
-      <div class="f-head">
-        <span class="sev sev-low">low</span>
-        <span class="f-title">num() and int() have no direct tests</span>
-        
-      </div>
-      <div class="f-where">js/escape.js:51-60</div>
-      <div class="f-body"><span class="lbl">Evidence</span> 50% function coverage; these are the designated safe sink for untrusted numeric JSON.</div>
-      <div class="f-body"><span class="lbl">Fix</span> Assert the fallback behaviour directly.</div>
-    </li>
-    <li class="finding low">
-      <div class="f-head">
-        <span class="sev sev-low">low</span>
-        <span class="f-title">The duplicate-pick case asserts only 'did not throw'</span>
-        
-      </div>
-      <div class="f-where">test/espn-client.test.mjs:124</div>
-      <div class="f-body"><span class="lbl">Evidence</span> Which pick survives, and whether both reach selections, is unasserted.</div>
-      <div class="f-body"><span class="lbl">Fix</span> Assert both players land and selections.length === 2.</div>
+      <div class="f-where">js/engine/news-monitor.js:51</div>
+      <div class="f-body"><span class="lbl">Evidence</span> Inverting EVENT_IMPACT.demotion passed, though the file says getting it backwards recommends the wrong player.</div>
+      <div class="f-body"><span class="lbl">Fix</span> Assert the sign of every applied delta.</div>
     </li></ul>
-    <p class="meta"><span class="lbl">Verified</span> Ran npm test (13 files, 350 assertions, exit 0) and each file individually with per-file counts. Ran npm run coverage three times — fails identically each time. Applied 19 mutations to an isolated copy: 8 killed, 11 survived, kill rate 42%. Proved the app.js:2798 XSS end to end. Proved the silent assertion skip (42 -&gt; 38, exit 0) and the process.exit(0) async mask side by side.</p>
-    <p class="meta"><span class="lbl">Not checked</span> Real browser behaviour — everything runs against DOM stubs. server.py runtime. The Chrome extension load path. Whether the 42% kill rate holds beyond the 19 chosen mutations. BACKTEST's numeric claims.</p>
+    
+    
   </details>
   <details class="cat-detail" open>
     <summary><span class="sum-name">Performance</span>
-      <span class="sum-score" data-status="serious">55/100</span></summary>
-    <p class="just">The highest-stakes claim is genuinely true and independently verified: 4,095 recommendBid comparisons across 81 league states against a from-scratch reference, all 14 fields, zero mismatches. Render coalescing is real — 1 render and 1 setItem per sync, measured — and targetBoard fell from 213-334ms to 63-153ms. But the hot path still blocks 42-94ms per tick on an M3 Pro with no Worker, no rAF, no debounce and no memoization anywhere; perf.test.mjs is demonstrably fake; and the new database index introduced a 256x cliff that is worse than the code it replaced.</p>
+      <span class="sum-score" data-status="critical">52/100</span></summary>
+    <p class="just">Live Draft render blocks the main thread p50 31ms, p90 83ms, p99 144ms, max 225ms; 367 of 1536 simulated renders exceed 50ms. Every scraper sync was delivered TWICE — 40 onDraft callbacks for 20 syncs, proven with the repo's own transport mock — so a full auction cost 57.5s of blocked main thread. targetBoard (99-132ms) is recomputed on every bid tick although its output is provably identical across five different bids; caching it is a measured 17.6-20.2x speedup. The scraper's cheap probe never fired in a live room because it fingerprinted the countdown clock: 20 of 20 clock-only mutation batches ran the full 5x-document scan for zero output. Verified good: the name index memoizes correctly (0 rebuilds over 200 lookups), engine heap is flat over 300 renders, the scraper coalesces on rAF with a 120ms floor.</p>
     <ul class="findings">
     <li class="finding critical">
       <div class="f-head">
         <span class="sev sev-critical">critical</span>
-        <span class="f-title">The equivalence guard tests nothing of the kind</span>
-        
-      </div>
-      <div class="f-where">test/perf.test.mjs:83-110</div>
-      <div class="f-body"><span class="lbl">Evidence</span> Mutating BENCH_WEIGHT from 0.12 to 0.20 — a constant that moves every bid ceiling — still printed 6 passed, 0 failed. CLAUDE.md and the README both cite this test as proof the answers did not change.</div>
-      <div class="f-body"><span class="lbl">Fix</span> Pin real values in a checked-in fixture, or keep a reference planValue in the test and assert equality.</div>
-    </li>
-    <li class="finding critical">
-      <div class="f-head">
-        <span class="sev sev-critical">critical</span>
-        <span class="f-title">'the database is indexed, not rescanned' never calls findPlayer</span>
-        
-      </div>
-      <div class="f-where">test/perf.test.mjs:126-131</div>
-      <div class="f-body"><span class="lbl">Evidence</span> It measures plain property access on a literal key. Neutering buildIndex so findPlayer returns null for every name — the entire resolution layer dead — still passed.</div>
-      <div class="f-body"><span class="lbl">Fix</span> Time findPlayer over the names and assert a resolution rate alongside the duration.</div>
-    </li>
-    <li class="finding high">
-      <div class="f-head">
-        <span class="sev sev-high">high</span>
-        <span class="f-title">The index staleness guard is a length comparison one keyless record defeats permanently</span>
-        
-      </div>
-      <div class="f-where">js/player-database.js:177</div>
-      <div class="f-body"><span class="lbl">Evidence</span> buildIndex filters records without a string key, so the counts disagree forever and the index rebuilds on every lookup. Measured 190 lookups: 0.2ms clean, 51.2ms with ONE keyless record — 256x slower, and 3.4x worse than before the index existed. espn-client.js:559 and mock-data.js both produce keyless records.</div>
-      <div class="f-body"><span class="lbl">Fix</span> Key every player at construction, and replace the length heuristic with an explicit version counter.</div>
-    </li>
-    <li class="finding high">
-      <div class="f-head">
-        <span class="sev sev-high">high</span>
-        <span class="f-title">Opponent-defense lookup is a full scan inside a quadruple-nested loop</span>
-        
-      </div>
-      <div class="f-where">js/engine/simulator.js:95</div>
-      <div class="f-body"><span class="lbl">Evidence</span> ~34,560 full 523-element scans. Isolated: runSeasonSimulation is 32.3ms without p.opponent and 396.2ms with it — the lookup alone is 364ms, 92% of the call. The ESPN import path sets opponent.</div>
-      <div class="f-body"><span class="lbl">Fix</span> Build a dstByTeam Map once outside the loops.</div>
-    </li>
-    <li class="finding high">
-      <div class="f-head">
-        <span class="sev sev-high">high</span>
-        <span class="f-title">targetBoard still blocks 63-153ms per sync on the fastest consumer CPU</span>
+        <span class="f-title">targetBoard recomputed on every render although its answer cannot have changed</span>
         
       </div>
       <div class="f-where">js/engine/auction-advisor.js:722</div>
-      <div class="f-body"><span class="lbl">Evidence</span> Measured at 8 and 12 teams across 0-96 picks; targetBoard is 90-97% of all Live Draft engine work. Only 10-15% is hoistable. No Worker, rAF, debounce or memoization anywhere in the repo.</div>
-      <div class="f-body"><span class="lbl">Fix</span> Move it into a Web Worker; memoize on drafted-ids plus budgets, since the shortlist does not change while a bid ticks.</div>
+      <div class="f-body"><span class="lbl">Evidence</span> Byte-identical output across bids of 1/5/12/25/40. Removing it drops the render from 101.3ms to 5.50ms.</div>
+      <div class="f-body"><span class="lbl">Fix</span> Memoize on selections + budgets.</div>
+    </li>
+    <li class="finding critical">
+      <div class="f-head">
+        <span class="sev sev-critical">critical</span>
+        <span class="f-title">Every sync imported and rendered twice — port and storage both deliver</span>
+        
+      </div>
+      <div class="f-where">js/bridge.js:208-213</div>
+      <div class="f-body"><span class="lbl">Evidence</span> 40 callbacks for 20 syncs, measured on the repo's own mock.</div>
+      <div class="f-body"><span class="lbl">Fix</span> FIXED — deduped on a shared changeKey(); test now asserts exactly 20.</div>
+    </li>
+    <li class="finding critical">
+      <div class="f-head">
+        <span class="sev sev-critical">critical</span>
+        <span class="f-title">The cheap probe never short-circuits because it fingerprints the countdown clock</span>
+        
+      </div>
+      <div class="f-where">chrome-extension/content-main.js:857-871</div>
+      <div class="f-body"><span class="lbl">Evidence</span> Clock-only mutations: 20/20 full scans, 379,460 innerText reads, 0 payloads produced.</div>
+      <div class="f-body"><span class="lbl">Fix</span> FIXED — digits stripped from the counter term only.</div>
     </li>
     <li class="finding high">
       <div class="f-head">
         <span class="sev sev-high">high</span>
-        <span class="f-title">Every keystroke in the player search runs the full draft render</span>
+        <span class="f-title">planValue re-evaluates the whole lineup for every board candidate</span>
         
       </div>
-      <div class="f-where">js/app.js:256-259</div>
-      <div class="f-body"><span class="lbl">Evidence</span> Measured 79.8ms per keystroke at 24 picks, plus a /health round trip. The bid box is fine now at 3.3-4.6ms.</div>
-      <div class="f-body"><span class="lbl">Fix</span> Debounce at ~150ms and split the table filter out of renderDraftPage.</div>
+      <div class="f-where">js/engine/auction-advisor.js:349-374</div>
+      <div class="f-body"><span class="lbl">Evidence</span> One targetBoard = 234 planValue calls, 269,479 lineupPointsFromGroups calls, 9.0 MB garbage.</div>
+      <div class="f-body"><span class="lbl">Fix</span> Compute the marginal gain incrementally.</div>
+    </li>
+    <li class="finding high">
+      <div class="f-head">
+        <span class="sev sev-high">high</span>
+        <span class="f-title">Three whole-document div walks per scan, one computed and thrown away</span>
+        
+      </div>
+      <div class="f-where">chrome-extension/content-main.js:157,500,820</div>
+      <div class="f-body"><span class="lbl">Evidence</span> 5 walks, 15,623 nodes, 18,973 innerText reads per scan; scrapeTeamsAndBudgets called twice identically.</div>
+      <div class="f-body"><span class="lbl">Fix</span> PARTIAL — the duplicate call is removed; the walks are not yet merged.</div>
+    </li>
+    <li class="finding high">
+      <div class="f-head">
+        <span class="sev sev-high">high</span>
+        <span class="f-title">The auction panel, including the bid input being typed in, is rebuilt on every sync</span>
+        
+      </div>
+      <div class="f-where">js/app.js:1623-1673</div>
+      <div class="f-body"><span class="lbl">Evidence</span> One innerHTML replaces the panel, twice per sync; the value resets from scrapedBid so a half-typed override is lost.</div>
+      <div class="f-body"><span class="lbl">Fix</span> Split the static frame from the advisory.</div>
+    </li>
+    <li class="finding high">
+      <div class="f-head">
+        <span class="sev sev-high">high</span>
+        <span class="f-title">The perf budget sanctions a 250ms render and measures the same body twice</span>
+        
+      </div>
+      <div class="f-where">test/perf.test.mjs:158,160</div>
+      <div class="f-body"><span class="lbl">Evidence</span> targetBoard budget 250ms vs 158.1ms worst; only the 0-pick state is timed; fastest(fn,3) takes the min.</div>
+      <div class="f-body"><span class="lbl">Fix</span> Budget from a 16ms frame; time three draft states; assert median.</div>
     </li>
     <li class="finding medium">
       <div class="f-head">
         <span class="sev sev-medium">medium</span>
-        <span class="f-title">A /health fetch on every draft render, including every keystroke</span>
+        <span class="f-title">The roster sweep can hold the draft room for 11 seconds</span>
         
       </div>
-      <div class="f-where">js/app.js:1166</div>
-      <div class="f-body"><span class="lbl">Evidence</span> Unconditional at the top of renderDraftPage. Async so it does not block, but unthrottled.</div>
-      <div class="f-body"><span class="lbl">Fix</span> Poll readiness on its own interval and read a cached value.</div>
+      <div class="f-where">chrome-extension/content-main.js:724-772</div>
+      <div class="f-body"><span class="lbl">Evidence</span> 12 teams with unchanged signatures = 11,025ms and 193 synchronous panel reads.</div>
+      <div class="f-body"><span class="lbl">Fix</span> Compare each team against its own previous signature.</div>
     </li>
     <li class="finding medium">
       <div class="f-head">
         <span class="sev sev-medium">medium</span>
-        <span class="f-title">The 2s extension loop scans before checking for change</span>
+        <span class="f-title">chrome.storage.local.set writes the whole draft on every sync</span>
         
       </div>
-      <div class="f-where">chrome-extension/content-main.js:823</div>
-      <div class="f-body"><span class="lbl">Evidence</span> The syncKey comparison is the last thing checkAndSync does, after querySelectorAll('*'), two div sweeps with innerText reads, and body.innerText.</div>
-      <div class="f-body"><span class="lbl">Fix</span> Compute a cheap change probe first; use textContent in the filter passes.</div>
+      <div class="f-where">chrome-extension/background.js:88</div>
+      <div class="f-body"><span class="lbl">Evidence</span> 3,000 syncs at 200 picks serialized 80MB; four full passes over the payload per sync.</div>
+      <div class="f-body"><span class="lbl">Fix</span> Debounce the write; keep the port immediate.</div>
     </li>
     <li class="finding medium">
       <div class="f-head">
         <span class="sev sev-medium">medium</span>
-        <span class="f-title">scrapeTeamsAndBudgets is called twice per tick</span>
+        <span class="f-title">The Home tab re-runs a 1500-iteration Monte Carlo on every update</span>
         
       </div>
-      <div class="f-where">chrome-extension/content-main.js:654,666</div>
-      <div class="f-body"><span class="lbl">Evidence</span> Identical results, nothing between them can change the DOM.</div>
-      <div class="f-body"><span class="lbl">Fix</span> Call it once.</div>
-    </li>
-    <li class="finding medium">
-      <div class="f-head">
-        <span class="sev sev-medium">medium</span>
-        <span class="f-title">The championship page runs 9,000 simulated seasons per render</span>
-        
-      </div>
-      <div class="f-where">js/app.js:2495,2578</div>
-      <div class="f-body"><span class="lbl">Evidence</span> Measured 165.9ms, and the first 3,000 runs are overwritten by the second call milliseconds later.</div>
-      <div class="f-body"><span class="lbl">Fix</span> Drop the first call; run the 6,000 only on button press and cache it.</div>
-    </li>
-    <li class="finding medium">
-      <div class="f-head">
-        <span class="sev sev-medium">medium</span>
-        <span class="f-title">evaluateWaivers rescans the pool per free agent</span>
-        
-      </div>
-      <div class="f-where">js/engine/roster-manager.js:540</div>
-      <div class="f-body"><span class="lbl">Evidence</span> 28.3ms at 331 free agents, empirical scaling exponent 1.15. positionalScarcity filters and sorts the whole pool once per candidate.</div>
-      <div class="f-body"><span class="lbl">Fix</span> Precompute scarcity per position; hoist the per-rival roster lookups.</div>
-    </li>
-    <li class="finding medium">
-      <div class="f-head">
-        <span class="sev sev-medium">medium</span>
-        <span class="f-title">135KB serialised to localStorage every 3 seconds</span>
-        
-      </div>
-      <div class="f-where">js/store.js:64</div>
-      <div class="f-body"><span class="lbl">Evidence</span> Improved from two writes totalling 286KB to one of 138KB, but every league keeps its own full copy of the database and the whole thing is rewritten when only a bid changed.</div>
-      <div class="f-body"><span class="lbl">Fix</span> Store the database once under its own key; debounce the write.</div>
-    </li>
-    <li class="finding medium">
-      <div class="f-head">
-        <span class="sev sev-medium">medium</span>
-        <span class="f-title">The snake table rebuilds 523 rows with a getElementById each</span>
-        
-      </div>
-      <div class="f-where">js/app.js:1323-1360</div>
-      <div class="f-body"><span class="lbl">Evidence</span> 523 separate layout invalidations plus a full-document lookup per row. Snake path only.</div>
-      <div class="f-body"><span class="lbl">Fix</span> DocumentFragment plus one delegated listener.</div>
-    </li>
-    <li class="finding low">
-      <div class="f-head">
-        <span class="sev sev-low">low</span>
-        <span class="f-title">renderHomePage calls rankTeams four times</span>
-        
-      </div>
-      <div class="f-where">js/app.js:819,827,876,1037</div>
-      <div class="f-body"><span class="lbl">Evidence</span> Confirmed, but rankTeams is 0.1ms and freeAgentPool 0.4ms; the home page's 29.3ms is dominated by preseasonOutlook. Round 1 overstated this.</div>
-      <div class="f-body"><span class="lbl">Fix</span> Thread one result through for clarity; the gain is under 1ms.</div>
-    </li>
-    <li class="finding low">
-      <div class="f-head">
-        <span class="sev sev-low">low</span>
-        <span class="f-title">findNominatedPlayer does two lowercasing scans per render</span>
-        
-      </div>
-      <div class="f-where">js/app.js:1381</div>
-      <div class="f-body"><span class="lbl">Evidence</span> Under 0.05ms — negligible. Noted only because findPlayer already answers this and is the repo's single resolver.</div>
-      <div class="f-body"><span class="lbl">Fix</span> Use findPlayer.</div>
+      <div class="f-where">js/app.js:882</div>
+      <div class="f-body"><span class="lbl">Evidence</span> 31.0ms per call at 96 picks, on every render.</div>
+      <div class="f-body"><span class="lbl">Fix</span> Key it on the same signature as targetBoard.</div>
     </li></ul>
-    <p class="meta"><span class="lbl">Verified</span> Six independent benchmark scripts against the real modules and real 523-player data, warmed up, median of N. Built a from-scratch reference planValue from the docstring and diffed it over 4,095 recommendBid calls and 810 planValue calls: zero mismatches on all fields, shopping lists included. Instrumented localStorage and a counting listener on the real store to measure renders, writes and bytes per sync. Mutation-tested perf.test.mjs to establish empirically that it detects neither a changed bid ceiling nor a dead index.</p>
-    <p class="meta"><span class="lbl">Not checked</span> Real browser measurement — all numbers are node on an M3 Pro, so DOM, layout and real setItem cost are excluded and the true per-tick block is higher, likely 3-5x on a typical laptop. The extension's runtime cost was read, not measured. No heap profiling. Whether the ESPN-API import path is in live use, which sets the practical severity of the index cliff.</p>
+    
+    
   </details>
   <details class="cat-detail" open>
     <summary><span class="sum-name">Documentation</span>
-      <span class="sum-score" data-status="serious">66/100</span></summary>
-    <p class="just">The documentation is now substantial — four new files, and most operational claims verify clean when executed: the server allowlist, sync intervals, npm test, the test headers, par summing to exactly $2,400, the rank-curve figures, every auction constant. But three of the newest documents assert things that were false as of the commit that wrote them: CLAUDE.md's headline rule is invalidated by the package.json added alongside it, CLAUDE.md cites a fabricated-analysis string as historical while that exact string still ships, and the Reproducing section was edited into a duplicated command with a wrong count.</p>
+      <span class="sum-score" data-status="critical">44/100</span></summary>
+    <p class="just">Verified true: 523 players and 88 analysts in the projection set, exactly 14 suites, the +306/+125 headline figures match BACKTEST.md including the caveat, and every documented command runs. But chrome-extension/README.md still instructs the user to run `python3 server.py` and load a directory containing no manifest — it was last written 54 minutes before the server was deleted and never revisited across the 15 commits that rewrote the architecture. README documents a toolbar-popup Sync button that cannot be opened (no default_popup; the icon opens index.html), making popup.js 554 lines of unreachable code that the packaging script still ships. Two headers that CLAUDE.md restates as project rules claim consolidations that never landed.</p>
     <ul class="findings">
     <li class="finding critical">
       <div class="f-head">
         <span class="sev sev-critical">critical</span>
-        <span class="f-title">The headline 'node --check does not work here' rule is false in this repo</span>
+        <span class="f-title">chrome-extension/README.md documents the deleted Python server and the wrong install target</span>
         
       </div>
-      <div class="f-where">CLAUDE.md:12-16</div>
-      <div class="f-body"><span class="lbl">Evidence</span> package.json declaring type:module was added in the same commit as CLAUDE.md. Copying the exact canary into js/ and running node --check printed SyntaxError and exited 1, not 0.</div>
-      <div class="f-body"><span class="lbl">Fix</span> Rewrite as history, and say plainly that npm test is the gate because --check resolves no imports and boots nothing.</div>
+      <div class="f-where">chrome-extension/README.md:3,18,27-38</div>
+      <div class="f-body"><span class="lbl">Evidence</span> 'Ensure the Gridiron Edge server is running: python3 server.py'. server.py was deleted; the manifest is at the repo root, so loading that directory fails.</div>
+      <div class="f-body"><span class="lbl">Fix</span> Rewrite for the current world; drop package.json's `serve` script.</div>
     </li>
     <li class="finding critical">
       <div class="f-head">
         <span class="sev sev-critical">critical</span>
-        <span class="f-title">CLAUDE.md's own example of forbidden invented analysis ships live</span>
+        <span class="f-title">README documents a toolbar-popup Sync button that cannot be opened</span>
         
       </div>
-      <div class="f-where">js/app.js:1786</div>
-      <div class="f-body"><span class="lbl">Evidence</span> 'Our Wide Receiver room is deep and healthy...' renders unconditionally under a Position Depth Check heading — for an empty roster, an RB-heavy roster, any roster. CLAUDE.md quotes it as a past offence.</div>
-      <div class="f-body"><span class="lbl">Fix</span> Compute it from the position counts already in scope two lines above, or delete the block.</div>
+      <div class="f-where">README.md:42-43</div>
+      <div class="f-body"><span class="lbl">Evidence</span> No default_popup in the manifest; background.js binds action.onClicked to open index.html, which is mutually exclusive with a popup.</div>
+      <div class="f-body"><span class="lbl">Fix</span> Delete popup.js/popup.html or wire the popup; correct README.</div>
     </li>
     <li class="finding critical">
       <div class="f-head">
         <span class="sev sev-critical">critical</span>
-        <span class="f-title">The lineup-rules header documents a consolidation that never reached two of the six sites it names</span>
+        <span class="f-title">'Never invent a number' is promised in README and violated by shipped hardcoded analysis</span>
         
       </div>
-      <div class="f-where">js/engine/lineup-rules.js:8-10</div>
-      <div class="f-body"><span class="lbl">Evidence</span> simulator.js and lineup-optimizer.js do not import it; simulator.js still declares its own slot array twice and still runs a 4-team bracket against the module's PLAYOFF_TEAMS = 6, while both write the same three spans.</div>
-      <div class="f-body"><span class="lbl">Fix</span> Import it in both, or amend the header to say which call sites were converted.</div>
+      <div class="f-where">README.md:60-63 vs js/app.js:1940</div>
+      <div class="f-body"><span class="lbl">Evidence</span> 'Our Wide Receiver room is deep and healthy...' rendered unconditionally, including on an empty roster.</div>
+      <div class="f-body"><span class="lbl">Fix</span> FIXED — computed from the roster now.</div>
+    </li>
+    <li class="finding critical">
+      <div class="f-head">
+        <span class="sev sev-critical">critical</span>
+        <span class="f-title">lineup-rules.js claims a consolidation that did not land; the drift it describes is still live</span>
+        
+      </div>
+      <div class="f-where">js/engine/lineup-rules.js:1-18</div>
+      <div class="f-body"><span class="lbl">Evidence</span> Only 4 files import it; simulator.js and lineup-optimizer.js still carry their own copies. PLAYOFF_TEAMS=6 vs simulator.js playoffSize=4.</div>
+      <div class="f-body"><span class="lbl">Fix</span> PARTIAL — simulator now uses PLAYOFF_TEAMS/BYE_TEAMS; the slot literals remain.</div>
     </li>
     <li class="finding high">
       <div class="f-head">
         <span class="sev sev-high">high</span>
-        <span class="f-title">The Reproducing section was edited into a worse state</span>
+        <span class="f-title">roster-manager.js claims freeAgentPool is the only pool; the weaker variant is still there</span>
         
       </div>
-      <div class="f-where">BACKTEST.md:1154-1157</div>
-      <div class="f-body"><span class="lbl">Evidence</span> The edit replaced the roster-manager line with a second copy of the auction-advisor line. The block now lists the same command twice, cites 27 checks against an actual 42, drops roster-manager entirely, and never mentions npm test.</div>
-      <div class="f-body"><span class="lbl">Fix</span> Replace with npm test plus per-suite lines carrying no hardcoded counts.</div>
+      <div class="f-where">js/engine/roster-manager.js:494-501</div>
+      <div class="f-body"><span class="lbl">Evidence</span> js/app.js renderPreseasonOutlook still builds an id-only pool with no name barring.</div>
+      <div class="f-body"><span class="lbl">Fix</span> Call freeAgentPool.</div>
     </li>
     <li class="finding high">
       <div class="f-head">
         <span class="sev sev-high">high</span>
-        <span class="f-title">'with the reason recorded in the file' is still false</span>
+        <span class="f-title">The auction formula documented as 'replaced' is still live and renders a dollar figure</span>
         
       </div>
-      <div class="f-where">BACKTEST.md:862</div>
-      <div class="f-body"><span class="lbl">Evidence</span> A grep across auction-advisor.js finds no touchdown, median or regression rationale anywhere. Identical round-1 finding, untouched.</div>
-      <div class="f-body"><span class="lbl">Fix</span> Add the rationale to the file, or delete the clause.</div>
+      <div class="f-where">js/engine/auction-advisor.js:32-36</div>
+      <div class="f-body"><span class="lbl">Evidence</span> calculateAuctionBid still exists in draft-assistant.js and app.js renders its target bid. Both models ship on the same screen.</div>
+      <div class="f-body"><span class="lbl">Fix</span> Route through recommendBid or correct the docs.</div>
     </li>
     <li class="finding high">
       <div class="f-head">
         <span class="sev sev-high">high</span>
-        <span class="f-title">'a tdShare field the app does not yet populate' is now false</span>
+        <span class="f-title">README claims nothing leaves the machine while the app calls two third-party APIs</span>
         
       </div>
-      <div class="f-where">BACKTEST.md:812</div>
-      <div class="f-body"><span class="lbl">Evidence</span> espn-client.js:572 sets it from stat splits and store.js derives it from TD counts, so the adjustment is live on imported leagues, not a no-op.</div>
-      <div class="f-body"><span class="lbl">Fix</span> State that it is populated on imported leagues and absent only on the shipped projection file.</div>
+      <div class="f-where">README.md:45</div>
+      <div class="f-body"><span class="lbl">Evidence</span> news-monitor.js fetches site.api.espn.com and api.sleeper.app.</div>
+      <div class="f-body"><span class="lbl">Fix</span> State the three read-only endpoints.</div>
     </li>
     <li class="finding high">
       <div class="f-head">
         <span class="sev sev-high">high</span>
-        <span class="f-title">'it is a preseason model, and the page says so' is false once a schedule exists</span>
+        <span class="f-title">SAFARI.md claims the isolated-world fallback is unit-tested; no test exercises it</span>
         
       </div>
-      <div class="f-where">README.md:112</div>
-      <div class="f-body"><span class="lbl">Evidence</span> With fixtures present the home number comes from runSeasonSimulation, and app.js:858 sets the caveat to an empty string in exactly that branch. That model has no file header, a 4-team bracket unlike anything in BACKTEST, and hardcoded score distributions.</div>
-      <div class="f-body"><span class="lbl">Fix</span> Say the number comes from two different unvalidated models, and render the caveat in both branches.</div>
+      <div class="f-where">SAFARI.md:107-109</div>
+      <div class="f-body"><span class="lbl">Evidence</span> transport.test.mjs stubs the tab hooks as inert no-ops. The roster sweep has zero test coverage.</div>
+      <div class="f-body"><span class="lbl">Fix</span> Say so, or add the test.</div>
     </li>
     <li class="finding high">
       <div class="f-head">
         <span class="sev sev-high">high</span>
-        <span class="f-title">npm run coverage is documented but fails</span>
+        <span class="f-title">Two contradictory doc comments stacked on one function</span>
         
       </div>
-      <div class="f-where">README.md:70-73</div>
-      <div class="f-body"><span class="lbl">Evidence</span> Exits non-zero on perf.test.mjs; the budgets cannot hold under instrumentation. A documented command must run.</div>
-      <div class="f-body"><span class="lbl">Fix</span> Exclude perf from the coverage script or gate the timing assertions.</div>
-    </li>
-    <li class="finding high">
-      <div class="f-head">
-        <span class="sev sev-high">high</span>
-        <span class="f-title">calculateAuctionBid is still live with the condemned constants</span>
-        
-      </div>
-      <div class="f-where">js/app.js:1340</div>
-      <div class="f-body"><span class="lbl">Evidence</span> It fills the snake board's Target Bid column with baseline 14.5 / multiplier 0.8 for QB — verbatim what BACKTEST calls priced at five times market — while every document reads as though it were gone. Its docstring is one bland line.</div>
-      <div class="f-body"><span class="lbl">Fix</span> Add a blunt header, and correct 'the formula it replaced' to name the surface that still uses it.</div>
+      <div class="f-where">js/app.js:1140-1154</div>
+      <div class="f-body"><span class="lbl">Evidence</span> The first still asks whether the deleted local server is up. Same pattern in bridge.js and content-main.js.</div>
+      <div class="f-body"><span class="lbl">Fix</span> PARTIAL — the bridge.js one is fixed.</div>
     </li>
     <li class="finding medium">
       <div class="f-head">
         <span class="sev sev-medium">medium</span>
-        <span class="f-title">'Eleven suites' is wrong twice; there are thirteen</span>
+        <span class="f-title">The roster sweep is documented nowhere for users</span>
         
       </div>
-      <div class="f-where">README.md:75,98</div>
-      <div class="f-body"><span class="lbl">Evidence</span> Eleven matches neither the old count (9) nor the new (13). CLAUDE.md explicitly warns against asserting a count no test checks.</div>
-      <div class="f-body"><span class="lbl">Fix</span> Drop the number, or have a test assert it.</div>
-    </li>
-    <li class="finding medium">
-      <div class="f-head">
-        <span class="sev sev-medium">medium</span>
-        <span class="f-title">'Engine modules run 20-35% comment density' is not true of the engines</span>
-        
-      </div>
-      <div class="f-where">CLAUDE.md:51</div>
-      <div class="f-body"><span class="lbl">Evidence</span> Measured range is 8.8-38.0%; three of ten engines are below the floor and two above the ceiling. This breaks the do-not-assert-a-count rule in the same file that states it.</div>
-      <div class="f-body"><span class="lbl">Fix</span> Replace the range with the intent and name the exceptions.</div>
-    </li>
-    <li class="finding medium">
-      <div class="f-head">
-        <span class="sev sev-medium">medium</span>
-        <span class="f-title">The round-1 contradiction was patched but the contradicting sentence left in place</span>
-        
-      </div>
-      <div class="f-where">BACKTEST.md:1130</div>
-      <div class="f-body"><span class="lbl">Evidence</span> 'Every roster here is frozen at the draft' now sits in the same paragraph as the three sentences saying the opposite.</div>
-      <div class="f-body"><span class="lbl">Fix</span> Delete it, and update the 12.2% anchor to Part 14's 18.1%.</div>
-    </li>
-    <li class="finding medium">
-      <div class="f-head">
-        <span class="sev sev-medium">medium</span>
-        <span class="f-title">MISSING_INPUTS and NEWS_DERIVED_INPUTS still contradict each other</span>
-        
-      </div>
-      <div class="f-where">js/engine/roster-manager.js:36-50</div>
-      <div class="f-body"><span class="lbl">Evidence</span> Both contain 'in-season trades', under a comment saying they cannot drift silently, and the waiver panel tells the user it is unavailable. The test checks only list length.</div>
-      <div class="f-body"><span class="lbl">Fix</span> Remove it from MISSING_INPUTS and assert the arrays are disjoint.</div>
-    </li>
-    <li class="finding medium">
-      <div class="f-head">
-        <span class="sev sev-medium">medium</span>
-        <span class="f-title">The tool both READMEs cite for the K/D-ST numbers cannot run</span>
-        
-      </div>
-      <div class="f-where">tools/kickers_defense.py:26</div>
-      <div class="f-body"><span class="lbl">Evidence</span> ModuleNotFoundError: no build_data anywhere in the repo. Neither document says it is unrunnable standalone.</div>
-      <div class="f-body"><span class="lbl">Fix</span> Add a tools README stating the dependency, and reference it.</div>
-    </li>
-    <li class="finding medium">
-      <div class="f-head">
-        <span class="sev sev-medium">medium</span>
-        <span class="f-title">The board-depth comment describes a cheap tail the constant does not deliver</span>
-        
-      </div>
-      <div class="f-where">js/engine/auction-advisor.js:48</div>
-      <div class="f-body"><span class="lbl">Evidence</span> Measured against the live 523-player set: the 110th-ranked par is $3.73, so nothing below that is on the board and the documented $1-3 tail is absent. The per-position backfill does not fire either.</div>
-      <div class="f-body"><span class="lbl">Fix</span> Raise the constant and recheck the budget, or correct both comments.</div>
-    </li>
-    <li class="finding medium">
-      <div class="f-head">
-        <span class="sev sev-medium">medium</span>
-        <span class="f-title">An in-code comment cites measurements that appear nowhere in the record</span>
-        
-      </div>
-      <div class="f-where">js/engine/draft-assistant.js:255</div>
-      <div class="f-body"><span class="lbl">Evidence</span> It asserts +2.9 and +1.5 points of title probability with CIs for round-dependent risk aversion; BACKTEST's sweep tests a constant tilt and never tests the shipped -2.0.</div>
-      <div class="f-body"><span class="lbl">Fix</span> Add the sweep to BACKTEST, or soften the comment to what was measured.</div>
-    </li>
-    <li class="finding medium">
-      <div class="f-head">
-        <span class="sev sev-medium">medium</span>
-        <span class="f-title">The 88-analyst shipped file and the 200+-analyst validation are never reconciled</span>
-        
-      </div>
-      <div class="f-where">README.md:52-56</div>
-      <div class="f-body"><span class="lbl">Evidence</span> The shipped panel is under half the size of the one Part 2's conclusion was measured on, and nothing notes it.</div>
-      <div class="f-body"><span class="lbl">Fix</span> One sentence saying the conclusion transfers with less margin.</div>
-    </li>
-    <li class="finding low">
-      <div class="f-head">
-        <span class="sev sev-low">low</span>
-        <span class="f-title">No file header on the module that produces the in-season championship number</span>
-        
-      </div>
-      <div class="f-where">js/engine/simulator.js:1</div>
-      <div class="f-body"><span class="lbl">Evidence</span> Opens directly with an import. 8.8% comment density, lowest in the repo, and its bracket, score distributions, weather probability and home-field constant are all unexplained and absent from BACKTEST.</div>
-      <div class="f-body"><span class="lbl">Fix</span> Give it a header stating what it models and that it is unvalidated.</div>
-    </li>
-    <li class="finding low">
-      <div class="f-head">
-        <span class="sev sev-low">low</span>
-        <span class="f-title">Invented analysis remains in shipped markup as placeholders</span>
-        
-      </div>
-      <div class="f-where">index.html:104,134,223</div>
-      <div class="f-body"><span class="lbl">Evidence</span> '14%' with a matching bar width, 'Wide Receiver (Jefferson, Lamb)', and a tier warning naming Kelce and LaPorta. All are overwritten in normal operation, but they are the shape the conventions forbid.</div>
-      <div class="f-body"><span class="lbl">Fix</span> Replace with em-dashes, as the Game Day panel now does.</div>
-    </li>
-    <li class="finding low">
-      <div class="f-head">
-        <span class="sev sev-low">low</span>
-        <span class="f-title">Wrong cross-reference</span>
-        
-      </div>
-      <div class="f-where">BACKTEST.md:937</div>
-      <div class="f-body"><span class="lbl">Evidence</span> Cites 'the waiver experiment in Part 6'; the waiver experiment is Part 5.</div>
-      <div class="f-body"><span class="lbl">Fix</span> Change to Part 5.</div>
-    </li>
-    <li class="finding low">
-      <div class="f-head">
-        <span class="sev sev-low">low</span>
-        <span class="f-title">'nothing is sent anywhere' is not quite true</span>
-        
-      </div>
-      <div class="f-where">chrome-extension/debug/README.md:4</div>
-      <div class="f-body"><span class="lbl">Evidence</span> syncheck.js fetches localhost:8000/health. Spirit holds, but the sentence is falsifiable.</div>
-      <div class="f-body"><span class="lbl">Fix</span> Note the one GET to your own server.</div>
-    </li>
-    <li class="finding low">
-      <div class="f-head">
-        <span class="sev sev-low">low</span>
-        <span class="f-title">The two ways the extension gets data are never distinguished</span>
-        
-      </div>
-      <div class="f-where">chrome-extension/README.md:29-38</div>
-      <div class="f-body"><span class="lbl">Evidence</span> The content scripts inject only on draft URLs, so the 2s loop runs only in a draft room; a user following the README on the league page will never see it.</div>
-      <div class="f-body"><span class="lbl">Fix</span> Split into the automatic draft-room path and the popup-button path.</div>
+      <div class="f-where">README.md:34-45</div>
+      <div class="f-body"><span class="lbl">Evidence</span> No mention of the scan, that it writes to the page, or the three coverage kinds.</div>
+      <div class="f-body"><span class="lbl">Fix</span> Add an 'In an auction room' subsection.</div>
     </li></ul>
-    <p class="meta"><span class="lbl">Verified</span> Read all four new docs and BACKTEST in full, and diffed BACKTEST against the round-1 commit. Ran npm test and npm run coverage. Started the server and probed the allowlist with curl. Parsed the projection file: 523 players, 88 experts, positions matching the K/D-ST note exactly. Executed parValues for a 12x16 league: par sums to exactly $2,400 and 192 players carry par &gt;= $1, confirming both of Part 16's arithmetic claims; measured the 110th par at $3.73 to test the cheap-tail comment. Verified the rank-curve figures and every cited auction constant. Empirically disproved the node --check claim. Measured comment density across all ten engines.</p>
-    <p class="meta"><span class="lbl">Not checked</span> Every simulation result in BACKTEST — the harness is out of repo and needs ~90MB of season data. The K/D-ST sanity checks need nflverse data. The extension was not loaded into a browser. The bookmarklet path was not exercised. Whether the numbers the engines produce are correct, only whether the documentation about them is true.</p>
+    
+    
   </details>
   <details class="cat-detail" open>
     <summary><span class="sum-name">Readability</span>
-      <span class="sum-score" data-status="serious">61/100</span></summary>
-    <p class="just">Real work landed — escape.js and the new test files are well built, the TDZ is gone, the nomination resolver and bookmarklet source are down to one copy each, and two fabricated verdicts now compute from rosters. But the flagship consolidation commit did not do what its artefacts claim: the lineup-rules header describes six shapes being collapsed while four remain, and the drift it names in the past tense is still live. The extension de-duplication deleted the better scraper and kept the auction-blind one, leaving its explanatory comment orphaned. The comment layer is now the least trustworthy part of the repo, which is the specific failure the conventions call out as worse than no comment.</p>
+      <span class="sum-score" data-status="serious">62/100</span></summary>
+    <p class="just">The comment discipline is genuinely unusual and most engine code is careful, but the repo's central claim is false in a way a new engineer would trust: lineup-rules.js says the six lineup representations were consolidated, yet simulator.js, lineup-optimizer.js and app.js still carry their own and none import the module. Two crash/wrong-value paths were unambiguous: espn-client.js called mapESPNPosition without `this.`, and auction-advisor fell back to teams[0] when myTeamId is null — which espn-client deliberately produces — so the auction board printed another manager's budget and every ceiling against his roster.</p>
     <ul class="findings">
     <li class="finding critical">
       <div class="f-head">
         <span class="sev sev-critical">critical</span>
-        <span class="f-title">The scraper de-duplication kept the worse copy and orphaned the better one's comment</span>
+        <span class="f-title">Auction bid ceilings computed against another manager's team when the owner is unknown</span>
         
       </div>
-      <div class="f-where">chrome-extension/popup.js:358-368</div>
-      <div class="f-body"><span class="lbl">Evidence</span> The deleted popup implementation accepted auction tables via a dollar-token count; the surviving content-main copy still requires the literal 'Round 1', which an auction room never has. The doc comment explaining the auction fix survives above no function at all. scraper.test.mjs hardcodes 'Round 1' into its fixture, so the regression is invisible.</div>
-      <div class="f-body"><span class="lbl">Fix</span> Port the auction-aware container finder into content-main, move the comment with it, and add a fixture with dollar tokens and no Round.</div>
+      <div class="f-where">js/engine/auction-advisor.js:111</div>
+      <div class="f-body"><span class="lbl">Evidence</span> `me: byId.get(league.myTeamId) || teams[0]`. renderAuctionBoard had no owner guard, though renderRosterPage does.</div>
+      <div class="f-body"><span class="lbl">Fix</span> FIXED — returns null; the board asks who you are.</div>
     </li>
     <li class="finding critical">
       <div class="f-head">
         <span class="sev sev-critical">critical</span>
-        <span class="f-title">The lineup-rules header asserts a consolidation that did not happen</span>
+        <span class="f-title">ReferenceError kills the entire ESPN-API import path</span>
         
       </div>
-      <div class="f-where">js/engine/lineup-rules.js:4-10</div>
-      <div class="f-body"><span class="lbl">Evidence</span> Four importers only. simulator.js still declares the slot array twice verbatim; lineup-optimizer keeps its if-chain; draft-assistant and espn-client hold three more shapes.</div>
-      <div class="f-body"><span class="lbl">Fix</span> Import it in the remaining callers, or rewrite the header to state which still hold their own copy.</div>
+      <div class="f-where">js/espn-client.js:602</div>
+      <div class="f-body"><span class="lbl">Evidence</span> `mapESPNPosition(...)` without `this.`, in the exact branch that handles a player with no projection.</div>
+      <div class="f-body"><span class="lbl">Fix</span> FIXED.</div>
     </li>
     <li class="finding critical">
       <div class="f-head">
         <span class="sev sev-critical">critical</span>
-        <span class="f-title">The playoff disagreement the new module exists to prevent is still live</span>
+        <span class="f-title">Playoff field size has two live values writing to the same three spans</span>
         
       </div>
       <div class="f-where">js/engine/simulator.js:221</div>
-      <div class="f-body"><span class="lbl">Evidence</span> playoffSize = 4 and a top-2 bye against the module's 6 and 2, with both engines writing the same three spans. Pressing Re-run Simulations silently switches the user to a four-team playoff.</div>
-      <div class="f-body"><span class="lbl">Fix</span> Import the constants and assert the two engines agree in a test.</div>
+      <div class="f-body"><span class="lbl">Evidence</span> playoffSize=4 vs PLAYOFF_TEAMS=6; the same roster reads 0% or a positive number depending on which page drew last.</div>
+      <div class="f-body"><span class="lbl">Fix</span> FIXED.</div>
+    </li>
+    <li class="finding critical">
+      <div class="f-head">
+        <span class="sev sev-critical">critical</span>
+        <span class="f-title">Championship probability generated from constants, not from any team's strength</span>
+        
+      </div>
+      <div class="f-where">js/engine/simulator.js:234-264</div>
+      <div class="f-body"><span class="lbl">Evidence</span> Six Normal draws with hardcoded means; none reads a roster, a projection or the seed's identity.</div>
+      <div class="f-body"><span class="lbl">Fix</span> OUTSTANDING — the home page headline is noise.</div>
     </li>
     <li class="finding high">
       <div class="f-head">
         <span class="sev sev-high">high</span>
-        <span class="f-title">The 'third weaker variant' the comment says was removed is still there</span>
+        <span class="f-title">Four live copies of the starting lineup; the module claiming to be the only definition is unused by two</span>
         
       </div>
-      <div class="f-where">js/app.js:2436</div>
-      <div class="f-body"><span class="lbl">Evidence</span> renderPreseasonOutlook still builds its own drafted set with no name barring, so the Championship page can still offer a player another manager owns — the exact bug the comment describes in the past tense.</div>
-      <div class="f-body"><span class="lbl">Fix</span> Call the shared pool, which is already imported.</div>
+      <div class="f-where">js/engine/simulator.js:30-40</div>
+      <div class="f-body"><span class="lbl">Evidence</span> slotList(), STARTERS_COUNT, OFFENSE and rosterSize() have zero importers repo-wide.</div>
+      <div class="f-body"><span class="lbl">Fix</span> Migrate all four.</div>
     </li>
     <li class="finding high">
       <div class="f-head">
         <span class="sev sev-high">high</span>
-        <span class="f-title">Hardcoded English still ships as computed analysis</span>
+        <span class="f-title">Scraper maps ESPN lineup-slot ids onto defaultPositionId, so positions come back wrong</span>
         
       </div>
-      <div class="f-where">js/engine/draft-assistant.js:292,303,314</div>
-      <div class="f-body"><span class="lbl">Evidence</span> Two player names asserted regardless of the board; an invented 80% snap share printed whenever the value is unknown, which is always for the ESPN feed; and a two-round positional plan from a coin-flip on position.</div>
-      <div class="f-body"><span class="lbl">Fix</span> Drop the names, omit the clause when the metric is absent, derive the plan from real needs.</div>
+      <div class="f-where">chrome-extension/content-main.js:562</div>
+      <div class="f-body"><span class="lbl">Evidence</span> A tight end is labelled WR; QB, WR and K fall through to a literal 'RB'.</div>
+      <div class="f-body"><span class="lbl">Fix</span> OUTSTANDING — use the defaultPositionId table.</div>
     </li>
     <li class="finding high">
       <div class="f-head">
         <span class="sev sev-high">high</span>
-        <span class="f-title">Scraped names reach innerHTML unescaped in sinks the xss test cannot reach</span>
+        <span class="f-title">ESPN proTeamId table internally inconsistent and wrong from id 10 up</span>
         
       </div>
-      <div class="f-where">js/app.js:1886,2510</div>
-      <div class="f-body"><span class="lbl">Evidence</span> plan.condition and action.title/desc are pre-built sentences carrying raw names. Both pages are in the xss suite's list and both pass, because the fixture has no injured starter and no schedule.</div>
-      <div class="f-body"><span class="lbl">Fix</span> Escape both; better, return structured fields. Extend the fixture.</div>
+      <div class="f-where">chrome-extension/content-main.js:566</div>
+      <div class="f-body"><span class="lbl">Evidence</span> 'HOU' is produced by both 10 and 34; the abbreviation separates two players with the same surname.</div>
+      <div class="f-body"><span class="lbl">Fix</span> Replace with ESPN's actual table.</div>
     </li>
     <li class="finding high">
       <div class="f-head">
         <span class="sev sev-high">high</span>
-        <span class="f-title">The invented mid-range projection removed from one path survives in the other</span>
+        <span class="f-title">Championship page rebuilds a weaker free-agent pool inline</span>
         
       </div>
-      <div class="f-where">js/espn-client.js:564</div>
-      <div class="f-body"><span class="lbl">Evidence</span> projectedPoints: ... || 10 in the public-league mapper, which also never consults the projection set at all.</div>
-      <div class="f-body"><span class="lbl">Fix</span> Route it through findPlayer and unresolvedPlayer the way the scrape path does.</div>
+      <div class="f-where">js/app.js:2593</div>
+      <div class="f-body"><span class="lbl">Evidence</span> Skips the name barring, so it can offer a player another manager owns.</div>
+      <div class="f-body"><span class="lbl">Fix</span> Call freeAgentPool.</div>
     </li>
     <li class="finding high">
       <div class="f-head">
         <span class="sev sev-high">high</span>
-        <span class="f-title">Player scoring is still duplicated verbatim</span>
+        <span class="f-title">Draft rationale prints an invented 80% snap share for every player</span>
         
       </div>
-      <div class="f-where">js/engine/lineup-optimizer.js:20-87</div>
-      <div class="f-body"><span class="lbl">Evidence</span> Fourteen identical constants and the same branch structure in simulator.js:60-106, and they have begun to diverge — the simulator has a weather multiplier the optimizer lacks.</div>
-      <div class="f-body"><span class="lbl">Fix</span> Extract one scorePlayer with named constants.</div>
+      <div class="f-where">js/engine/draft-assistant.js:303</div>
+      <div class="f-body"><span class="lbl">Evidence</span> The database carries no metrics field, so the fallback fires every time.</div>
+      <div class="f-body"><span class="lbl">Fix</span> OUTSTANDING — omit the clause when unknown.</div>
     </li>
     <li class="finding high">
       <div class="f-head">
         <span class="sev sev-high">high</span>
-        <span class="f-title">Two different Gaussian approximations inside one function</span>
+        <span class="f-title">An unreadable budget is reported as $200</span>
         
       </div>
-      <div class="f-where">js/engine/draft-assistant.js:91,214</div>
-      <div class="f-body"><span class="lbl">Evidence</span> Both estimate the same survival probability with different sd factors and different polynomials; one drives what the user sees, the other the ranking. Four Gaussian helpers in three implementations repo-wide.</div>
-      <div class="f-body"><span class="lbl">Fix</span> One stats module; reconcile the two sd factors.</div>
-    </li>
-    <li class="finding high">
-      <div class="f-head">
-        <span class="sev sev-high">high</span>
-        <span class="f-title">The substring team-match the file's own comment calls a bug is still used in three places</span>
-        
-      </div>
-      <div class="f-where">chrome-extension/content-main.js:743</div>
-      <div class="f-body"><span class="lbl">Evidence</span> Lines 621, 669 and 743 all do the includes-test that findDrafter was rewritten to avoid. Line 743 resolves your own team id — the one deciding whose roster the app renders.</div>
-      <div class="f-body"><span class="lbl">Fix</span> Hoist the containment matcher and call it at all three.</div>
-    </li>
-    <li class="finding high">
-      <div class="f-head">
-        <span class="sev sev-high">high</span>
-        <span class="f-title">Eighteen identical pasted catch comments, several untrue at their site</span>
-        
-      </div>
-      <div class="f-where">chrome-extension/content-main.js:8</div>
-      <div class="f-body"><span class="lbl">Evidence</span> 'Best effort: this reads the page and the page is not ours' sits on a write of an own property, and on a traversal of an already-captured object. All are indented ten spaces inside a four-space block.</div>
-      <div class="f-body"><span class="lbl">Fix</span> Write the real reason at each site, or delete where it is wrong.</div>
+      <div class="f-where">chrome-extension/content-main.js:993</div>
+      <div class="f-body"><span class="lbl">Evidence</span> The comment 26 lines above says this silent fallback is what made the market model run blind.</div>
+      <div class="f-body"><span class="lbl">Fix</span> Carry null and exclude from inflation.</div>
     </li>
     <li class="finding medium">
       <div class="f-head">
         <span class="sev sev-medium">medium</span>
-        <span class="f-title">app.js grew 92 lines and still mixes routing, rendering, network and business logic</span>
+        <span class="f-title">popup.js is a second, diverged copy of the scraper</span>
         
       </div>
-      <div class="f-where">js/app.js</div>
-      <div class="f-body"><span class="lbl">Evidence</span> 2873 lines, 48 top-level functions, six over 100 lines. It also holds the sync poller, a store migration and a normal-CDF polynomial.</div>
-      <div class="f-body"><span class="lbl">Fix</span> Split by page; move the poller and the migration to their owning modules.</div>
+      <div class="f-where">chrome-extension/popup.js:204-262</div>
+      <div class="f-body"><span class="lbl">Evidence</span> The 32-branch D/ST map appears twice in popup.js and again in content-main.js; ~90 lines of dead team identification.</div>
+      <div class="f-body"><span class="lbl">Fix</span> Delete or wire the popup.</div>
     </li>
     <li class="finding medium">
       <div class="f-head">
         <span class="sev sev-medium">medium</span>
-        <span class="f-title">The four over-long functions are unchanged</span>
+        <span class="f-title">Simulator's current week is a constant under a comment saying it is derived</span>
         
       </div>
-      <div class="f-where">js/engine/simulator.js:14</div>
-      <div class="f-body"><span class="lbl">Evidence</span> 375, 313, 272 and 233 lines. Net change across all four since round 1: minus 25 lines.</div>
-      <div class="f-body"><span class="lbl">Fix</span> Split at the seams already visible as banner comments.</div>
-    </li>
-    <li class="finding medium">
-      <div class="f-head">
-        <span class="sev sev-medium">medium</span>
-        <span class="f-title">Six dead locals remain in the longest function in the repo</span>
-        
-      </div>
-      <div class="f-where">js/engine/draft-assistant.js:106</div>
-      <div class="f-body"><span class="lbl">Evidence</span> Each appears exactly once — its own declaration — directly above the comment explaining the ranking that replaced them.</div>
-      <div class="f-body"><span class="lbl">Fix</span> Delete them.</div>
-    </li>
-    <li class="finding medium">
-      <div class="f-head">
-        <span class="sev sev-medium">medium</span>
-        <span class="f-title">The new one-definition module ships four exports nothing imports</span>
-        
-      </div>
-      <div class="f-where">js/engine/lineup-rules.js:32</div>
-      <div class="f-body"><span class="lbl">Evidence</span> slotList, OFFENSE, STARTERS_COUNT and rosterSize have zero importers, while the roster-size arithmetic rosterSize exists to replace is inlined at seven more sites.</div>
-      <div class="f-body"><span class="lbl">Fix</span> Use them, or delete what stays unused.</div>
-    </li>
-    <li class="finding medium">
-      <div class="f-head">
-        <span class="sev sev-medium">medium</span>
-        <span class="f-title">The comment written to record the TDZ fix describes the wrong object</span>
-        
-      </div>
-      <div class="f-where">js/espn-client.js:494</div>
-      <div class="f-body"><span class="lbl">Evidence</span> It says the database is 'built further down this function'; the code resolves against the module-level projection set. The fix is real; the comment points the reader at the wrong line.</div>
-      <div class="f-body"><span class="lbl">Fix</span> Rewrite to name what is actually used.</div>
-    </li>
-    <li class="finding medium">
-      <div class="f-head">
-        <span class="sev sev-medium">medium</span>
-        <span class="f-title">Dead imports and a dead export</span>
-        
-      </div>
-      <div class="f-where">js/app.js:6,16</div>
-      <div class="f-body"><span class="lbl">Evidence</span> int is imported and never used; normalizeName is imported alongside playerKey, which it literally is. describe() has no caller anywhere.</div>
-      <div class="f-body"><span class="lbl">Fix</span> Drop both imports; wire up or delete describe.</div>
-    </li>
-    <li class="finding medium">
-      <div class="f-head">
-        <span class="sev sev-medium">medium</span>
-        <span class="f-title">Two auction models render to the same page</span>
-        
-      </div>
-      <div class="f-where">js/engine/draft-assistant.js:322</div>
-      <div class="f-body"><span class="lbl">Evidence</span> calculateAuctionBid fills the board column while recommendBid fills the advisory card, and they will disagree in front of the user.</div>
-      <div class="f-body"><span class="lbl">Fix</span> Feed the column from the same engine, or say why two prices are shown.</div>
-    </li>
-    <li class="finding medium">
-      <div class="f-head">
-        <span class="sev sev-medium">medium</span>
-        <span class="f-title">scrapeTeamsAndBudgets is called twice per tick</span>
-        
-      </div>
-      <div class="f-where">chrome-extension/content-main.js:654</div>
-      <div class="f-body"><span class="lbl">Evidence</span> Identical arguments, nothing between them changes the DOM, and it walks every div reading innerText.</div>
-      <div class="f-body"><span class="lbl">Fix</span> Call it once.</div>
-    </li>
-    <li class="finding medium">
-      <div class="f-head">
-        <span class="sev sev-medium">medium</span>
-        <span class="f-title">Nine NFL club tables repo-wide</span>
-        
-      </div>
-      <div class="f-where">chrome-extension/popup.js:94</div>
-      <div class="f-body"><span class="lbl">Evidence</span> Three verbatim 32-club if-chains plus six other shapes. None added this round, none removed.</div>
-      <div class="f-body"><span class="lbl">Fix</span> One shared club module.</div>
-    </li>
-    <li class="finding medium">
-      <div class="f-head">
-        <span class="sev sev-medium">medium</span>
-        <span class="f-title">Four dead locals in a 292-line function</span>
-        
-      </div>
-      <div class="f-where">chrome-extension/popup.js:148</div>
-      <div class="f-body"><span class="lbl">Evidence</span> One of them costs a full document div walk for nothing.</div>
-      <div class="f-body"><span class="lbl">Fix</span> Delete them and the two helpers they call.</div>
-    </li>
-    <li class="finding low">
-      <div class="f-head">
-        <span class="sev sev-low">low</span>
-        <span class="f-title">The comment says the week is derived; the code hardcodes it</span>
-        
-      </div>
-      <div class="f-where">js/engine/simulator.js:154</div>
-      <div class="f-body"><span class="lbl">Evidence</span> // Determine current week from schedule, followed by const currentWeek = 5. Ten further unexplained constants in the same file.</div>
-      <div class="f-body"><span class="lbl">Fix</span> Derive it, and name the constants.</div>
-    </li>
-    <li class="finding low">
-      <div class="f-head">
-        <span class="sev sev-low">low</span>
-        <span class="f-title">'1,000 Monte Carlo calculations' is asserted while the count varies</span>
-        
-      </div>
-      <div class="f-where">js/app.js:2499</div>
-      <div class="f-body"><span class="lbl">Evidence</span> Callers pass 200, 3000 and 6000.</div>
-      <div class="f-body"><span class="lbl">Fix</span> Interpolate the actual count.</div>
-    </li>
-    <li class="finding low">
-      <div class="f-head">
-        <span class="sev sev-low">low</span>
-        <span class="f-title">A catch that states one cause while swallowing three</span>
-        
-      </div>
-      <div class="f-where">js/app.js:79</div>
-      <div class="f-body"><span class="lbl">Evidence</span> The comment blames a missing sync file; the try also covers the JSON parse and the whole import.</div>
-      <div class="f-body"><span class="lbl">Fix</span> Narrow the try, or log what is not a 404.</div>
-    </li>
-    <li class="finding low">
-      <div class="f-head">
-        <span class="sev sev-low">low</span>
-        <span class="f-title">The test harness is copy-pasted into thirteen files</span>
-        
-      </div>
-      <div class="f-where">test/</div>
-      <div class="f-body"><span class="lbl">Evidence</span> Thirteen identical check() definitions and five copies of the localStorage stub.</div>
-      <div class="f-body"><span class="lbl">Fix</span> One harness module.</div>
+      <div class="f-where">js/engine/simulator.js:154-155</div>
+      <div class="f-body"><span class="lbl">Evidence</span> `// Determine current week from schedule` above `const currentWeek = 5;`</div>
+      <div class="f-body"><span class="lbl">Fix</span> Derive it, or return null.</div>
     </li></ul>
-    <p class="meta"><span class="lbl">Verified</span> Read fifteen files in full plus ~700 cited lines of app.js and the engines. Ran npm test. Measured every function span with a brace-depth script cross-checked against a declaration-delta script. Counted 523 players and 31 mock players. Compared the deleted and surviving container finders side by side, and the two erf implementations, and the two CDF polynomials. Confirmed by reference count that seven named exports have no call sites, and that renderPreseasonOutlook and triggerSimulation write the same three element ids.</p>
-    <p class="meta"><span class="lbl">Not checked</span> Runtime behaviour in a browser or a live draft room; the auction-scraping regression is a code-level certainty but was not reproduced against real markup. server.py. BACKTEST's measured claims quoted in engine comments — the single most valuable thing not done. index.html structure. css/, tools/, the manifest and background scripts.</p>
+    
+    
   </details>
 
   
 <details class="history">
-  <summary>Previous rounds (1)</summary>
+  <summary>Previous rounds (2)</summary>
   
+    <div class="prior">
+      <h3>Round 2 — 2026-08-07 · <code>61b88ce</code></h3>
+      <div class="prior-scores"><span class="chip" data-status="serious">Security 62</span><span class="chip" data-status="serious">Test coverage 61</span><span class="chip" data-status="serious">Performance 55</span><span class="chip" data-status="serious">Documentation 66</span><span class="chip" data-status="serious">Readability 61</span></div>
+    </div>
     <div class="prior">
       <h3>Round 1 — 2026-08-07 · <code>c877c98</code></h3>
       <div class="prior-scores"><span class="chip" data-status="critical">Security 31</span><span class="chip" data-status="critical">Test coverage 54</span><span class="chip" data-status="critical">Performance 42</span><span class="chip" data-status="serious">Documentation 58</span><span class="chip" data-status="serious">Readability 58</span></div>
@@ -1373,13 +922,13 @@
   <h2 class="section">Scores by round</h2>
   <div class="tablewrap">
     <table>
-      <thead><tr><th scope="col">Category</th><th scope="col">R1</th><th scope="col">R2</th></tr></thead>
+      <thead><tr><th scope="col">Category</th><th scope="col">R1</th><th scope="col">R2</th><th scope="col">R3</th></tr></thead>
       <tbody>
-  <tr><th scope="row">Security</th><td>31</td><td>62</td></tr>
-  <tr><th scope="row">Test coverage</th><td>54</td><td>61</td></tr>
-  <tr><th scope="row">Performance</th><td>42</td><td>55</td></tr>
-  <tr><th scope="row">Documentation</th><td>58</td><td>66</td></tr>
-  <tr><th scope="row">Readability</th><td>58</td><td>61</td></tr></tbody>
+  <tr><th scope="row">Security</th><td>31</td><td>62</td><td>52</td></tr>
+  <tr><th scope="row">Test coverage</th><td>54</td><td>61</td><td>38</td></tr>
+  <tr><th scope="row">Performance</th><td>42</td><td>55</td><td>52</td></tr>
+  <tr><th scope="row">Documentation</th><td>58</td><td>66</td><td>44</td></tr>
+  <tr><th scope="row">Readability</th><td>58</td><td>61</td><td>62</td></tr></tbody>
     </table>
   </div>
 
