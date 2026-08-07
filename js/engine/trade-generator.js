@@ -133,17 +133,32 @@ export function generateTradeProposals(league) {
       if (opponent.teamId === league.myTeamId) return;
       const oppRoster = opponent.roster.map(pid => db[pid]).filter(Boolean);
       
+      // `give` is checked BEFORE it is dereferenced. The guard below tested
+      // both, but the line computing `get` already read give.position -- so
+      // when no player on this roster sits in the 10-16 band, which is routine
+      // early in an auction where unresolved picks are stubs at replacement
+      // level, this threw a TypeError. It aborts the render mid-DOM on the
+      // Home, Trades and Alerts pages, all three of which call this without a
+      // guard, leaving a half-drawn page and no error state.
       const give = myRoster.find(p => p.projectedPoints > 10 && p.projectedPoints < 16);
-      const get = oppRoster.find(p => p.projectedPoints > 10 && p.projectedPoints < 16 && p.position !== give.position);
-      
-      if (give && get) {
+      if (!give) return;
+      const get = oppRoster.find(p => p.projectedPoints > 10 && p.projectedPoints < 16
+        && p.position !== give.position);
+
+      if (get) {
         proposals.push({
           opponentId: opponent.teamId,
           opponentName: opponent.teamName,
           managerName: opponent.managerName,
           givePlayer: give,
           getPlayer: get,
-          myImpact: `+2% Championship Prob`,
+          // The points delta, not a percentage. This read "+2% Championship
+          // Prob" for every fallback proposal ever generated, and no
+          // championship probability is computed anywhere in this file. The
+          // comment forty lines above records fixing exactly this on the
+          // primary path -- "a points figure with a percent sign stuck on it"
+          // -- while the fallback kept the invented number.
+          myImpact: `+${Math.round((get.projectedPoints - give.projectedPoints) * 10) / 10} pts/wk`,
           oppImpact: `Balances scoring rotation`,
           probability: 55,
           risk: 'Low',
