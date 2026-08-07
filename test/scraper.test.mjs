@@ -272,5 +272,46 @@ console.log('\nan auction room, which renders no draft board at all');
   globalThis.document.querySelectorAll = () => [container];
 }
 
+console.log('\nESPN\'s id tables are the ones ESPN actually uses');
+{
+  // Read out of the shipped source rather than re-declared here: a copy in the
+  // test would agree with itself forever while the scraper drifted.
+  const grab = (name) => {
+    const at = src.indexOf(`const ${name} = {`);
+    if (at < 0) return null;
+    const body = src.slice(src.indexOf('{', at), src.indexOf('};', at) + 1);
+    try { return new Function(`return ${body}`)(); } catch (e) { return null; }
+  };
+
+  const posMap = grab('posMap');
+  check('the position table exists', Boolean(posMap));
+  if (posMap) {
+    // defaultPositionId, not lineupSlotId. The slot space (0=QB, 4=WR, 6=TE,
+    // 17=K) was applied to position ids, so a tight end came back as a WR and
+    // QB, WR and K fell through to a hardcoded 'RB'.
+    [[1, 'QB'], [2, 'RB'], [3, 'WR'], [4, 'TE'], [5, 'K'], [16, 'D/ST']]
+      .forEach(([id, want]) => {
+        check(`position id ${id} is ${want}`, posMap[id] === want,
+          `got ${posMap[id]}`);
+      });
+    check('no lineup-slot id leaks in', posMap[0] === undefined && posMap[17] === undefined);
+  }
+
+  const teamMap = grab('teamMap');
+  check('the club table exists', Boolean(teamMap));
+  if (teamMap) {
+    // The tail (33 Ravens, 34 Texans) only exists in ESPN's legacy ordering,
+    // in which 10 is Tennessee and 12 is Kansas City -- not the alphabetical
+    // by-current-city order the old table assumed.
+    [[10, 'TEN'], [12, 'KC'], [22, 'ARI'], [24, 'LAC'], [30, 'JAX'],
+     [33, 'BAL'], [34, 'HOU']].forEach(([id, want]) => {
+      check(`club id ${id} is ${want}`, teamMap[id] === want, `got ${teamMap[id]}`);
+    });
+    const vals = Object.values(teamMap);
+    check('all 32 clubs, none twice', vals.length === 32
+      && new Set(vals).size === 32, `${vals.length} entries, ${new Set(vals).size} distinct`);
+  }
+}
+
 console.log(`\n${passed} passed, ${failed} failed`);
 if (failed) process.exit(1);
