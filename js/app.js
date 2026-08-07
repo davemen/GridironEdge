@@ -3,6 +3,7 @@
  */
 
 import store from './store.js';
+import { esc, attr, num, int } from './escape.js';
 import { findPlayer, playerKey, draftedNameKey } from './player-database.js';
 import espnClient, { realDbReady } from './espn-client.js';
 import { getDraftRecommendations, calculateAuctionBid } from './engine/draft-assistant.js';
@@ -495,9 +496,9 @@ function renderCompetingLeagueBanner(league) {
       + 'font-weight:600;text-align:center;border-bottom:1px solid #3b82f6;';
     document.body.insertBefore(el, document.body.firstChild);
   }
-  const name = (store.state.leagues[other] || {}).leagueName || other;
+  const name = esc((store.state.leagues[other] || {}).leagueName || other);
   el.innerHTML = `A second draft room is also syncing (${name}). Showing `
-    + `<strong>${league.leagueName || league.leagueId}</strong>. `
+    + `<strong>${esc(league.leagueName || league.leagueId)}</strong>. `
     + `<button id="btn-switch-league" style="margin-left:0.5rem; padding:0.15rem 0.6rem; `
     + `font-size:0.8rem; cursor:pointer;">Switch to it</button> `
     + `<span style="opacity:0.8;">Close the other ESPN tab to stop this.</span>`;
@@ -609,7 +610,7 @@ function renderApp(state) {
   const injuredPlayer = myRoster.map(id => league.playerDatabase[id]).find(p => p && p.injuryStatus !== 'Healthy');
   if (injuredPlayer) {
     alertRibbon.style.display = 'flex';
-    document.getElementById('urgent-alert-text').innerHTML = `Lineup Warning: <strong>${injuredPlayer.name}</strong> (${injuredPlayer.position}-${injuredPlayer.team}) is ${injuredPlayer.injuryStatus}. Action required before kickoff.`;
+    document.getElementById('urgent-alert-text').innerHTML = `Lineup Warning: <strong>${esc(injuredPlayer.name)}</strong> (${esc(injuredPlayer.position)}-${esc(injuredPlayer.team)}) is ${esc(injuredPlayer.injuryStatus)}. Action required before kickoff.`;
     document.getElementById('alert-action-btn').onclick = () => store.setActiveTab('matchup');
   } else {
     alertRibbon.style.display = 'none';
@@ -681,11 +682,11 @@ function draftMovesHtml(league, ranked, meRanked, drafting = true) {
           : rec.action === 'HOLD' ? 'badge-gold' : 'badge-red';
         html += `
           <div class="recommendation-item ${tone}">
-            <div class="item-action-title">On the block: ${nomPlayer.name} (${nomPlayer.position})
+            <div class="item-action-title">On the block: ${esc(nomPlayer.name)} (${esc(nomPlayer.position)})
               <span class="badge-solid ${badge}">${(ACTION_STYLE[rec.action] || {}).label || rec.action}</span></div>
             <div class="item-details">
               ${rec.recommendedBid > 0 ? `Bid $${rec.recommendedBid}, walk away at $${rec.maxBid}. ` : ''}
-              Market forecast $${rec.expectedPrice}. ${rec.reason}
+              Market forecast $${rec.expectedPrice}. ${esc(rec.reason)}
             </div>
           </div>`;
       } catch (e) { /* a nomination we cannot price is not worth a broken card */ }
@@ -702,10 +703,10 @@ function draftMovesHtml(league, ranked, meRanked, drafting = true) {
     if (!p) {
       html += `
         <div class="recommendation-item medium-confidence">
-          <div class="item-action-title">Upgrade ${m.slot}
+          <div class="item-action-title">Upgrade ${esc(m.slot)}
             <span class="badge-solid badge-gold">${m.gap}/wk behind</span></div>
           <div class="item-details">
-            ${m.current || 'This slot'} projects ${m.currentPoints}/wk against a league
+            ${esc(m.current || 'This slot')} projects ${m.currentPoints}/wk against a league
             median of ${m.leagueMedian}. Nothing available beats him, so this is a
             trade target rather than a claim.
           </div>
@@ -722,12 +723,12 @@ function draftMovesHtml(league, ranked, meRanked, drafting = true) {
     // An unfilled slot is not worth zero -- it is worth whatever is still
     // signable there -- so the gain quoted is over that, not over nothing.
     const why = m.empty
-      ? `${m.slot} is unfilled. The best you could still sign projects `
+      ? `${esc(m.slot)} is unfilled. The best you could still sign projects `
         + `${m.currentPoints}/wk; he beats that by ${m.upgrade}.`
-      : `${m.slot} projects ${m.currentPoints}/wk, ${m.gap} behind the league median of ${m.leagueMedian}.`;
+      : `${esc(m.slot)} projects ${m.currentPoints}/wk, ${m.gap} behind the league median of ${m.leagueMedian}.`;
     html += `
       <div class="recommendation-item ${m.empty ? 'high-confidence' : 'medium-confidence'}">
-        <div class="item-action-title">${drafting ? 'Target' : 'Add'} ${p.name} (${p.position})
+        <div class="item-action-title">${drafting ? 'Target' : 'Add'} ${esc(p.name)} (${esc(p.position)})
           <span class="badge-solid ${m.empty ? 'badge-green' : 'badge-gold'}">+${m.upgrade}/wk</span></div>
         <div class="item-details">${why}${price}</div>
       </div>`;
@@ -806,7 +807,7 @@ export function renderHomePage(league = store.getActiveLeague()) {
   // whichever name the simulator happened to return.
   const rival = ranked.find(t => !t.isMe);
   document.getElementById('home-rival').innerHTML = rival
-    ? `${rival.teamName} <span style="font-size:0.8rem; color:var(--text-muted);">${rival.points.toFixed(1)}/wk</span>`
+    ? `${esc(rival.teamName)} <span style="font-size:0.8rem; color:var(--text-muted);">${rival.points.toFixed(1)}/wk</span>`
     : '—';
 
   // Strength and weakness, measured against what the rest of the league gets
@@ -829,13 +830,13 @@ export function renderHomePage(league = store.getActiveLeague()) {
   const best = bySlotGap[0];
 
   document.getElementById('home-strength').innerHTML = best && best.edge > 0
-    ? `${best.slot}: ${best.name} <span style="font-size:0.8rem; color:var(--text-muted);">+${best.edge.toFixed(1)}/wk vs league</span>`
+    ? `${esc(best.slot)}: ${esc(best.name)} <span style="font-size:0.8rem; color:var(--text-muted);">+${best.edge.toFixed(1)}/wk vs league</span>`
     : (meRanked && meRanked.rostered ? 'No slot is ahead of the league yet' : 'Nothing drafted yet');
 
   document.getElementById('home-weakness').innerHTML = worst
     ? (worst.empty
-        ? `${worst.slot} is empty <span style="font-size:0.8rem; color:var(--text-muted);">scores zero</span>`
-        : `${worst.slot}: ${worst.current} <span style="font-size:0.8rem; color:var(--text-muted);">${worst.gap.toFixed(1)}/wk behind league</span>`)
+        ? `${esc(worst.slot)} is empty <span style="font-size:0.8rem; color:var(--text-muted);">scores zero</span>`
+        : `${esc(worst.slot)}: ${esc(worst.current)} <span style="font-size:0.8rem; color:var(--text-muted);">${worst.gap.toFixed(1)}/wk behind league</span>`)
     : 'No slot is measurably behind the league';
 
   // Render top 3 recommendations list
@@ -861,23 +862,23 @@ export function renderHomePage(league = store.getActiveLeague()) {
     itemsHtml += `
       <div class="recommendation-item low-confidence">
         <div class="item-action-title">Configure Backup starter <span class="badge-solid badge-red">Urgent</span></div>
-        <div class="item-details">${activeAlert.name} is questionable. Wire conditional replacement roster slot in Matchups.</div>
+        <div class="item-details">${esc(activeAlert.name)} is questionable. Wire conditional replacement roster slot in Matchups.</div>
       </div>
     `;
   }
   if (waiverRec) {
     itemsHtml += `
       <div class="recommendation-item high-confidence">
-        <div class="item-action-title">Claim ${waiverRec.addPlayer.name} (${waiverRec.addPlayer.position}) <span class="badge-solid badge-green">+$${waiverRec.bid} Bid</span></div>
-        <div class="item-details">Drop ${waiverRec.dropPlayer?.name || 'Bench'}. Confidence: ${waiverRec.confidence}. ${waiverRec.reason}</div>
+        <div class="item-action-title">Claim ${esc(waiverRec.addPlayer.name)} (${esc(waiverRec.addPlayer.position)}) <span class="badge-solid badge-green">+$${waiverRec.bid} Bid</span></div>
+        <div class="item-details">Drop ${esc(waiverRec.dropPlayer?.name || 'Bench')}. Confidence: ${waiverRec.confidence}. ${esc(waiverRec.reason)}</div>
       </div>
     `;
   }
   if (tradeRec) {
     itemsHtml += `
       <div class="recommendation-item medium-confidence">
-        <div class="item-action-title">Trade for ${tradeRec.getPlayer.name} <span class="badge-solid badge-gold">${tradeRec.probability}% Accept</span></div>
-        <div class="item-details">Give ${tradeRec.givePlayer.name} to ${tradeRec.opponentName}. Addresses RB/WR balance.</div>
+        <div class="item-action-title">Trade for ${esc(tradeRec.getPlayer.name)} <span class="badge-solid badge-gold">${tradeRec.probability}% Accept</span></div>
+        <div class="item-details">Give ${esc(tradeRec.givePlayer.name)} to ${esc(tradeRec.opponentName)}. Addresses RB/WR balance.</div>
       </div>
     `;
   }
@@ -986,7 +987,7 @@ export function renderHomePage(league = store.getActiveLeague()) {
         : '';
       row.innerHTML = `
         <td>${t.rank}</td>
-        <td>${t.teamName} ${t.isMe ? '<span style="font-size:0.75rem; color:var(--accent-cyan);">(Me)</span>' : ''}</td>
+        <td>${esc(t.teamName)} ${t.isMe ? '<span style="font-size:0.75rem; color:var(--accent-cyan);">(Me)</span>' : ''}</td>
         <td>${t.rostered}${gaps}</td>
         <td>${t.points.toFixed(1)}</td>
       `;
@@ -1006,7 +1007,7 @@ export function renderHomePage(league = store.getActiveLeague()) {
     }
     row.innerHTML = `
       <td>${index + 1}</td>
-      <td>${t.teamName} ${t.teamId === league.myTeamId ? '<span style="font-size:0.75rem; color:var(--accent-cyan);">(Me)</span>' : ''}</td>
+      <td>${esc(t.teamName)} ${t.teamId === league.myTeamId ? '<span style="font-size:0.75rem; color:var(--accent-cyan);">(Me)</span>' : ''}</td>
       <td>${t.record.wins}-${t.record.losses}</td>
       <td>${t.pointsScored.toFixed(1)}</td>
     `;
@@ -1140,13 +1141,13 @@ export function renderDraftPage(league = store.getActiveLeague()) {
     let details = 'Picking...';
     if (selection) {
       const pl = db[selection.playerId];
-      details = pl ? `${pl.name} (${pl.position}-${pl.team})` : 'Selected';
+      details = pl ? `${esc(pl.name)} (${esc(pl.position)}-${esc(pl.team)})` : 'Selected';
     }
 
     picksHtml.push(`
       <div style="display:flex; justify-content:space-between; align-items:center; padding: 0.5rem 0.75rem; border-radius: var(--border-radius-sm); border: 1px solid ${isCurrent ? 'var(--accent-cyan)' : 'var(--border-color)'}; background: ${isCurrent ? 'var(--accent-cyan-glow)' : 'var(--bg-surface-elevated)'};">
         <span style="font-weight: 700; font-size: 0.85rem; color: ${isUser ? 'var(--accent-green)' : 'var(--text-secondary)'};">
-          R${round} P${p} - ${team ? team.teamName : 'Opponent'}
+          R${round} P${p} - ${esc(team ? team.teamName : 'Opponent')}
         </span>
         <span style="font-size:0.9rem; font-weight: 600;">${details}</span>
       </div>
@@ -1169,7 +1170,7 @@ export function renderDraftPage(league = store.getActiveLeague()) {
   // Draw Scarcity alert banner
   if (rec.tierWarning) {
     alertTier.style.display = 'flex';
-    alertTierText.innerHTML = rec.tierWarning;
+    alertTierText.textContent = rec.tierWarning || '';
   } else {
     alertTier.style.display = 'none';
   }
@@ -1184,7 +1185,7 @@ export function renderDraftPage(league = store.getActiveLeague()) {
 
   {
     recPanel.innerHTML = `
-      <h3 style="color:var(--accent-cyan); font-size: 1.3rem; margin-bottom: 0.5rem; font-family:var(--font-family-title);">Draft ${rec.primaryPick.name} now.</h3>
+      <h3 style="color:var(--accent-cyan); font-size: 1.3rem; margin-bottom: 0.5rem; font-family:var(--font-family-title);">Draft ${esc(rec.primaryPick.name)} now.</h3>
       <div style="font-size: 0.95rem; color: var(--text-primary); display:flex; flex-direction:column; gap:0.4rem; margin-bottom: 1rem;">
         <p><strong>Rationale:</strong> ${rec.whyBest}</p>
         <p><strong>Expected Advantage:</strong> ${rec.advantage}</p>
@@ -1196,19 +1197,32 @@ export function renderDraftPage(league = store.getActiveLeague()) {
         <h4 style="font-size:0.85rem; text-transform:uppercase; color:var(--text-secondary); margin-bottom:0.5rem;">Shortlist Alternatives:</h4>
         <div style="display:flex; flex-wrap:wrap; gap:0.5rem;">
           ${rec.alternatives.slice(0,4).map(p => `
-            <button class="btn-secondary" style="padding:0.35rem 0.65rem; font-size:0.8rem;" onclick="window.store.recordDraftPick(${currentPick}, '${p.id}')">
-              + ${p.name} (${p.position})
+            <button class="btn-secondary js-draft-pick" data-player-id="${attr(p.id)}"
+                    style="padding:0.35rem 0.65rem; font-size:0.8rem;">
+              + ${esc(p.name)} (${esc(p.position)})
             </button>
           `).join('')}
         </div>
       </div>
       
       <div style="margin-top: 1rem;">
-        <button class="btn-success" style="width:100%;" onclick="window.store.recordDraftPick(${currentPick}, '${rec.primaryPick.id}')">
-          Draft ${rec.primaryPick.name} (${rec.primaryPick.position})
+        <button class="btn-success js-draft-pick" data-player-id="${attr(rec.primaryPick.id)}"
+                style="width:100%;">
+          Draft ${esc(rec.primaryPick.name)} (${esc(rec.primaryPick.position)})
         </button>
       </div>
     `;
+
+    // One delegated listener instead of an inline onclick per button. The id
+    // used to be interpolated into a JavaScript string literal inside an HTML
+    // attribute, and for an unresolved player that id is built from the scraped
+    // name -- so a name containing a quote broke out of the string.
+    recPanel.querySelectorAll('.js-draft-pick').forEach((btn) => {
+      btn.onclick = () => {
+        const id = btn.getAttribute('data-player-id');
+        if (id) store.recordDraftPick(currentPick, id);
+      };
+    });
   }
 
   // Draw players table body
@@ -1265,9 +1279,9 @@ export function renderDraftPage(league = store.getActiveLeague()) {
     const targetBid = bidInfo ? bidInfo.recommendedBid : 0;
 
     row.innerHTML = `
-      <td><strong>${p.name}</strong></td>
-      <td><span class="badge-solid badge-cyan">${p.position}</span></td>
-      <td>${p.team}</td>
+      <td><strong>${esc(p.name)}</strong></td>
+      <td><span class="badge-solid badge-cyan">${esc(p.position)}</span></td>
+      <td>${esc(p.team)}</td>
       <td><span style="display:inline-flex; align-items:center;">${p.projectedPoints.toFixed(1)}${generateSparkline(p.matchProjs)}</span></td>
       <td>${p.adp.toFixed(1)}</td>
       <td><strong style="color:var(--accent-green); font-weight:700;">$${targetBid}</strong></td>
@@ -1351,12 +1365,12 @@ function auctionAdvisoryHtml(rec) {
       ${stat('Bid now', rec.recommendedBid > 0 ? '$' + rec.recommendedBid : '—', style.color)}
       ${stat('Walk-away ceiling', '$' + rec.maxBid, rec.mustBuy ? '#f59e0b' : 'var(--accent-green)')}
       ${stat('Market forecast', '$' + rec.expectedPrice)}
-      ${stat('Action', style.label, style.color)}
+      ${esc(stat('Action', style.label, style.color))}
       ${stat('Confidence', rec.confidence.toUpperCase())}
     </div>
 
     <p style="margin:0 0 0.9rem 0; font-size:0.88rem; color:var(--text-secondary); line-height:1.45;">
-      ${rec.reason}
+      ${esc(rec.reason)}
     </p>
 
     <div style="display:flex; flex-wrap:wrap; gap:1rem; padding:0.7rem 0.85rem;
@@ -1390,7 +1404,7 @@ function auctionMarketTableHtml(league) {
     const isMe = t.teamId === state.myTeamId;
     return `
       <tr style="${isMe ? 'background:rgba(0,229,255,0.07);' : ''}">
-        <td style="padding:0.3rem 0.5rem; font-weight:${isMe ? 700 : 400};">${t.teamName}${isMe ? ' (you)' : ''}</td>
+        <td style="padding:0.3rem 0.5rem; font-weight:${isMe ? 700 : 400};">${esc(t.teamName)}${isMe ? ' (you)' : ''}</td>
         <td style="padding:0.3rem 0.5rem; text-align:right;">$${t.budget}</td>
         <td style="padding:0.3rem 0.5rem; text-align:right;">$${t.maxBid}</td>
         <td style="padding:0.3rem 0.5rem; text-align:right;">${t.spotsLeft}</td>
@@ -1443,8 +1457,8 @@ function renderAuctionBoard(league, db, rec) {
                       background:${w.mustBuy ? 'rgba(245,158,11,0.14)' : 'rgba(255,255,255,0.03)'};
                       border-left:3px solid ${w.mustBuy ? '#f59e0b' : 'transparent'};">
             ${w.mustBuy ? '<span title="Must Buy">🔥</span>' : '<span style="width:1em;"></span>'}
-            <span style="flex:1; font-weight:${w.mustBuy ? 700 : 500};">${w.player.name}</span>
-            <span style="color:var(--text-secondary); font-size:0.78rem;">${w.player.position}</span>
+            <span style="flex:1; font-weight:${w.mustBuy ? 700 : 500};">${esc(w.player.name)}</span>
+            <span style="color:var(--text-secondary); font-size:0.78rem;">${esc(w.player.position)}</span>
             <span style="color:var(--accent-green); font-weight:700;">up to $${w.maxBid}</span>
             <span style="color:var(--text-secondary); font-size:0.78rem;">mkt $${w.expectedPrice}</span>
           </div>`).join('')}
@@ -1490,9 +1504,9 @@ function renderAuctionBoard(league, db, rec) {
       <h4 style="color:var(--accent-cyan); text-transform:uppercase; letter-spacing:1px;
                  font-size:0.7rem; margin:0 0 0.4rem 0; font-weight:700;">On the block</h4>
       <h2 style="margin:0 0 0.9rem 0; font-size:1.4rem; font-family:var(--font-family-title);">
-        ${nominated.name}
+        ${esc(nominated.name)}
         <span style="font-size:0.9rem; color:var(--text-secondary);">
-          (${nominated.position} — ${nominated.team})
+          (${esc(nominated.position)} — ${esc(nominated.team)})
         </span>
       </h2>
 
@@ -1518,7 +1532,7 @@ function renderAuctionBoard(league, db, rec) {
         <div style="display:flex; align-items:center; gap:0.5rem;">
           <select class="input-control" id="nom-winner-team"
                   style="flex:2; padding:0.4rem; font-size:0.85rem; height:32px;">
-            ${league.teams.map(t => `<option value="${t.teamId}" ${t.teamId === league.myTeamId ? 'selected' : ''}>${t.teamName}</option>`).join('')}
+            ${league.teams.map(t => `<option value="${t.teamId}" ${t.teamId === league.myTeamId ? 'selected' : ''}>${esc(t.teamName)}</option>`).join('')}
           </select>
           <input type="number" class="input-control" id="nom-winner-price"
                  value="${initial.recommendedBid || 1}" min="1"
@@ -1605,7 +1619,7 @@ export function renderRosterPage(league = store.getActiveLeague()) {
   // Draw starters list
   starters.forEach(s => {
     const slotRow = document.createElement('div');
-    slotRow.className = `roster-slot ${s.slot.startsWith('FLEX') ? 'active-flex' : ''}`;
+    slotRow.className = `roster-slot ${esc(s.slot.startsWith('FLEX') ? 'active-flex' : '')}`;
     
     let infoHtml = '<span style="color:var(--text-muted);">Empty Slot</span>';
     let opp = '';
@@ -1615,12 +1629,12 @@ export function renderRosterPage(league = store.getActiveLeague()) {
     if (s.player) {
       let injBadge = '';
       if (s.player.injuryStatus !== 'Healthy') {
-        injBadge = `<span class="badge-solid badge-red" style="font-size:0.65rem; margin-left:0.25rem;">${s.player.injuryStatus}</span>`;
+        injBadge = `<span class="badge-solid badge-red" style="font-size:0.65rem; margin-left:0.25rem;">${esc(s.player.injuryStatus)}</span>`;
       }
       infoHtml = `
         <div>
-          <span class="player-name">${s.player.name}</span> ${injBadge}
-          <span class="player-team-pos">${s.player.position} — ${s.player.team}</span>
+          <span class="player-name">${esc(s.player.name)}</span> ${injBadge}
+          <span class="player-team-pos">${esc(s.player.position)} — ${esc(s.player.team)}</span>
         </div>
       `;
       opp = s.player.opponent ? `vs ${s.player.opponent}` : 'FA';
@@ -1629,7 +1643,7 @@ export function renderRosterPage(league = store.getActiveLeague()) {
     }
 
     slotRow.innerHTML = `
-      <span class="slot-pos">${s.slot}</span>
+      <span class="slot-pos">${esc(s.slot)}</span>
       <div class="player-info-cell">${infoHtml}</div>
       <span class="player-opponent">${opp}</span>
       <span class="player-proj">${proj}</span>
@@ -1663,15 +1677,15 @@ export function renderRosterPage(league = store.getActiveLeague()) {
 
     let injBadge = '';
     if (b.injuryStatus !== 'Healthy') {
-      injBadge = `<span class="badge-solid badge-red" style="font-size:0.65rem; margin-left:0.25rem;">${b.injuryStatus}</span>`;
+      injBadge = `<span class="badge-solid badge-red" style="font-size:0.65rem; margin-left:0.25rem;">${esc(b.injuryStatus)}</span>`;
     }
 
     slotRow.innerHTML = `
       <span class="slot-pos">BENCH</span>
       <div class="player-info-cell">
         <div>
-          <span class="player-name">${b.name}</span> ${injBadge}
-          <span class="player-team-pos">${b.position} — ${b.team}</span>
+          <span class="player-name">${esc(b.name)}</span> ${injBadge}
+          <span class="player-team-pos">${esc(b.position)} — ${esc(b.team)}</span>
         </div>
       </div>
       <span class="player-opponent">${b.opponent ? `vs ${b.opponent}` : 'FA'}</span>
@@ -1698,10 +1712,10 @@ export function renderRosterPage(league = store.getActiveLeague()) {
     <div style="border-top:1px solid var(--border-color); padding-top:1rem;">
       <h4 style="font-size:0.85rem; text-transform:uppercase; color:var(--text-secondary); margin-bottom:0.5rem;">Position Counts:</h4>
       <div style="display:flex; justify-content:space-between; font-size:0.9rem; color:var(--text-primary);">
-        <span>QBs: <strong>${players.filter(p=>p.position==='QB').length} / ${league.rosterSettings.QB}</strong></span>
-        <span>RBs: <strong>${players.filter(p=>p.position==='RB').length} / ${league.rosterSettings.RB}</strong></span>
-        <span>WRs: <strong>${players.filter(p=>p.position==='WR').length} / ${league.rosterSettings.WR}</strong></span>
-        <span>TEs: <strong>${players.filter(p=>p.position==='TE').length} / ${league.rosterSettings.TE}</strong></span>
+        <span>QBs: <strong>${esc(players.filter(p=>p.position==='QB').length)} / ${league.rosterSettings.QB}</strong></span>
+        <span>RBs: <strong>${esc(players.filter(p=>p.position==='RB').length)} / ${league.rosterSettings.RB}</strong></span>
+        <span>WRs: <strong>${esc(players.filter(p=>p.position==='WR').length)} / ${league.rosterSettings.WR}</strong></span>
+        <span>TEs: <strong>${esc(players.filter(p=>p.position==='TE').length)} / ${league.rosterSettings.TE}</strong></span>
       </div>
     </div>
 
@@ -1735,7 +1749,7 @@ function renderBracketAdvice(advice, applied) {
       <div style="display:flex; gap:0.9rem; flex-wrap:wrap; align-items:center;">
         ${badge}
         ${advice.opponent ? `<span style="font-size:0.78rem; color:var(--text-secondary);">
-          vs ${advice.opponent.teamName} — win probability
+          vs ${esc(advice.opponent.teamName)} — win probability
           <strong>${Math.round(advice.winProbability * 100)}%</strong></span>` : ''}
         <span style="font-size:0.72rem; color:var(--text-secondary);">
           confidence ${advice.confidence}</span>
@@ -1743,7 +1757,7 @@ function renderBracketAdvice(advice, applied) {
           (you have overridden this to ${applied})</span>` : ''}
       </div>
       <div style="font-size:0.83rem; color:var(--text-secondary); margin-top:0.35rem;
-                  line-height:1.45;">${advice.reason}</div>
+                  line-height:1.45;">${esc(advice.reason)}</div>
     </div>`;
 }
 
@@ -1786,8 +1800,8 @@ export function renderMatchupPage(league = store.getActiveLeague()) {
       <span class="slot-pos">Slot ${idx + 1}</span>
       <div class="player-info-cell">
         <div>
-          <span class="player-name">${p.name}</span>
-          <span class="player-team-pos">${p.position} — ${p.team}</span>
+          <span class="player-name">${esc(p.name)}</span>
+          <span class="player-team-pos">${esc(p.position)} — ${esc(p.team)}</span>
         </div>
       </div>
       <span class="player-opponent">${p.opponent ? `vs ${p.opponent}` : ''}</span>
@@ -1854,15 +1868,15 @@ function benchRowHtml(b, isWeakest) {
                 background:${isWeakest ? 'rgba(255,82,82,0.10)' : 'rgba(255,255,255,0.03)'};
                 border-left:3px solid ${isWeakest ? '#ff5252' : tone};">
       <div style="display:flex; align-items:center; gap:0.6rem; flex-wrap:wrap;">
-        <strong style="flex:1; min-width:140px;">${b.player.name}</strong>
-        <span style="font-size:0.75rem; color:var(--text-secondary);">${b.player.position}</span>
+        <strong style="flex:1; min-width:140px;">${esc(b.player.name)}</strong>
+        <span style="font-size:0.75rem; color:var(--text-secondary);">${esc(b.player.position)}</span>
         <span style="font-size:0.72rem; font-weight:700; color:${tone};
                      text-transform:uppercase; letter-spacing:0.4px;">${b.category}</span>
         ${isWeakest ? '<span style="font-size:0.7rem; font-weight:800; color:#ff5252;">WEAKEST — SAFE TO DROP</span>' : ''}
         <span style="font-size:0.8rem; color:var(--text-secondary);">Hold ${b.holdValue}</span>
       </div>
       <div style="font-size:0.82rem; color:var(--text-secondary); margin-top:0.3rem; line-height:1.4;">
-        ${b.reason}
+        ${esc(b.reason)}
       </div>
       <div style="display:flex; gap:0.9rem; flex-wrap:wrap; margin-top:0.35rem;
                   font-size:0.72rem; color:var(--text-secondary);">
@@ -1887,20 +1901,20 @@ function waiverCardHtml(t, idx) {
   return `
     <div class="recommendation-item" style="border-left:3px solid ${badge.tone};">
       <div class="item-action-title">
-        <span>${t.action}: <strong>${t.addPlayer.name}</strong>
-          (${t.addPlayer.position}-${t.addPlayer.team})</span>
+        <span>${t.action}: <strong>${esc(t.addPlayer.name)}</strong>
+          (${esc(t.addPlayer.position)}-${esc(t.addPlayer.team)})</span>
         <span class="badge-solid ${badge.cls}">${t.confidence} confidence</span>
       </div>
       ${badge.urgent ? `<div style="font-size:0.72rem; font-weight:800; color:${badge.tone};
         letter-spacing:0.6px; margin-bottom:0.35rem;">${badge.urgent}</div>` : ''}
 
       <div class="item-meta">
-        <span>Drop: <strong>${t.dropPlayer ? t.dropPlayer.name : 'open spot'}</strong></span>
+        <span>Drop: <strong>${esc(t.dropPlayer ? t.dropPlayer.name : 'open spot')}</strong></span>
         <span>Net rest-of-season: <strong>${t.netRestOfSeason >= 0 ? '+' : ''}${t.netRestOfSeason}</strong> pts</span>
         <span>Immediate lineup: <strong>${t.immediateLineupGain > 0 ? '+' + t.immediateLineupGain : '—'}</strong>/wk</span>
       </div>
 
-      <div class="item-details">${t.reason}</div>
+      <div class="item-details">${esc(t.reason)}</div>
 
       <div style="display:flex; gap:0.9rem; flex-wrap:wrap; margin:0.5rem 0;
                   font-size:0.74rem; color:var(--text-secondary);">
@@ -1911,7 +1925,7 @@ function waiverCardHtml(t, idx) {
         <span>playoff ${t.playoffPoints} pts</span>
         ${t.blockingValue > 0 ? `<span style="color:#ffb020;">blocking ${t.blockingValue}</span>` : ''}
         <span style="color:${t.claimProbability > 0.55 ? '#ff5252' : 'inherit'};">
-          ${pct(t.claimProbability)} chance a rival claims him${t.likelySuitors.length ? ' (' + t.likelySuitors[0] + ')' : ''}
+          ${pct(t.claimProbability)} chance a rival claims him${t.likelySuitors.length ? ' (' + esc(t.likelySuitors[0]) + ')' : ''}
         </span>
       </div>
 
@@ -1994,7 +2008,7 @@ function newsBannerHtml(league) {
       <div style="display:flex; gap:0.6rem; align-items:baseline; padding:0.3rem 0;
                   font-size:0.82rem; border-bottom:1px solid rgba(255,255,255,0.05);">
         <strong style="color:${tone}; min-width:150px;">${x.player}</strong>
-        <span style="color:var(--text-secondary); font-size:0.75rem;">${x.position}-${x.team}</span>
+        <span style="color:var(--text-secondary); font-size:0.75rem;">${esc(x.position)}-${esc(x.team)}</span>
         <span style="flex:1; color:var(--text-secondary);">
           ${x.headline || `${x.addsLast24h.toLocaleString()} managers added him in 24h`}
         </span>
@@ -2065,7 +2079,7 @@ export function renderWaiversPage(league = store.getActiveLeague()) {
       <div style="display:flex; gap:1.25rem; flex-wrap:wrap; align-items:center;">
         <span style="font-size:0.72rem; text-transform:uppercase; letter-spacing:0.6px;
                      color:var(--text-secondary); font-weight:700;">
-          Week ${phase.week} · ${phase.label} · ${phase.weeksRemaining} weeks left
+          Week ${phase.week} · ${esc(phase.label)} · ${phase.weeksRemaining} weeks left
         </span>
         <span style="font-size:0.78rem; color:var(--text-secondary);">
           Upside weighting <strong>${phase.upsideWeight.toFixed(2)}</strong> ·
@@ -2088,11 +2102,11 @@ export function renderWaiversPage(league = store.getActiveLeague()) {
         Recommended transaction
       </div>
       <div style="font-size:1.05rem; font-weight:700;">
-        Add ${topMove.addPlayer.name} · Drop ${topMove.dropPlayer ? topMove.dropPlayer.name : 'open spot'}
+        Add ${esc(topMove.addPlayer.name)} · Drop ${esc(topMove.dropPlayer ? topMove.dropPlayer.name : 'open spot')}
         · $${topMove.faab.recommended} FAAB
       </div>
       <div style="font-size:0.83rem; color:var(--text-secondary); margin-top:0.3rem;">
-        ${topMove.reason}
+        ${esc(topMove.reason)}
       </div>
     </div>` : '';
 
@@ -2133,7 +2147,7 @@ export function renderWaiversPage(league = store.getActiveLeague()) {
     if (!btn) return;
     btn.onclick = () => {
       const dropName = t.dropPlayer ? t.dropPlayer.name : 'nobody';
-      if (confirm(`Add ${t.addPlayer.name}, drop ${dropName}, bid $${t.faab.recommended} FAAB?`)) {
+      if (confirm(`Add ${esc(t.addPlayer.name)}, drop ${dropName}, bid $${t.faab.recommended} FAAB?`)) {
         store.processTransaction(t.addPlayer.id, t.dropPlayer?.id, league.myTeamId);
         alert('Transaction processed.');
       }
@@ -2165,19 +2179,19 @@ export function renderTradesPage(league = store.getActiveLeague()) {
 
     item.innerHTML = `
       <div class="item-action-title">
-        <span>Trade with <strong>${p.opponentName}</strong> (Manager: ${p.managerName})</span>
+        <span>Trade with <strong>${esc(p.opponentName)}</strong> (Manager: ${esc(p.managerName)})</span>
         <span class="badge-solid ${probBadge}">${p.probability}% Acceptance Probability</span>
       </div>
       
       <div class="form-row" style="margin:0.75rem 0;">
         <div style="background:var(--bg-surface-elevated); padding:0.75rem; border-radius:4px; border:1px solid var(--border-color);">
           <span style="font-size:0.75rem; text-transform:uppercase; color:var(--text-muted); display:block;">You Give</span>
-          <strong>${p.givePlayer.name}</strong> (${p.givePlayer.position}-${p.givePlayer.team})
+          <strong>${esc(p.givePlayer.name)}</strong> (${esc(p.givePlayer.position)}-${esc(p.givePlayer.team)})
           <span style="font-size:0.8rem; display:block; color:var(--text-secondary); margin-top:0.25rem;">Proj: ${p.givePlayer.projectedPoints} pts</span>
         </div>
         <div style="background:var(--bg-surface-elevated); padding:0.75rem; border-radius:4px; border:1px solid var(--border-color);">
           <span style="font-size:0.75rem; text-transform:uppercase; color:var(--text-muted); display:block;">You Get</span>
-          <strong>${p.getPlayer.name}</strong> (${p.getPlayer.position}-${p.getPlayer.team})
+          <strong>${esc(p.getPlayer.name)}</strong> (${esc(p.getPlayer.position)}-${esc(p.getPlayer.team)})
           <span style="font-size:0.8rem; display:block; color:var(--accent-cyan); margin-top:0.25rem;">Proj: ${p.getPlayer.projectedPoints} pts</span>
         </div>
       </div>
@@ -2197,11 +2211,12 @@ export function renderTradesPage(league = store.getActiveLeague()) {
 
       <div class="form-group" style="margin-bottom:0.75rem;">
         <label class="form-label" style="font-size:0.75rem;">Send Friendly DM Proposal:</label>
-        <textarea class="input-control" rows="3" readonly style="font-size:0.8rem; height:auto; resize:none;">${p.dmText}</textarea>
+        <textarea class="input-control" rows="3" readonly style="font-size:0.8rem; height:auto; resize:none;">${esc(p.dmText)}</textarea>
       </div>
 
       <div style="text-align:right;">
-        <button class="btn-primary" style="padding:0.35rem 0.75rem; font-size:0.8rem;" onclick="navigator.clipboard.writeText('${p.dmText.replace(/'/g, "\\'")}'); alert('Proposal DM message copied to clipboard!');">
+        <button class="btn-primary" style="padding:0.35rem 0.75rem; font-size:0.8rem;"
+                id="trade-copy-${idx}">
           Copy Message
         </button>
         <button class="btn-success" style="padding:0.35rem 0.75rem; font-size:0.8rem;" id="trade-btn-${idx}">
@@ -2211,8 +2226,20 @@ export function renderTradesPage(league = store.getActiveLeague()) {
     `;
     listContainer.appendChild(item);
 
+    // Bound rather than inlined: the DM text embeds scraped manager and player
+    // names, and an inline handler puts them inside an HTML attribute where a
+    // single quote ends the attribute early.
+    const copyBtn = document.getElementById(`trade-copy-${idx}`);
+    if (copyBtn) {
+      copyBtn.onclick = () => {
+        navigator.clipboard.writeText(p.dmText);
+        copyBtn.textContent = 'Copied';
+        setTimeout(() => { copyBtn.textContent = 'Copy Message'; }, 1500);
+      };
+    }
+
     document.getElementById(`trade-btn-${idx}`).onclick = () => {
-      if (confirm(`Confirm: Execute trade swapping ${p.givePlayer.name} for ${p.getPlayer.name}?`)) {
+      if (confirm(`Confirm: Execute trade swapping ${esc(p.givePlayer.name)} for ${esc(p.getPlayer.name)}?`)) {
         store.processTransaction(p.getPlayer.id, p.givePlayer.id, league.myTeamId);
         store.processTransaction(p.givePlayer.id, p.getPlayer.id, p.opponentId);
         alert('Trade roster transaction executed local store!');
@@ -2231,7 +2258,7 @@ export function renderLeaguePage(league = store.getActiveLeague()) {
   league.teams.forEach(t => {
     const opt = document.createElement('option');
     opt.value = t.teamId;
-    opt.innerHTML = `${t.teamName} (Wins: ${t.record.wins})`;
+    opt.innerHTML = `${esc(t.teamName)} (Wins: ${t.record.wins})`;
     selector.appendChild(opt);
   });
 
@@ -2272,7 +2299,7 @@ function drawOpponentProfile(teamId, league) {
       <div class="roster-grid">
         ${players.length > 0 ? players.map(p => `
           <div style="display:flex; justify-content:space-between; align-items:center; padding:0.4rem 0.75rem; background:var(--bg-surface); border-radius:4px; border:1px solid var(--border-color);">
-            <span><strong>${p.name}</strong> (${p.position})</span>
+            <span><strong>${esc(p.name)}</strong> (${esc(p.position)})</span>
             <span style="font-size:0.85rem; color:var(--accent-cyan);">${p.projectedPoints.toFixed(1)} Proj</span>
           </div>
         `).join('') : '<div class="empty-state">No players on roster.</div>'}
@@ -2354,11 +2381,11 @@ function renderPreseasonOutlook(league, runs = 3000) {
     const par = (100 / o.leagueSize).toFixed(1);
     const rows = moves.slice(0, 5).map((m) => {
       const what = m.empty
-        ? `<strong>${m.slot} is empty</strong> — scores zero every week.`
-        : `<strong>${m.slot}: ${m.current}</strong> projects ${m.currentPoints}/wk, `
+        ? `<strong>${esc(m.slot)} is empty</strong> — scores zero every week.`
+        : `<strong>${esc(m.slot)}: ${esc(m.current)}</strong> projects ${m.currentPoints}/wk, `
           + `${m.gap > 0 ? `${m.gap} behind` : `${Math.abs(m.gap)} ahead of`} the league median of ${m.leagueMedian}.`;
       const fix = m.candidate
-        ? ` Best available: <strong>${m.candidate.name}</strong> (+${m.upgrade}/wk).`
+        ? ` Best available: <strong>${esc(m.candidate.name)}</strong> (+${m.upgrade}/wk).`
         : '';
       return `<div style="padding:0.75rem; background:var(--bg-surface); border:1px solid var(--border-color); border-radius:4px;">${what}${fix}</div>`;
     }).join('');
@@ -2384,7 +2411,7 @@ function renderPreseasonOutlook(league, runs = 3000) {
         <div style="display:flex; align-items:center; gap:0.6rem; margin-bottom:0.45rem;">
           <span style="width:1.4rem; color:var(--text-muted); font-size:0.8rem;">${t.rank}</span>
           <span style="flex:0 0 40%; font-weight:${t.isMe ? 700 : 400}; color:${tone};">
-            ${t.teamName}${t.isMe ? ' (you)' : ''}</span>
+            ${esc(t.teamName)}${t.isMe ? ' (you)' : ''}</span>
           <span style="flex:1; height:8px; background:var(--bg-surface); border-radius:4px; overflow:hidden;">
             <span style="display:block; height:100%; width:${bar}%; background:${tone};"></span></span>
           <span style="width:4rem; text-align:right; font-size:0.82rem;">${t.points.toFixed(1)}</span>
@@ -2450,7 +2477,7 @@ export function renderChampionshipPage(league = store.getActiveLeague()) {
             item.style.background = 'var(--accent-red-glow)';
             item.style.border = '1px solid rgba(255, 23, 68, 0.2)';
             item.innerHTML = `
-              <strong>Competitor: ${rival.teamName}</strong>
+              <strong>Competitor: ${esc(rival.teamName)}</strong>
               <span style="font-size:0.8rem; display:block; color:var(--text-secondary); margin-top:0.25rem;">
                 Simulation champion in <strong>${rival.pct}%</strong> of remaining runs. Strongest rival threat.
               </span>
@@ -2460,7 +2487,7 @@ export function renderChampionshipPage(league = store.getActiveLeague()) {
             item.style.background = 'var(--bg-surface)';
             item.style.border = '1px solid var(--border-color)';
             item.innerHTML = `
-              <strong>Competitor: ${rival.teamName}</strong>
+              <strong>Competitor: ${esc(rival.teamName)}</strong>
               <span style="font-size:0.8rem; display:block; color:var(--text-secondary); margin-top:0.25rem;">
                 Simulation champion in <strong>${rival.pct}%</strong> of remaining runs.
               </span>
@@ -2514,8 +2541,8 @@ export function renderAlertsPage(league = store.getActiveLeague()) {
     injured.forEach(p => {
       alertsHtml += `
         <div class="recommendation-item low-confidence">
-          <div class="item-action-title">Starter Injured: ${p.name} (${p.position}) <span class="badge-solid badge-red">Critical</span></div>
-          <div class="item-details">${p.name} is ${p.injuryStatus.toLowerCase()}. Configure a backup starter in the Matchups view.</div>
+          <div class="item-action-title">Starter Injured: ${esc(p.name)} (${esc(p.position)}) <span class="badge-solid badge-red">Critical</span></div>
+          <div class="item-details">${esc(p.name)} is ${esc(p.injuryStatus.toLowerCase())}. Configure a backup starter in the Matchups view.</div>
         </div>
       `;
     });
@@ -2526,8 +2553,8 @@ export function renderAlertsPage(league = store.getActiveLeague()) {
   if (waiverRec) {
     alertsHtml += `
       <div class="recommendation-item high-confidence">
-        <div class="item-action-title">Waiver Target: ${waiverRec.addPlayer.name} (${waiverRec.addPlayer.position}) <span class="badge-solid badge-green">Priority</span></div>
-        <div class="item-details">Drop ${waiverRec.dropPlayer ? waiverRec.dropPlayer.name : 'bench'}. Bid $${waiverRec.bid} FAAB. ${waiverRec.reason}</div>
+        <div class="item-action-title">Waiver Target: ${esc(waiverRec.addPlayer.name)} (${esc(waiverRec.addPlayer.position)}) <span class="badge-solid badge-green">Priority</span></div>
+        <div class="item-details">Drop ${esc(waiverRec.dropPlayer ? waiverRec.dropPlayer.name : 'bench')}. Bid $${waiverRec.bid} FAAB. ${esc(waiverRec.reason)}</div>
       </div>
     `;
   }
@@ -2537,8 +2564,8 @@ export function renderAlertsPage(league = store.getActiveLeague()) {
   if (tradeRec) {
     alertsHtml += `
       <div class="recommendation-item medium-confidence">
-        <div class="item-action-title">Trade Target: ${tradeRec.getPlayer.name} (${tradeRec.getPlayer.position}) <span class="badge-solid badge-gold">Proposal</span></div>
-        <div class="item-details">Offer ${tradeRec.givePlayer.name} to ${tradeRec.opponentName}. Estimated ${tradeRec.probability}% acceptance rate.</div>
+        <div class="item-action-title">Trade Target: ${esc(tradeRec.getPlayer.name)} (${esc(tradeRec.getPlayer.position)}) <span class="badge-solid badge-gold">Proposal</span></div>
+        <div class="item-details">Offer ${esc(tradeRec.givePlayer.name)} to ${esc(tradeRec.opponentName)}. Estimated ${tradeRec.probability}% acceptance rate.</div>
       </div>
     `;
   }
@@ -2632,10 +2659,10 @@ function renderNewsItems(items, newsContainer, indicator) {
             ${label}</span>
           ${rel ? `<span style="font-size:0.68rem; font-weight:800;
                color:${rel.strength === 'player' ? '#ff5252' : '#ffb020'};">
-               ${rel.strength === 'player' ? 'YOUR PLAYER' : 'YOUR TEAM'}: ${rel.why}</span>` : ''}
+               ${rel.strength === 'player' ? 'YOUR PLAYER' : 'YOUR TEAM'}: ${esc(rel.why)}</span>` : ''}
           <span style="margin-left:auto; font-size:0.7rem; color:var(--text-secondary);">${when}</span>
         </div>
-        <div style="font-size:0.9rem; margin-top:0.25rem;">${item.headline}</div>
+        <div style="font-size:0.9rem; margin-top:0.25rem;">${esc(item.headline)}</div>
         ${item.players && item.players.length ? `
           <div style="font-size:0.75rem; color:var(--text-secondary); margin-top:0.2rem;">
             ${item.players.slice(0, 3).join(' · ')}</div>` : ''}
@@ -2720,7 +2747,8 @@ async function fetchLiveBreakingNews(rosterNames = [], force = false) {
 export function renderSettingsPage(league = store.getActiveLeague()) {
   if (!league) return;
 
-  document.getElementById('settings-league-name').innerHTML = league.leagueName;
+  // textContent, not innerHTML: this is a name, never markup.
+  document.getElementById('settings-league-name').textContent = league.leagueName || '';
   
   // Load my team options list
   const selector = document.getElementById('settings-my-team-id');
@@ -2729,7 +2757,8 @@ export function renderSettingsPage(league = store.getActiveLeague()) {
   league.teams.forEach(t => {
     const opt = document.createElement('option');
     opt.value = t.teamId;
-    opt.innerHTML = t.teamName;
+    // A manager-chosen team name is text, never markup.
+    opt.textContent = t.teamName || '';
     if (t.teamId === league.myTeamId) opt.selected = true;
     selector.appendChild(opt);
   });
