@@ -56,7 +56,19 @@ cp -R "$PROD/GridironEdge.app" "$APP"
 
 # The build product is a second registered bundle; drop it so Safari lists one.
 "$LSREG" -u "$PROD/GridironEdge.app" 2>/dev/null || true
-rm -rf "$(dirname "$(dirname "$(dirname "$PROD")")")"
+
+# Delete the DerivedData tree this build produced -- and ONLY that.
+#
+# This was three nested dirnames off a path scraped out of xcodebuild's
+# settings, guarded by nothing but "does $PROD exist". A shallow
+# BUILT_PRODUCTS_DIR (a custom SYMROOT, say, or CONFIGURATION_BUILD_DIR=/tmp)
+# walks the target up to "/". Cut on the known suffix instead, and refuse
+# anything that is not recognisably a DerivedData directory.
+DD="${PROD%/Build/Products/*}"
+case "$DD" in
+  */DerivedData/*) rm -rf "$DD" ;;
+  *) echo "Leaving build directory in place: '$PROD' is not under DerivedData." >&2 ;;
+esac
 
 "$LSREG" -f "$APP" 2>/dev/null || true
 open -a "$APP"

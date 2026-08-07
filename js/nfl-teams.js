@@ -4,9 +4,10 @@
  * There were five live copies of this table -- an if-chain and a nickname map
  * in content-main.js that were verbatim duplicates of each other, an
  * abbreviation Set, a proTeamId map, and news-monitor.js's TEAM_ALIASES --
- * plus three more inside popup.js. No two had drifted yet, but adding a
- * franchise was a five-file edit, and the one consumer that needed the id map
- * most was using none of them: the ESPN API mapper stored `String(proTeamId)`,
+ * plus three more inside popup.js, which is now deleted. No two had drifted
+ * yet, but adding a franchise was a five-file edit, and the consumer that
+ * needed the id map most was using none of them: the API mapper stored
+ * `String(proTeamId)`,
  * so a player on Kansas City had the club "12" six lines below a table saying
  * 12 is KC. A wrong club is not cosmetic -- it is what separates two defenses
  * and two running backs who share a surname.

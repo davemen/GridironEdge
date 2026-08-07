@@ -44,6 +44,15 @@ function broadcast(message) {
  * Enough shape to reject anything that is not a scrape result. The content
  * script checks this too; a service worker that trusts its callers is one
  * bypass away from writing whatever it is handed.
+ *
+ * BYTE-IDENTICAL to the copy in content-isolated.js, and
+ * test/transport.test.mjs fails if the two ever differ. The bounds are why:
+ * chrome.storage.local holds 10MB and unlimitedStorage is not requested, so an
+ * oversized write exhausts the quota and displaces the real draft -- and the
+ * counts matter as much as the bytes, because a forged sync can name as many
+ * teams and picks as it likes and every one of them is rendered. This path is
+ * reachable without passing through the content script's copy, so a bound
+ * present in only one of them is a bound that is not enforced.
  */
 const MAX_PAYLOAD_BYTES = 5 * 1024 * 1024;
 const MAX_TEAMS = 32;
@@ -55,16 +64,6 @@ function looksLikeAScrape(data) {
   if (!Array.isArray(data.teams) || data.teams.length === 0) return false;
   const picks = data.draftDetail && data.draftDetail.picks;
   if (picks !== undefined && !Array.isArray(picks)) return false;
-
-  // Bounds, which this copy did not have and content-isolated.js did. A 9MB
-  // payload was accepted here and rejected there, and this path is reachable
-  // without passing through that one -- the content script messages the worker
-  // directly whenever it has extension APIs. chrome.storage.local holds 10MB
-  // and unlimitedStorage is not requested, so an oversized write exhausts the
-  // quota and displaces the real draft.
-  //
-  // The counts matter as much as the bytes: a forged sync can name as many
-  // teams and picks as it likes, and every one of them is rendered.
   if (data.teams.length > MAX_TEAMS) return false;
   if (picks && picks.length > MAX_PICKS) return false;
   try {
@@ -82,12 +81,13 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   // absent for some contexts and was the weaker check this used before.
   const origin = (sender && sender.origin)
     || (sender && sender.url ? new URL(sender.url).origin : '');
-  // ESPN's draft room, or our own popup. Anything else is refused: this worker
-  // used to forward whatever it was handed, from wherever.
+  // ESPN's draft room, or one of our own extension pages. Anything else is
+  // refused: this worker used to forward whatever it was handed, from wherever.
+  //
   // Ask the runtime for our own origin rather than building it from a literal
   // scheme. Safari serves extension pages from safari-web-extension://, so
-  // "chrome-extension://" + runtime.id matched nothing there and the popup's
-  // own syncs were refused by the worker that ships alongside it.
+  // "chrome-extension://" + runtime.id matched nothing there and syncs sent
+  // from an extension page were refused by the worker shipping alongside it.
   //
   // Trimmed by hand rather than with `new URL(...).origin`: neither
   // chrome-extension: nor safari-web-extension: is a "special" scheme, so the

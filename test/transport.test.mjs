@@ -59,7 +59,7 @@ globalThis.window = globalThis;
 globalThis.setInterval = () => 0;
 
 // Load the real service worker.
-const { readFileSync } = await import('fs');
+const { readFileSync, existsSync } = await import('fs');
 const { fileURLToPath } = await import('url');
 const { join } = await import('path');
 const ROOT = join(fileURLToPath(new URL('.', import.meta.url)), '..');
@@ -214,30 +214,91 @@ console.log('\nthe worker refuses a payload that is too big to be a draft');
   check('an ordinary draft still stores', JSON.stringify(store) !== beforeOk);
 }
 
-console.log('\nthe popup only offers to scrape ESPN itself');
+console.log('\nthe two shape gates cannot drift apart');
 {
-  // `tab.url.includes('fantasy.espn.com')` accepted any URL that merely
-  // mentioned the host, which enabled Sync on an attacker's page and pointed
-  // the scraper at it.
-  const popup = readFileSync(join(ROOT, 'chrome-extension/popup.js'), 'utf8');
-  const m = popup.match(/function isEspnUrl[\s\S]*?\n}/);
-  check('the popup has a real host check', Boolean(m));
-  if (m) {
-    const isEspnUrl = new Function(`${m[0]}; return isEspnUrl;`)();
-    [
-      ['https://fantasy.espn.com/football/draft', true],
-      ['https://fantasy.espn.com/football/league?leagueId=1', true],
-      ['https://evil.example/?fantasy.espn.com', false],
-      ['https://fantasy.espn.com.evil.example/', false],
-      ['http://fantasy.espn.com/', false],
-      ['https://notfantasy.espn.com/', false],
-      ['about:blank', false],
-      ['', false],
-    ].forEach(([url, want]) => {
-      check(`${want ? 'accepts' : 'rejects'} ${url || '(empty)'}`,
-        isEspnUrl(url) === want);
-    });
-  }
+  // They have drifted twice, in opposite directions: first the worker lacked
+  // the byte cap the content script had, then the content script lacked the
+  // count caps the worker gained. Each time one path accepted a payload the
+  // other refused, and the worker's path is reachable without passing through
+  // the content script's.
+  //
+  // Neither file can import the other -- a content script and a service worker
+  // are both classic scripts here and there is no build step -- so the rule is
+  // that the two copies are textually identical, and this is what enforces it.
+  const iso = readFileSync(join(ROOT, 'chrome-extension/content-isolated.js'), 'utf8');
+  // Brace-matched, not "the next line starting with }": one copy sits inside an
+  // IIFE and is indented, so a naive end marker ran past it into the rest of
+  // the file and the two never compared equal for the wrong reason.
+  const grabFn = (src) => {
+    const at = src.indexOf('function looksLikeAScrape(data) {');
+    if (at < 0) return null;
+    let depth = 0;
+    for (let i = src.indexOf('{', at); i < src.length; i++) {
+      if (src[i] === '{') depth++;
+      else if (src[i] === '}' && --depth === 0) {
+        return src.slice(at, i + 1).replace(/^[ \t]+/gm, '');
+      }
+    }
+    return null;
+  };
+  const grabConsts = (src) => (src.match(/const MAX_(?:PAYLOAD_BYTES|TEAMS|PICKS) = [^;]+;/g) || [])
+    .map((l) => l.trim()).sort().join('\n');
+
+  const a = grabFn(bg), b = grabFn(iso);
+  check('both files define the gate', Boolean(a) && Boolean(b));
+  check('the two gates are the same function', a === b,
+    a && b ? 'they differ' : 'one is missing');
+  check('and the same bounds', grabConsts(bg) === grabConsts(iso) && grabConsts(bg).length > 0,
+    `${grabConsts(bg)} || ${grabConsts(iso)}`);
+
+  // And the bounds are real, on both sides.
+  const run = (src, data) => new Function(`${grabConsts(src)}\n${grabFn(src)}\nreturn looksLikeAScrape;`)()(data);
+  const many = (n) => ({ leagueId: '1', teams: Array.from({ length: n }, () => ({})) });
+  const picks = (n) => ({ leagueId: '1', teams: [{}],
+    draftDetail: { picks: Array.from({ length: n }, () => ({})) } });
+  [['worker', bg], ['content script', iso]].forEach(([name, src]) => {
+    check(`the ${name} accepts an ordinary payload`, run(src, many(12)) === true);
+    check(`the ${name} refuses 33 teams`, run(src, many(33)) === false);
+    check(`the ${name} refuses 1001 picks`, run(src, picks(1001)) === false);
+  });
+}
+
+console.log('\nno unreachable code ships');
+{
+  // This block used to test popup.js's host check. popup.js is gone: the
+  // manifest registers no default_popup and background.js binds
+  // action.onClicked to open the app page instead, so its 554 lines -- a third
+  // copy of the scraper, three more club tables, and a sync flow that read a
+  // page-writable global and forwarded it under the extension's own trusted
+  // origin -- were never loaded by anything.
+  //
+  // What remains worth asserting is that they do not come back, and that the
+  // packaging list only ships what the manifest names.
+  const manifest = JSON.parse(readFileSync(join(ROOT, 'manifest.json'), 'utf8'));
+  check('the manifest still registers no popup',
+    !manifest.action || !manifest.action.default_popup);
+  check('and the popup files are not in the tree',
+    !existsSync(join(ROOT, 'chrome-extension/popup.js'))
+      && !existsSync(join(ROOT, 'chrome-extension/popup.html')));
+  const pkg = readFileSync(join(ROOT, 'tools/package-extension.sh'), 'utf8');
+  const copied = (pkg.match(/^for f in ([^;]+); do/m) || [])[1] || '';
+  check('and the packaging script does not try to ship them',
+    !/popup/.test(copied), copied);
+
+  // Permissions the extension does not use are permissions a reviewer has to
+  // account for and an attacker inherits if anything else goes wrong.
+  check('activeTab is not requested', !manifest.permissions.includes('activeTab'),
+    JSON.stringify(manifest.permissions));
+  check('no page is exposed to ESPN as a web-accessible resource',
+    !manifest.web_accessible_resources,
+    'it exposes the extension id to any page that probes for it, and'
+      + ' background.js opens the app with getURL + tabs.create, which needs none');
+  // Everything still requested has a caller.
+  const src = ['chrome-extension/background.js', 'js/bridge.js']
+    .map((f) => readFileSync(join(ROOT, f), 'utf8')).join('\n');
+  check('scripting is used', /chrome\.scripting\./.test(src));
+  check('tabs is used', /chrome\.tabs\./.test(src));
+  check('storage is used', /chrome\.storage\./.test(src));
 }
 
 console.log(`\n${passed} passed, ${failed} failed`);

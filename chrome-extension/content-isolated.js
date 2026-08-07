@@ -21,16 +21,29 @@
   /**
    * Enough shape to reject anything that is not a scrape result. This is not a
    * schema validator -- it is a gate that stops arbitrary objects reaching disk.
+   *
+   * BYTE-IDENTICAL to the copy in background.js, and test/transport.test.mjs
+   * fails if the two ever differ. A content script and a service worker cannot
+   * share a module -- neither is loaded as one, and this repo has no build step
+   * to inline it -- so two copies are unavoidable, and they have now drifted
+   * twice in opposite directions: first the worker lacked the byte cap this
+   * one had, then this one lacked the count caps the worker gained. Each time,
+   * one path accepted a payload the other refused.
    */
+  const MAX_PAYLOAD_BYTES = 5 * 1024 * 1024;
+  const MAX_TEAMS = 32;
+  const MAX_PICKS = 1000;
+
   function looksLikeAScrape(data) {
     if (!data || typeof data !== 'object' || Array.isArray(data)) return false;
     if (typeof data.leagueId !== 'string' && typeof data.leagueId !== 'number') return false;
     if (!Array.isArray(data.teams) || data.teams.length === 0) return false;
     const picks = data.draftDetail && data.draftDetail.picks;
     if (picks !== undefined && !Array.isArray(picks)) return false;
-    // A draft payload is tens of kilobytes; anything far past that is not ours.
+    if (data.teams.length > MAX_TEAMS) return false;
+    if (picks && picks.length > MAX_PICKS) return false;
     try {
-      if (JSON.stringify(data).length > 5 * 1024 * 1024) return false;
+      if (JSON.stringify(data).length > MAX_PAYLOAD_BYTES) return false;
     } catch (e) {
       return false;   // circular or otherwise unserialisable
     }

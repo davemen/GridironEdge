@@ -7,7 +7,6 @@ Reads your live ESPN draft room and hands it to the app. Four files:
 | `content-main.js` | the page's own world | reads the draft room and posts what it finds |
 | `content-isolated.js` | the extension's world | forwards that to the service worker |
 | `background.js` | the service worker | stores it and pushes it to the app page |
-| `popup.js` | the toolbar popup | reads a league page outside a draft |
 
 ## Installing
 

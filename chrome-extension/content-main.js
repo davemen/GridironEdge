@@ -16,7 +16,7 @@
    *
    * This table existed twice in here verbatim -- as a 32-branch if/else chain
    * for D/ST rows and again as NFL_NICKNAMES for the pick parser -- plus three
-   * more copies in popup.js and two under js/. No two had drifted, but adding a
+   * more copies under js/. No two had drifted, but adding a
    * franchise was a five-file edit and a wrong club silently picks the wrong
    * player out of two who share a surname.
    *
@@ -145,11 +145,12 @@
    * and the extension was blind in exactly the format the auction engine exists
    * to serve.
    *
-   * That was fixed once, in popup.js's own copy of this scraper, and the fix was
-   * lost when the two copies were merged into this one -- while a comment left
-   * behind in popup.js went on claiming it was handled. It now matters more than
-   * it did: Safari has no MAIN world, so the isolated-world DOM scrape is the
-   * only path there, not a fallback.
+   * That was fixed once, in a second copy of this scraper that lived in
+   * popup.js, and the fix was lost when the two were merged into this one. Both
+   * that copy and the comment still claiming the fix are gone: the manifest
+   * registers no popup, so none of it was ever loaded. It matters more than it
+   * did: Safari has no MAIN world, so the isolated-world DOM scrape is the only
+   * path there, not a fallback.
    *
    * Either signature is accepted: round labelling for a snake, a column of
    * dollar amounts for an auction. Three separate figures are required for the

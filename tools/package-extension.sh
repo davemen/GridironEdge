@@ -15,8 +15,32 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 DEST="${1:-$ROOT/../GridironEdge-package}"
 
-rm -rf "$DEST"
+# `rm -rf "$DEST"` on an argument nobody checked.
+#
+# The quoting was always right; the precondition was missing. A mistyped
+# argument was deleted in full, and `./tools/package-extension.sh ~` erased the
+# home directory. An audit proved it against a decoy tree.
+#
+# So a destination is only ever removed if this script made it. The marker is
+# written on the way out, which also means an existing directory full of
+# somebody else's files is refused rather than emptied.
+MARKER=".gridiron-package"
+case "$DEST" in
+  ""|"/"|"$HOME"|"$HOME/") echo "Refusing to package into '$DEST'." >&2; exit 1 ;;
+esac
+if [ "$DEST" = "$ROOT" ]; then
+  echo "Refusing to package into the repo itself." >&2; exit 1
+fi
+if [ -e "$DEST" ]; then
+  if [ ! -f "$DEST/$MARKER" ]; then
+    echo "Refusing to delete '$DEST': it is not a package directory this script created." >&2
+    echo "Remove it yourself, or pass a path that does not exist." >&2
+    exit 1
+  fi
+  rm -rf "$DEST"
+fi
 mkdir -p "$DEST"
+printf 'Created by tools/package-extension.sh. Safe to delete.\n' > "$DEST/$MARKER"
 
 # Everything the manifest references, and nothing else.
 cp "$ROOT/manifest.json" "$DEST/"
@@ -27,7 +51,10 @@ cp -R "$ROOT/data"       "$DEST/"
 cp -R "$ROOT/icons"      "$DEST/"
 
 mkdir -p "$DEST/chrome-extension"
-for f in background.js content-isolated.js content-main.js popup.js popup.html; do
+# popup.js and popup.html are gone: the manifest registers no default_popup,
+# so they were 676 unreachable lines shipped in every build -- carrying a
+# third copy of the scraper and three more club tables.
+for f in background.js content-isolated.js content-main.js; do
   cp "$ROOT/chrome-extension/$f" "$DEST/chrome-extension/"
 done
 # chrome-extension/debug/ is console-paste tooling; it has no place in a build.
