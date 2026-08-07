@@ -354,26 +354,20 @@ function scanForEspnState() {
 
 
     const rawState = findStoreState();
-    
-    /**
-     * Locate the results table, in either draft format.
-     *
-     * This used to require the literal string "Round 1", which is a snake-draft
-     * artefact. An auction has no rounds -- players are nominated and bid on --
-     * so the check could never pass in an auction room, and the extension was
-     * unusable for exactly the format the auction engine exists to serve.
-     *
-     * Now it accepts either signature: round labelling for a snake, or a column
-     * of dollar amounts for an auction.
-     */
 
-    // Fallback: If no React/Redux store state is found, scrape the HTML DOM for draft summary
-    // The DOM fallback used to be a second, independent copy of the draft-room
-    // scraper that lives in content-main.js. The two drifted: the auction fix
-    // landed only here, the duplicate-row fix only there, so each carried the
-    // bug the other had already fixed. content-main.js runs in this same MAIN
-    // world on every draft page and caches its last payload, so read that rather
-    // than scraping the page a second time with a different parser.
+    // Fallback: if no React/Redux store state is found, use whatever the draft-
+    // room scraper last read from the DOM.
+    //
+    // This was a second, independent copy of that scraper, and the two drifted:
+    // the auction fix landed only here, the duplicate-row fix only there, so
+    // each carried the bug the other had already fixed. content-main.js runs on
+    // every draft page and caches its last payload, so read that rather than
+    // parsing the page a second time with a different parser.
+    //
+    // The merge dropped the auction fix and left its comment behind here, which
+    // then asserted for weeks that a case the code could no longer handle was
+    // handled. test/scraper.test.mjs now covers the auction shape directly --
+    // the claim lives in a test rather than in prose.
     if (!rawState) {
       const fromContentScript = window.__GRIDIRON_EDGE_LAST__;
       if (fromContentScript && Array.isArray(fromContentScript.teams)
@@ -382,8 +376,8 @@ function scanForEspnState() {
       }
       return {
         success: false,
-        error: 'No draft state yet. The page scraper runs every two seconds on a '
-             + 'draft page - open the draft room, wait a moment, then try again. '
+        error: 'No draft state yet. The page scraper reports as the draft room '
+             + 'changes - open the draft room, wait for a pick, then try again. '
              + 'If it persists, check window.__GRIDIRON_EDGE_VERSION__ in the page '
              + 'console to confirm the extension actually reloaded.',
       };

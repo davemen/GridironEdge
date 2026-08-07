@@ -62,7 +62,7 @@ const i = src.indexOf('(function');
 const j = src.lastIndexOf('})();');
 const body = src.slice(src.indexOf('\n', i) + 1, j);
 const fn = new Function(`${body}\nreturn { scrapeDraftDOM, findDraftSummaryContainer };`);
-const { scrapeDraftDOM } = fn();
+const { scrapeDraftDOM, findDraftSummaryContainer } = fn();
 
 console.log('\nthe scraper runs at all');
 const picks = scrapeDraftDOM() || [];
@@ -96,6 +96,45 @@ check('a skill player keeps his team and price',
     && by('Josh Allen').bidAmount === 19);
 check('an injury tag does not break the name',
   Boolean(by('Mike Evans Q')));
+
+console.log('\nan auction results table is found at all');
+{
+  // The header above is a snake's ("Round 1 ... PROJ PTS"), which is the only
+  // shape this suite ever exercised -- so a container check that demanded the
+  // literal "Round 1" passed every test while being unable to see an auction
+  // room. An auction has no rounds; it has a column of prices.
+  const AUCTION_HEADER = 'PLAYER TEAM POS DRAFTED BY COST';
+  const withText = (text) => ({
+    innerText: text,
+    children: [mkEl('x')],
+    querySelectorAll: () => ROWS.map(mkEl),
+  });
+
+  const auction = withText(AUCTION_HEADER + '\n' + ROWS.join('\n'));
+  globalThis.document.querySelectorAll = () => [auction];
+  check('an auction table with no "Round" is still found',
+    findDraftSummaryContainer() === auction);
+
+  // The snake path must keep working -- it is the one that was never broken.
+  const snake = withText('Round 1 PLAYER TEAM PROJ PTS\nJosh Allen\nBUF\nQB');
+  globalThis.document.querySelectorAll = () => [snake];
+  check('a snake table with no prices is still found',
+    findDraftSummaryContainer() === snake);
+
+  // Widening the match must not make it match anything. A budget readout names
+  // a player and a team and shows one dollar figure; it is not a results table.
+  const decoy = withText('MY TEAM\nBudget $200\nPLAYER\nTEAM');
+  globalThis.document.querySelectorAll = () => [decoy];
+  check('a single dollar figure does not pass for a results table',
+    findDraftSummaryContainer() === null);
+
+  const empty = withText(AUCTION_HEADER + '\n$1 $2 $3\nNo players in queue');
+  globalThis.document.querySelectorAll = () => [empty];
+  check('the empty-queue panel is still rejected',
+    findDraftSummaryContainer() === null);
+
+  globalThis.document.querySelectorAll = () => [container];
+}
 
 console.log(`\n${passed} passed, ${failed} failed`);
 if (failed) process.exit(1);

@@ -126,16 +126,37 @@
     return null;
   }
 
+  /**
+   * Locate the results table, in either draft format.
+   *
+   * This required the literal string "Round 1", which is a snake-draft artefact:
+   * an auction has no rounds, players are nominated and bid on. In an auction
+   * room the container was therefore never found, the DOM path returned nothing,
+   * and the extension was blind in exactly the format the auction engine exists
+   * to serve.
+   *
+   * That was fixed once, in popup.js's own copy of this scraper, and the fix was
+   * lost when the two copies were merged into this one -- while a comment left
+   * behind in popup.js went on claiming it was handled. It now matters more than
+   * it did: Safari has no MAIN world, so the isolated-world DOM scrape is the
+   * only path there, not a fallback.
+   *
+   * Either signature is accepted: round labelling for a snake, a column of
+   * dollar amounts for an auction. Three separate figures are required for the
+   * auction case so that a lone "$200" budget label on an unrelated panel cannot
+   * pass for a results table.
+   */
   function findDraftSummaryContainer() {
     const containers = document.querySelectorAll('div, table, tbody');
     for (const el of containers) {
       if (!el || el.children.length === 0) continue;
       const text = el.innerText ? el.innerText.trim() : '';
-      if (text.includes('Round 1') && text.includes('PLAYER') && text.includes('TEAM') && (text.includes('PROJ PTS') || text.includes('PTS'))) {
-        if (text.length < 15000 && !text.includes('No players in queue')) {
-          return el;
-        }
-      }
+      if (!text.includes('PLAYER') || !text.includes('TEAM')) continue;
+      if (text.length >= 15000 || text.includes('No players in queue')) continue;
+
+      const isSnake = /Round\s+\d+/i.test(text);
+      const isAuction = (text.match(/\$\s?\d+/g) || []).length >= 3;
+      if (isSnake || isAuction) return el;
     }
     return null;
   }
