@@ -1,20 +1,22 @@
 /**
  * Gridiron Edge Lineup Optimizer Engine
+ *
+ * Which players start, given a roster and this league's slot counts.
+ *
+ * `settings` used to be accepted and never read: a 2QB/3WR/2FLEX league and a
+ * 1QB/1RB/1WR league produced byte-identical starters, because the fill was a
+ * straight-line if-chain -- push a QB, push two RBs, push two WRs -- with the
+ * standard shape written into the control flow. Three callers passed real
+ * league settings into it. The slots come from lineup-rules now, which derives
+ * them from those settings, so the shape is described in one place.
  */
+import { slotList, FLEX_POS } from './lineup-rules.js';
 
 export function optimizeLineup(roster, db, settings, strategy = 'floor') {
   if (!roster || roster.length === 0) return null;
 
   // Map IDs to full player objects
   const players = roster.map(pid => db[pid]).filter(Boolean);
-
-  // Group by position eligibility
-  const QBs = players.filter(p => p.position === 'QB');
-  const RBs = players.filter(p => p.position === 'RB');
-  const WRs = players.filter(p => p.position === 'WR');
-  const TEs = players.filter(p => p.position === 'TE');
-  const DSTs = players.filter(p => p.position === 'D/ST');
-  const Ks = players.filter(p => p.position === 'K');
 
   // Helper score calculator based on strategy
   const calculateOptimizedScore = (player) => {
@@ -94,46 +96,33 @@ export function optimizeLineup(roster, db, settings, strategy = 'floor') {
     })).sort((a, b) => b.score - a.score);
   };
 
-  const sortedQBs = scoreAndSort(QBs);
-  const sortedRBs = scoreAndSort(RBs);
-  const sortedWRs = scoreAndSort(WRs);
-  const sortedTEs = scoreAndSort(TEs);
-  const sortedDSTs = scoreAndSort(DSTs);
-  const sortedKs = scoreAndSort(Ks);
+  // One sorted queue per position; each slot takes the best one still unused.
+  const byPos = new Map();
+  const sortedFor = (pos) => {
+    if (!byPos.has(pos)) byPos.set(pos, scoreAndSort(players.filter(p => p.position === pos)));
+    return byPos.get(pos);
+  };
 
-  // Select primary starters
+  // Fill the league's own slots, in the order the lineup grid shows them, so
+  // the flex is offered whatever the fixed slots did not take -- rather than
+  // whatever a hardcoded "slice(2)" assumed they would leave behind.
   const starters = [];
-  const flexCandidates = [];
+  const taken = new Set();
+  const slots = slotList(settings);
 
-  // QB (1)
-  if (sortedQBs[0]) starters.push(sortedQBs[0].player);
-  
-  // RB (2)
-  if (sortedRBs[0]) starters.push(sortedRBs[0].player);
-  if (sortedRBs[1]) starters.push(sortedRBs[1].player);
-  // Remainder go to FLEX
-  if (sortedRBs.length > 2) flexCandidates.push(...sortedRBs.slice(2));
+  for (const slot of slots.filter(s => !s.isFlex)) {
+    const next = sortedFor(slot.pos).find(e => !taken.has(e.player.id));
+    if (next) { taken.add(next.player.id); starters.push(next.player); }
+  }
 
-  // WR (2)
-  if (sortedWRs[0]) starters.push(sortedWRs[0].player);
-  if (sortedWRs[1]) starters.push(sortedWRs[1].player);
-  // Remainder go to FLEX
-  if (sortedWRs.length > 2) flexCandidates.push(...sortedWRs.slice(2));
+  const flexCandidates = FLEX_POS
+    .flatMap(pos => sortedFor(pos))
+    .filter(e => !taken.has(e.player.id))
+    .sort((a, b) => b.score - a.score);
 
-  // TE (1)
-  if (sortedTEs[0]) starters.push(sortedTEs[0].player);
-  if (sortedTEs.length > 1) flexCandidates.push(...sortedTEs.slice(1));
-
-  // DST (1)
-  if (sortedDSTs[0]) starters.push(sortedDSTs[0].player);
-
-  // K (1)
-  if (sortedKs[0]) starters.push(sortedKs[0].player);
-
-  // FLEX (1) — pick highest remaining flex-eligible candidate
-  const sortedFlex = flexCandidates.sort((a, b) => b.score - a.score);
-  if (sortedFlex[0]) {
-    starters.push(sortedFlex[0].player);
+  for (const _slot of slots.filter(s => s.isFlex)) {
+    const next = flexCandidates.find(e => !taken.has(e.player.id));
+    if (next) { taken.add(next.player.id); starters.push(next.player); }
   }
 
   // Bench is anything not selected as starter

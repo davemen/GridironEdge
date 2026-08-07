@@ -341,7 +341,9 @@ console.log('\nESPN\'s id tables are the ones ESPN actually uses');
     check('no lineup-slot id leaks in', posMap[0] === undefined && posMap[17] === undefined);
   }
 
-  const teamMap = grab('teamMap');
+  // Renamed from teamMap when the file's two verbatim copies of the club list
+  // were merged into one declared at the top of the IIFE.
+  const teamMap = grab('PRO_TEAM_BY_ID');
   check('the club table exists', Boolean(teamMap));
   if (teamMap) {
     // The tail (33 Ravens, 34 Texans) only exists in ESPN's legacy ordering,

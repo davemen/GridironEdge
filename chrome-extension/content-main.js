@@ -11,6 +11,43 @@
         }
   console.log("[Gridiron Edge Sync] Main world script initialized (" + window.__GRIDIRON_EDGE_VERSION__ + ").");
 
+  /**
+   * The 32 clubs, once per file.
+   *
+   * This table existed twice in here verbatim -- as a 32-branch if/else chain
+   * for D/ST rows and again as NFL_NICKNAMES for the pick parser -- plus three
+   * more copies in popup.js and two under js/. No two had drifted, but adding a
+   * franchise was a five-file edit and a wrong club silently picks the wrong
+   * player out of two who share a surname.
+   *
+   * It cannot import js/nfl-teams.js: content scripts are classic scripts with
+   * no module loader, and this repo has no build step to inline one. So the
+   * rule is one copy per loading context, and this is the extension's.
+   */
+  const NFL_NICKNAMES = {
+    patriots: 'NE', ravens: 'BAL', '49ers': 'SF', bills: 'BUF', cowboys: 'DAL',
+    dolphins: 'MIA', jets: 'NYJ', eagles: 'PHI', chiefs: 'KC', raiders: 'LV',
+    broncos: 'DEN', chargers: 'LAC', vikings: 'MIN', bears: 'CHI', packers: 'GB',
+    lions: 'DET', buccaneers: 'TB', saints: 'NO', falcons: 'ATL', panthers: 'CAR',
+    commanders: 'WAS', giants: 'NYG', cardinals: 'ARI', seahawks: 'SEA', rams: 'LAR',
+    jaguars: 'JAX', colts: 'IND', titans: 'TEN', texans: 'HOU', steelers: 'PIT',
+    browns: 'CLE', bengals: 'CIN',
+  };
+
+  /** ESPN's proTeamId space, as ESPN publishes it. */
+  const PRO_TEAM_BY_ID = { 1: 'ATL', 2: 'BUF', 3: 'CHI', 4: 'CIN', 5: 'CLE', 6: 'DAL',
+    7: 'DEN', 8: 'DET', 9: 'GB', 10: 'TEN', 11: 'IND', 12: 'KC', 13: 'LV',
+    14: 'LAR', 15: 'MIA', 16: 'MIN', 17: 'NE', 18: 'NO', 19: 'NYG', 20: 'NYJ',
+    21: 'PHI', 22: 'ARI', 23: 'PIT', 24: 'LAC', 25: 'SF', 26: 'SEA', 27: 'TB',
+    28: 'WAS', 29: 'CAR', 30: 'JAX', 33: 'BAL', 34: 'HOU' };
+
+  /** The club a defense name refers to, or null if the name names no club. */
+  function clubFromName(name) {
+    const lower = String(name || '').toLowerCase();
+    const hit = Object.keys(NFL_NICKNAMES).find((nick) => lower.includes(nick));
+    return hit ? NFL_NICKNAMES[hit] : null;
+  }
+
   let lastSyncKey = null;
 
   // The result of the last "scan all rosters" sweep, and when it was taken.
@@ -35,41 +72,7 @@
         let position = posEl && posEl.innerText ? posEl.innerText.trim().toUpperCase() : 'RB';
 
         if (name && name.length >= 2 && name.length <= 40) {
-          if (position === 'D/ST') {
-            const lowerName = name.toLowerCase();
-            if (lowerName.includes('patriots')) team = 'NE';
-            else if (lowerName.includes('ravens')) team = 'BAL';
-            else if (lowerName.includes('49ers')) team = 'SF';
-            else if (lowerName.includes('bills')) team = 'BUF';
-            else if (lowerName.includes('cowboys')) team = 'DAL';
-            else if (lowerName.includes('dolphins')) team = 'MIA';
-            else if (lowerName.includes('jets')) team = 'NYJ';
-            else if (lowerName.includes('eagles')) team = 'PHI';
-            else if (lowerName.includes('chiefs')) team = 'KC';
-            else if (lowerName.includes('raiders')) team = 'LV';
-            else if (lowerName.includes('broncos')) team = 'DEN';
-            else if (lowerName.includes('chargers')) team = 'LAC';
-            else if (lowerName.includes('vikings')) team = 'MIN';
-            else if (lowerName.includes('bears')) team = 'CHI';
-            else if (lowerName.includes('packers')) team = 'GB';
-            else if (lowerName.includes('lions')) team = 'DET';
-            else if (lowerName.includes('buccaneers')) team = 'TB';
-            else if (lowerName.includes('saints')) team = 'NO';
-            else if (lowerName.includes('falcons')) team = 'ATL';
-            else if (lowerName.includes('panthers')) team = 'CAR';
-            else if (lowerName.includes('commanders')) team = 'WAS';
-            else if (lowerName.includes('giants')) team = 'NYG';
-            else if (lowerName.includes('cardinals')) team = 'ARI';
-            else if (lowerName.includes('seahawks')) team = 'SEA';
-            else if (lowerName.includes('rams')) team = 'LAR';
-            else if (lowerName.includes('jaguars')) team = 'JAX';
-            else if (lowerName.includes('colts')) team = 'IND';
-            else if (lowerName.includes('titans')) team = 'TEN';
-            else if (lowerName.includes('texans')) team = 'HOU';
-            else if (lowerName.includes('steelers')) team = 'PIT';
-            else if (lowerName.includes('browns')) team = 'CLE';
-            else if (lowerName.includes('bengals')) team = 'CIN';
-          }
+          if (position === 'D/ST') team = clubFromName(name) || team;
           // The live bid, read from ESPN's actual markup rather than inferred.
           // The draft room renders:
           //   <div data-testid="bidding-form" class="bidding-form__container">
@@ -176,16 +179,8 @@
   // Every club by nickname. A defense is the one "player" whose name IS a team,
   // so a results row can put the nickname before the position token, after it,
   // or on its own -- and a parser that assumes one order loses the pick. With
-  // this, the nickname can be found anywhere in the row.
-  const NFL_NICKNAMES = {
-    patriots: 'NE', ravens: 'BAL', '49ers': 'SF', bills: 'BUF', cowboys: 'DAL',
-    dolphins: 'MIA', jets: 'NYJ', eagles: 'PHI', chiefs: 'KC', raiders: 'LV',
-    broncos: 'DEN', chargers: 'LAC', vikings: 'MIN', bears: 'CHI', packers: 'GB',
-    lions: 'DET', buccaneers: 'TB', saints: 'NO', falcons: 'ATL', panthers: 'CAR',
-    commanders: 'WAS', giants: 'NYG', cardinals: 'ARI', seahawks: 'SEA', rams: 'LAR',
-    jaguars: 'JAX', colts: 'IND', titans: 'TEN', texans: 'HOU', steelers: 'PIT',
-    browns: 'CLE', bengals: 'CIN',
-  };
+  // this, the nickname can be found anywhere in the row. The table itself is
+  // declared once at the top of this file.
 
       const nflTeams = new Set(['DET', 'LAR', 'ATL', 'CIN', 'SEA', 'SF', 'GB', 'KC', 'BUF', 'DAL', 'PHI', 'MIA', 'NYJ', 'NE', 'LV', 'DEN', 'LAC', 'MIN', 'CHI', 'TB', 'NO', 'CAR', 'WAS', 'NYG', 'ARI', 'JAX', 'IND', 'TEN', 'HOU', 'BAL', 'PIT', 'CLE', 'FA']);
       // Feeds spell a team defense several ways, and the row is thrown away
@@ -577,13 +572,8 @@
       // and was wrong for every club from 10 up. The abbreviation is not
       // cosmetic -- it is what separates two defenses and two running backs
       // who share a surname, so a wrong club silently picks the wrong player.
-      const teamMap = { 1: 'ATL', 2: 'BUF', 3: 'CHI', 4: 'CIN', 5: 'CLE', 6: 'DAL',
-        7: 'DEN', 8: 'DET', 9: 'GB', 10: 'TEN', 11: 'IND', 12: 'KC', 13: 'LV',
-        14: 'LAR', 15: 'MIA', 16: 'MIN', 17: 'NE', 18: 'NO', 19: 'NYG', 20: 'NYJ',
-        21: 'PHI', 22: 'ARI', 23: 'PIT', 24: 'LAC', 25: 'SF', 26: 'SEA', 27: 'TB',
-        28: 'WAS', 29: 'CAR', 30: 'JAX', 33: 'BAL', 34: 'HOU' };
       const nflTeamId = p.player?.proTeamId;
-      const team = teamMap[nflTeamId] || p.playerTeam || p.player?.proTeam || 'FA';
+      const team = PRO_TEAM_BY_ID[nflTeamId] || p.playerTeam || p.player?.proTeam || 'FA';
 
       return {
         overallPickNumber: p.overallPickNumber || p.pickNumber || p.pick,

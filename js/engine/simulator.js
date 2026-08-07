@@ -1,5 +1,5 @@
 import { optimizeLineup } from './lineup-optimizer.js';
-import { PLAYOFF_TEAMS, BYE_TEAMS, REGULAR_WEEKS } from './lineup-rules.js';
+import { PLAYOFF_TEAMS, BYE_TEAMS, REGULAR_WEEKS, slotList } from './lineup-rules.js';
 import { getWaiverRecommendations } from './roster-manager.js';
 import { generateTradeProposals } from './trade-generator.js';
 
@@ -22,23 +22,25 @@ export function runSeasonSimulation(league, runs = 1000) {
   }
 
   // Helper to calculate a team's dynamic weekly projected score
+  /**
+   * A team's weekly score, or null when there is no roster to compute it from.
+   *
+   * This returned the constant 105.0 in that case, and 105.0 does not look like
+   * a missing value on screen -- it looks like a forecast. A league loaded over
+   * the ESPN API resolved zero players on every team, because the view list
+   * does not request the player catalogue, so every projection in the model was
+   * that constant: the Championship page showed playoff odds, championship
+   * odds, a first-round bye percentage and a named top rival, and not one
+   * figure came from a projection. Null propagates instead, and the caller
+   * declines to answer.
+   */
   const calculateTeamProjection = (team, week = null, isWindy = false) => {
-    if (!team || !team.roster || team.roster.length === 0) return 105.0; // fallback
+    if (!team || !team.roster || team.roster.length === 0) return null;
 
     const rosterPlayers = team.roster.map(pid => db[pid]).filter(Boolean);
+    if (rosterPlayers.length === 0) return null;
 
-    // Group by position
-    const slots = [
-      { label: 'QB', pos: 'QB' },
-      { label: 'RB1', pos: 'RB' },
-      { label: 'RB2', pos: 'RB' },
-      { label: 'WR1', pos: 'WR' },
-      { label: 'WR2', pos: 'WR' },
-      { label: 'TE', pos: 'TE' },
-      { label: 'FLEX', pos: ['RB', 'WR', 'TE'], isFlex: true },
-      { label: 'D/ST', pos: 'D/ST' },
-      { label: 'K', pos: 'K' }
-    ];
+    const slots = slotList(league.rosterSettings);
 
     const allocatedIds = new Set();
     let totalTeamProj = 0;
@@ -128,7 +130,9 @@ export function runSeasonSimulation(league, runs = 1000) {
       }
     });
 
-    return totalTeamProj > 0 ? totalTeamProj : 105.0;
+    // Zero means not one player on the roster resolved to a projection, which
+    // is the same "we cannot see this team" as an empty roster.
+    return totalTeamProj > 0 ? totalTeamProj : null;
   };
 
 
@@ -150,7 +154,7 @@ export function runSeasonSimulation(league, runs = 1000) {
    * season. Top seeds get byes; the rest pair highest against lowest.
    */
   function playBracket(seeds, weekProj) {
-    const scoreOf = (id) => Math.max(50, randomNormal((weekProj || {})[id] || 105, 12));
+    const scoreOf = (id) => Math.max(50, randomNormal((weekProj || {})[id], 12));
     const beats = (a, b) => (scoreOf(a) >= scoreOf(b) ? a : b);
     const byes = seeds.slice(0, BYE_TEAMS);
     let rest = seeds.slice(BYE_TEAMS);
@@ -172,15 +176,37 @@ export function runSeasonSimulation(league, runs = 1000) {
 
   // Pre-calculate normal and windy projections per week for all teams (Weeks 5-14)
   const teamProjectionsPerWeek = {};
+  const unprojectable = [];
   for (let w = 5; w <= 14; w++) {
     teamProjectionsPerWeek[w] = {
       normal: {},
       windy: {}
     };
     teams.forEach(t => {
-      teamProjectionsPerWeek[w].normal[t.teamId] = calculateTeamProjection(t, w, false);
-      teamProjectionsPerWeek[w].windy[t.teamId] = calculateTeamProjection(t, w, true);
+      const normal = calculateTeamProjection(t, w, false);
+      const windy = calculateTeamProjection(t, w, true);
+      if (normal === null || windy === null) {
+        if (!unprojectable.includes(t.teamId)) unprojectable.push(t.teamId);
+      }
+      teamProjectionsPerWeek[w].normal[t.teamId] = normal;
+      teamProjectionsPerWeek[w].windy[t.teamId] = windy;
     });
+  }
+
+  // A season is simulated against opponents. If any of them cannot be
+  // projected, every game they play is decided by a substituted constant, and
+  // an odds figure built that way is indistinguishable on screen from one built
+  // from real rosters. Say which teams could not be read instead.
+  if (unprojectable.length) {
+    return {
+      unknown: true,
+      unprojectableTeamIds: unprojectable,
+      reason: unprojectable.length === teams.length
+        ? 'No roster in this league resolved to projected players.'
+        : `${unprojectable.length} of ${teams.length} teams have no roster the app can read.`,
+      playoffPct: null, champPct: null, byePct: null,
+      actionPlan: [], competitors: [],
+    };
   }
 
   // Count wins/losses from initial record state
@@ -222,8 +248,11 @@ export function runSeasonSimulation(league, runs = 1000) {
       const weekProjections = teamProjectionsPerWeek[matchup.week] || { normal: {}, windy: {} };
       const projections = isWindyMatchup ? weekProjections.windy : weekProjections.normal;
 
-      let team1Proj = projections[matchup.team1Id] || 105.0;
-      let team2Proj = projections[matchup.team2Id] || 105.0;
+      // Both are present: a team that could not be projected returned early
+      // above rather than being given a stand-in score here.
+      let team1Proj = projections[matchup.team1Id];
+      let team2Proj = projections[matchup.team2Id];
+      if (typeof team1Proj !== 'number' || typeof team2Proj !== 'number') return;
 
       // Apply Home-Field Advantage (+2.0 points to home team, which is team1)
       team1Proj += 2.0;
@@ -319,18 +348,10 @@ export function runSeasonSimulation(league, runs = 1000) {
   const myTeam = teams.find(t => t.teamId === league.myTeamId);
   const myRoster = myTeam ? myTeam.roster.map(pid => db[pid]).filter(Boolean) : [];
 
-  // Identify starters and bench dynamically
-  const slots = [
-    { label: 'QB', pos: 'QB' },
-    { label: 'RB1', pos: 'RB' },
-    { label: 'RB2', pos: 'RB' },
-    { label: 'WR1', pos: 'WR' },
-    { label: 'WR2', pos: 'WR' },
-    { label: 'TE', pos: 'TE' },
-    { label: 'FLEX', pos: ['RB', 'WR', 'TE'], isFlex: true },
-    { label: 'D/ST', pos: 'D/ST' },
-    { label: 'K', pos: 'K' }
-  ];
+  // Identify starters and bench dynamically. Second verbatim copy of the
+  // lineup shape in this file; both read lineup-rules now, so a league that
+  // starts three receivers is described the same way in both.
+  const slots = slotList(league.rosterSettings);
 
   const allocatedIds = new Set();
   const starters = [];

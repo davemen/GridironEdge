@@ -6,6 +6,18 @@
 import store from './store.js';
 import { mockPlayers, mockLeague } from './mock-data.js';
 import { loadProjections, toPlayerDatabase, findPlayer, playerKey } from './player-database.js';
+import { proTeamAbbrev } from './nfl-teams.js';
+import { DEFAULT_ROSTER_SETTINGS, startersCount } from './engine/lineup-rules.js';
+
+/**
+ * The auction budget assumed when a team's remaining money is unknown.
+ *
+ * The two mappers defaulted this field to 200 and to 100 -- same field, same
+ * consumer, two invented budgets, and no test covered either. It is the money
+ * every bid ceiling is derived from, so the disagreement was worth a third of
+ * every ceiling depending on which door the league came in through.
+ */
+export const DEFAULT_AUCTION_BUDGET = 200;
 
 // Real projections, loaded once at module init. Until this resolves the app
 // falls back to mock data, which is why consumers check realDbReady rather than
@@ -55,8 +67,12 @@ function unresolvedPlayer(name, position, team) {
     isUnknownPlayer: true,
     volatility: 4.0,
     injuryStatus: 'Healthy',
-    byeWeek: 6,
-    adp: 150.0,
+    // Null, not 6 and not 150.0, two lines under a comment refusing to guess a
+    // projection. A bye week decides which weeks the simulator sits him out and
+    // ADP feeds three z-score models and the availability badge, so a stand-in
+    // for either is an invented number wearing the same clothes as a real one.
+    byeWeek: null,
+    adp: null,
   };
 }
 
@@ -84,9 +100,12 @@ class ESPNClient {
    */
   async fetchPublicLeague(leagueId) {
     // ESPN API endpoints require query param views to include all parameters
+    // kona_player_info is what returns the player catalogue. Without it ESPN
+    // sends rosters of numeric ids and no players to resolve them against, and
+    // the mapper below quietly substituted the mock league.
     const views = [
-      'mSettings', 'mRoster', 'mTeam', 'mMatchup', 
-      'mMatchupScore', 'mStandings', 'mTransactionHistory'
+      'mSettings', 'mRoster', 'mTeam', 'mMatchup',
+      'mMatchupScore', 'mStandings', 'mTransactionHistory', 'kona_player_info'
     ];
     const url = `https://fantasy.espn.com/apis/v3/games/ffl/seasons/${this.season}/segments/0/leagues/${leagueId}?view=${views.join('&view=')}`;
 
@@ -288,7 +307,7 @@ class ESPNClient {
         teamId: t.teamId,
         teamName: t.teamName,
         managerName: t.managerName,
-        faabRemaining: typeof t.faabRemaining === 'number' ? t.faabRemaining : 200,
+        faabRemaining: typeof t.faabRemaining === 'number' ? t.faabRemaining : DEFAULT_AUCTION_BUDGET,
         roster: [],
         record: { wins: 0, losses: 0, ties: 0 },
         pointsScored: 0,
@@ -398,19 +417,18 @@ class ESPNClient {
       currentNominationMax: currentNominationMax
     };
 
-    const positionLimits = {
-      QB: 1,
-      RB: 2,
-      WR: 2,
-      TE: 1,
-      FLEX: 1,
-      "D/ST": 1,
-      K: 1,
-      BE: 7,
-      IR: 1,
-      startersCount: 9,
-      benchCount: 7
-    };
+    // The league's own slot counts, if the room told us. It does not: an ESPN
+    // draft room publishes no roster configuration, so this was a hardcoded
+    // 1 QB / 2 RB / 2 WR / 1 TE / 1 FLEX / 7 bench presented as fact -- the one
+    // uncommented block in a function whose every other field carries a
+    // paragraph explaining why it refuses to guess.
+    //
+    // Every extension payload takes this path, so a 3-WR or 2-flex league got
+    // wrong needs, wrong bid ceilings and an invented "WRs: 2 / 2" denominator
+    // with nothing on screen marking it as an assumption. The shape is still
+    // the standard one -- there is nothing better to use -- but it is labelled,
+    // and the interface says so where it shows a count against it.
+    const positionLimits = { ...DEFAULT_ROSTER_SETTINGS };
 
     return {
       leagueId,
@@ -440,6 +458,8 @@ class ESPNClient {
       myTeamId: typeof espnData.myTeamId === 'number' ? espnData.myTeamId : null,
       scoringFormat: 'PPR',
       rosterSettings: positionLimits,
+      // Assumed, not read. See positionLimits above.
+      rosterSettingsSource: 'assumed',
       waiverSettings: {
         faabBudget: 100,
         processingDays: ['Wednesday', 'Thursday'],
@@ -489,16 +509,12 @@ class ESPNClient {
       K: rawSlots["17"] || 1,      // ESPN ID 17 = Kicker
       BE: rawSlots["20"] || 7,     // ESPN ID 20 = Bench
       IR: rawSlots["21"] || 1,     // ESPN ID 21 = IR
-      startersCount: 9,
-      benchCount: 7
     };
-    
-    // Compute total roster slot counts
-    let startersCount = 0;
-    for (const key of ['QB', 'RB', 'WR', 'TE', 'FLEX', 'D/ST', 'K']) {
-      startersCount += positionLimits[key] || 0;
-    }
-    positionLimits.startersCount = startersCount;
+
+    // Totals derived from the slots above, never written twice: these two were
+    // also assigned 9 and 7 in the literal, five lines before being recomputed,
+    // so the file appeared to state defaults that nothing ever used.
+    positionLimits.startersCount = startersCount(positionLimits);
     positionLimits.benchCount = positionLimits.BE;
 
     // 3. Map teams list
@@ -521,7 +537,7 @@ class ESPNClient {
         teamId: t.id,
         teamName: `${t.location} ${t.nickname}`,
         managerName: t.owners && t.owners.length > 0 ? `Manager ${t.owners[0].substring(0, 5)}` : 'Opponent Manager',
-        faabRemaining: t.transactionCounter?.remainingBudget ?? 100,
+        faabRemaining: t.transactionCounter?.remainingBudget ?? DEFAULT_AUCTION_BUDGET,
         roster: rosterList,
         record: { wins, losses, ties },
         pointsScored: t.record?.overall?.pointsFor || 0,
@@ -608,51 +624,93 @@ class ESPNClient {
       });
     }
 
-    // 7. Inject player catalog mapping
-    // Note: In production, we parse espnData.players to construct our player database.
-    // For MVP, if ESPN doesn't supply a full catalog, we supplement it with our high-fidelity mock list.
+    // 7. Build the player catalog
+    //
+    // This used to fall back to `mockPlayers` when ESPN sent no catalog, and it
+    // sent none: `kona_player_info` was missing from the view list, so a real
+    // league resolved ZERO players on every team while the store filled with
+    // records keyed QB_01, RB_01. Every engine downstream then ran on invented
+    // people -- the Championship page named a rival out of the mock league and
+    // recommended a $53 bid on a player from it. loadMockLeague sets
+    // `isSandbox` so the interface can say out loud that nothing on screen is
+    // real; this path set nothing at all.
+    //
+    // The view is requested now, and the roster entries carry the same player
+    // objects, so a league still resolves even if the catalog view is refused.
+    // If neither yields a player, the league says so and the pages that need
+    // projections decline rather than inventing them.
     const playerDatabase = {};
-    if (espnData.players) {
-      espnData.players.forEach(p => {
-        const player = p.player || {};
-        playerDatabase[player.id] = {
-          id: String(player.id),
-          name: player.fullName,
-          position: this.mapESPNPosition(player.defaultPositionId),
-          team: player.proTeamId ? String(player.proTeamId) : 'FA',
-          // Keyed like every other record: without a key it is invisible to
-          // findPlayer AND it defeats the database index for everyone else.
-          key: playerKey(player.fullName || ''),
-          // No invented mid-range guess: unknown means replacement level.
-          projectedPoints: typeof p.ratings?.overall?.projectedPoints === 'number'
-            ? p.ratings.overall.projectedPoints
-            // `this.` -- mapESPNPosition is a method, and the bare identifier
-            // here was a ReferenceError that aborted the whole import the
-            // moment any player arrived without a projection, which is the
-            // exact case this branch exists to handle.
-            : replacementPoints(this.mapESPNPosition(player.defaultPositionId)),
-          volatility: this.getVolatilityByPos(player.defaultPositionId),
-          injuryStatus: this.mapESPNInjury(player.injuryStatus),
-          byeWeek: player.byeWeek || 6,
-          adp: player.averageDraftPosition || 150.0,
-          matchProjs: { w1: 10, w2: 10, w3: 10 },
-          opponent: 'OPP',
-          metrics: this.extractUsage(player),
-          tdShare: this.extractTdShare(player)
-        };
-      });
-    } else {
-      // Re-populate store player pool from default
-      Object.assign(playerDatabase, mockPlayers);
+    const addPlayer = (player, ratings) => {
+      if (!player || player.id === undefined || player.id === null) return;
+      const position = this.mapESPNPosition(player.defaultPositionId);
+      playerDatabase[String(player.id)] = {
+        id: String(player.id),
+        name: player.fullName,
+        position,
+        // 'FA' where ESPN gives no club -- that is a real state. What it must
+        // never be is String(proTeamId): "12" is not a club, and a wrong club
+        // silently picks the wrong player out of two who share a surname.
+        team: proTeamAbbrev(player.proTeamId) || 'FA',
+        // Keyed like every other record: without a key it is invisible to
+        // findPlayer AND it defeats the database index for everyone else.
+        key: playerKey(player.fullName || ''),
+        // No invented mid-range guess: unknown means replacement level.
+        projectedPoints: typeof ratings?.overall?.projectedPoints === 'number'
+          ? ratings.overall.projectedPoints
+          // `this.` -- mapESPNPosition is a method, and the bare identifier
+          // here was a ReferenceError that aborted the whole import the
+          // moment any player arrived without a projection, which is the
+          // exact case this branch exists to handle.
+          : replacementPoints(position),
+        volatility: this.getVolatilityByPos(player.defaultPositionId),
+        injuryStatus: this.mapESPNInjury(player.injuryStatus),
+        // Null, not 6 and not 150. A bye week drives which weeks the simulator
+        // sits a player out and ADP feeds three separate z-score models, so a
+        // stand-in for either is a number the app cannot tell from a real one.
+        byeWeek: typeof player.byeWeek === 'number' ? player.byeWeek : null,
+        adp: typeof player.averageDraftPosition === 'number' ? player.averageDraftPosition : null,
+        // Weekly projections we do not have. Filling them with 10, 10, 10 drew
+        // a flat sparkline that reads as a measured trend.
+        matchProjs: null,
+        opponent: null,
+        metrics: this.extractUsage(player),
+        tdShare: this.extractTdShare(player)
+      };
+    };
+
+    if (Array.isArray(espnData.players)) {
+      espnData.players.forEach(p => addPlayer(p.player || {}, p.ratings));
     }
+    // Rosters carry the full player object too, so a refused catalog view is
+    // not the same as an unreadable league.
+    (espnData.teams || []).forEach(t => {
+      (t.roster?.entries || []).forEach(entry => {
+        const pool = entry.playerPoolEntry;
+        if (pool && pool.player && !playerDatabase[String(pool.player.id)]) {
+          addPlayer(pool.player, pool.ratings);
+        }
+      });
+    });
+    const projectionsMissing = Object.keys(playerDatabase).length === 0;
 
     return {
       leagueId: String(espnData.id || settings.leagueId),
       leagueName: settings.name || 'Imported ESPN League',
       leagueSize: settings.size || teams.length || 12,
-      myTeamId: 1, // Default user's team is first (reconciled later by UI)
+      // Null, not 1, for the same reason the scraped mapper gives at length:
+      // defaulting to the first team is a guess wearing the clothes of a fact,
+      // and every bid ceiling is then computed against a stranger's roster.
+      // This said "reconciled later by UI" and nothing reconciled it -- it never
+      // set myTeamIdSource, so the UI could not tell a guess from a choice.
+      myTeamId: null,
       scoringFormat,
       rosterSettings: positionLimits,
+      // ESPN publishes the real slot counts on this path, so they are read, not
+      // assumed -- unlike the scraped path.
+      rosterSettingsSource: rosterSettings.lineupSlotCounts ? 'league' : 'assumed',
+      // Set when not one player could be resolved, so the pages that need
+      // projections can decline instead of showing odds computed from nothing.
+      projectionsMissing,
       waiverSettings: {
         faabBudget: settings.restrictionSettings?.waiverBudget || 100,
         processingDays: ['Wednesday', 'Thursday'],

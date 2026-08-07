@@ -1,6 +1,8 @@
 /**
  * Gridiron Edge Live Draft Recommendation Engine
  */
+import { survivalProbability, survivalPct } from './survival.js';
+import { openStarterSlots, starterSlots, flexCount, FLEX_POS } from './lineup-rules.js';
 
 export function getDraftRecommendations(league) {
   const db = league.playerDatabase;
@@ -37,16 +39,17 @@ export function getDraftRecommendations(league) {
     if (posCounts[pos] !== undefined) posCounts[pos]++;
   });
 
-  // Analyze roster needs compared to limits
+  // Analyze roster needs compared to limits.
+  //
+  // This gave RB and WR a flex allowance EACH -- `limits.RB + 1` and
+  // `limits.WR + 1` -- which is the precise bug lineup-rules.js exists to hold
+  // one corrected copy of: the flex is one slot shared between RB, WR and TE,
+  // so granting it twice claims eight flex-eligible starters where the lineup
+  // has six, and a complete roster still reports an open slot.
   const limits = league.rosterSettings;
-  const needs = {
-    QB: posCounts.QB < limits.QB,
-    RB: posCounts.RB < (limits.RB + 1), // assume flex
-    WR: posCounts.WR < (limits.WR + 1), // assume flex
-    TE: posCounts.TE < limits.TE,
-    "D/ST": posCounts["D/ST"] < limits["D/ST"],
-    K: posCounts.K < limits.K
-  };
+  const open = openStarterSlots(posCounts, limits);
+  const needs = {};
+  Object.keys(starterSlots(limits)).forEach((pos) => { needs[pos] = (open[pos] || 0) > 0; });
 
   // Identify next user pick overall index
   // Degrade rather than throw: a scraped league carries no draft order, and a
@@ -80,27 +83,14 @@ export function getDraftRecommendations(league) {
 
   const picksToNext = nextUserPick - currentPick;
 
-  // Calculate estimated availability at user's next pick
-  // Using ADP and a cumulative availability model
-  const withAvailability = availablePlayers.map(p => {
-    // standard deviation of ADP based on round rank
-    const sd = Math.max(3, p.adp * 0.1); 
-    const z = (nextUserPick - p.adp) / sd;
-    
-    // Simple CDF approximation
-    const t = 1 / (1 + 0.2316419 * Math.abs(z));
-    const d = 0.3989423 * Math.exp(-z * z / 2);
-    let prob = 1 - d * t * (0.3193815 + t * (-0.3565638 + t * (1.781478 + t * (-1.821256 + t * 1.330274))));
-    if (z < 0) prob = 1 - prob;
-    
-    // Invert probability: chance player IS available (not drafted)
-    const availabilityProb = Math.min(100, Math.max(0, Math.round((1 - prob) * 100)));
-
-    return {
-      ...p,
-      availabilityAtNext: availabilityProb
-    };
-  });
+  // Estimated availability at the user's next pick. One shared curve -- this
+  // file used to carry two of them, 110 lines apart, answering the same
+  // question differently, with the display reading one and the recommendation
+  // reading the other.
+  const withAvailability = availablePlayers.map(p => ({
+    ...p,
+    availabilityAtNext: survivalPct(p, nextUserPick),
+  }));
 
   // Sort shortlist candidate lists
   const wrCandidates = withAvailability.filter(p => p.position === 'WR');
@@ -187,17 +177,27 @@ export function getDraftRecommendations(league) {
     players.forEach(p => { (byPos[p.position] = byPos[p.position] || []).push(seasonPts(p)); });
     Object.keys(byPos).forEach(k => byPos[k].sort((a, b) => b - a));
 
-    const slots = { QB: limits.QB || 1, RB: limits.RB || 2, WR: limits.WR || 2, TE: limits.TE || 1 };
-    const flexEligible = ['RB', 'WR', 'TE'];
+    // Fourth private copy of the lineup shape. The counts come from
+    // lineup-rules now, so a 3-WR league is described here the same way it is
+    // everywhere else -- but deliberately only for the offensive slots.
+    //
+    // This compares candidates for the pick in front of you, and every roster
+    // fills kicker and defence last for near-nothing. Counting them as open
+    // starting slots makes the first kicker on the board outrank a starting
+    // receiver: it put one into the shortlist at pick 97 when tried. That is a
+    // strategy change, and BACKTEST.md has no measurement for it, so the scope
+    // stays where it was.
+    const allSlots = starterSlots(limits);
+    const slots = { QB: allSlots.QB, RB: allSlots.RB, WR: allSlots.WR, TE: allSlots.TE };
     let total = 0;
     const spare = [];
     Object.keys(slots).forEach(pos => {
       const list = byPos[pos] || [];
       total += list.slice(0, slots[pos]).reduce((a, b) => a + b, 0);
-      if (flexEligible.includes(pos)) spare.push(...list.slice(slots[pos]));
+      if (FLEX_POS.includes(pos)) spare.push(...list.slice(slots[pos]));
     });
     spare.sort((a, b) => b - a);
-    const nFlex = limits.FLEX || 1;
+    const nFlex = flexCount(limits);
     total += spare.slice(0, nFlex).reduce((a, b) => a + b, 0);
     spare.slice(nFlex).forEach((v, i) => { total += v * BENCH_WEIGHT * Math.pow(0.75, i); });
     return total;
@@ -208,16 +208,11 @@ export function getDraftRecommendations(league) {
   const marginalValue = (p) => lineupValue(myPlayers.concat([p])) - baseLineup;
 
   // Probability a player is still on the board at our next pick, from ADP.
-  const survives = (p) => {
-    const sd = Math.max(3, (p.adp || 200) * 0.15);
-    const z = (nextUserPick - (p.adp || 200)) / (sd * Math.SQRT2);
-    // erf approximation (Abramowitz & Stegun 7.1.26)
-    const s = z < 0 ? -1 : 1, a = Math.abs(z);
-    const t = 1 / (1 + 0.3275911 * a);
-    const erf = s * (1 - ((((1.061405429 * t - 1.453152027) * t + 1.421413741) * t
-      - 0.284496736) * t + 0.254829592) * t * Math.exp(-a * a));
-    return 1 - 0.5 * (1 + erf);
-  };
+  // An unknown ADP used to be silently read as 200 -- late enough that the
+  // player was treated as certain to last, which is a claim, not an absence.
+  // A player we cannot place is assumed gone, so he is never recommended on
+  // the strength of a wait that was never measured.
+  const survives = (p) => survivalProbability(p, nextUserPick) ?? 0;
 
   const byPosition = {};
   withAvailability.forEach(p => {

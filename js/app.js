@@ -13,11 +13,13 @@ import { optimizeLineup } from './engine/lineup-optimizer.js';
 import { recommendLineupStrategy } from './engine/bracket-strategy.js';
 import { evaluateWaivers, getWaiverRecommendations, freeAgentPool, CATEGORY, ACTION }
   from './engine/roster-manager.js';
-import { STARTER_SLOTS, FLEX_POS, N_FLEX, openStarterSlots } from './engine/lineup-rules.js';
+import { STARTER_SLOTS, FLEX_POS, N_FLEX, openStarterSlots, rosterSize }
+  from './engine/lineup-rules.js';
 import { refreshNews, fetchLeagueNews, normalizeName, relevanceTo, EVENT_IMPACT }
   from './engine/news-monitor.js';
 import { generateTradeProposals } from './engine/trade-generator.js';
 import { runSeasonSimulation } from './engine/simulator.js';
+import { survivalPct } from './engine/survival.js';
 import { rankTeams, preseasonOutlook, highestImpactMoves } from './engine/team-strength.js';
 
 // Cache DOM elements
@@ -898,11 +900,18 @@ export function renderHomePage(league = store.getActiveLeague()) {
   const outlook = hasSchedule ? null : preseasonOutlook(league, 1500);
   const sim = hasSchedule ? runSeasonSimulation(league, 200) : null;
 
-  const champPct = sim ? sim.champPct : (outlook ? outlook.titlePct : 0);
-  const playoffPct = sim ? sim.playoffPct : (outlook ? outlook.playoffPct : 0);
-  document.getElementById('dashboard-champ-prob').innerHTML = `${champPct}%`;
-  document.getElementById('dashboard-champ-bar').style.width = `${champPct}%`;
-  document.getElementById('dashboard-playoff-prob').innerHTML = `${playoffPct}%`;
+  // The simulator declines to answer when it cannot read the rosters it would
+  // be simulating against -- it used to substitute 105.0 points a team and
+  // produce a percentage anyway, which reads on screen exactly like a forecast
+  // built from real projections. A dash and a reason are the honest output.
+  const simUnknown = Boolean(sim && sim.unknown);
+  const champPct = simUnknown ? null : (sim ? sim.champPct : (outlook ? outlook.titlePct : 0));
+  const playoffPct = simUnknown ? null : (sim ? sim.playoffPct : (outlook ? outlook.playoffPct : 0));
+  document.getElementById('dashboard-champ-prob').innerHTML =
+    champPct === null ? '—' : `${num(champPct, champPct % 1 ? 1 : 0)}%`;
+  document.getElementById('dashboard-champ-bar').style.width = `${champPct === null ? 0 : champPct}%`;
+  document.getElementById('dashboard-playoff-prob').innerHTML =
+    playoffPct === null ? '—' : `${num(playoffPct, playoffPct % 1 ? 1 : 0)}%`;
 
   const ranked = rankTeams(league);
   const meRanked = ranked.find(t => t.isMe);
@@ -921,10 +930,8 @@ export function renderHomePage(league = store.getActiveLeague()) {
   // Mid-draft these odds are read off half-built rosters, so leading the league
   // may only mean you have drafted more of yours so far. Say that while it is
   // true rather than presenting a settled forecast.
-  const rosterSize = (league.rosterSettings?.startersCount || 9)
-    + (league.rosterSettings?.benchCount || 7);
   const picksMade = ((league.draftState || {}).selections || []).length;
-  const picksTotal = (league.leagueSize || league.teams.length) * rosterSize;
+  const picksTotal = (league.leagueSize || league.teams.length) * rosterSize(league);
   const rankEl = document.getElementById('dashboard-rank');
   let caveat = document.getElementById('dashboard-caveat');
   if (!caveat && rankEl && rankEl.parentElement && rankEl.parentElement.parentElement) {
@@ -934,11 +941,18 @@ export function renderHomePage(league = store.getActiveLeague()) {
     rankEl.parentElement.parentElement.appendChild(caveat);
   }
   if (caveat) {
-    caveat.innerHTML = hasSchedule ? ''
-      : (picksMade < picksTotal
-          ? `Preseason, draft in progress — ${picksMade} of ${picksTotal} picks made. `
-            + `Rosters are still filling, so this moves with every pick.`
-          : 'Preseason — assumes a balanced schedule until fixtures are published.');
+    if (simUnknown) {
+      // "Could not read the rosters" and "the odds are low" are different
+      // facts, and a percentage cannot carry the first one.
+      caveat.innerHTML = `No odds to show. ${esc(sim.reason)} `
+        + `Nothing here is a forecast until those rosters can be read.`;
+    } else {
+      caveat.innerHTML = hasSchedule ? ''
+        : (picksMade < picksTotal
+            ? `Preseason, draft in progress — ${picksMade} of ${picksTotal} picks made. `
+              + `Rosters are still filling, so this moves with every pick.`
+            : 'Preseason — assumes a balanced schedule until fixtures are published.');
+    }
   }
 
   // The most dangerous competitor is the best roster that is not yours, not
@@ -1385,11 +1399,20 @@ export function renderDraftPage(league = store.getActiveLeague()) {
 
   // Search query filter
   if (draftSearchQuery) {
-    list = list.filter(p => p.name.toLowerCase().includes(draftSearchQuery) || p.team.toLowerCase().includes(draftSearchQuery));
+    // String(): a player whose club ESPN did not give us carries null, and the
+    // search box should not be able to take the whole draft page down.
+    list = list.filter(p => String(p.name || '').toLowerCase().includes(draftSearchQuery)
+      || String(p.team || '').toLowerCase().includes(draftSearchQuery));
   }
 
-  // Sort by adp
-  list.sort((a,b) => a.adp - b.adp);
+  // Sort by adp. An unknown ADP is null, not a number, and null - null is 0 --
+  // so unknowns sorted to the top of the board as though they were the first
+  // picks off it. They go last, where "we do not know" belongs.
+  list.sort((a, b) => {
+    const av = typeof a.adp === 'number' ? a.adp : Infinity;
+    const bv = typeof b.adp === 'number' ? b.adp : Infinity;
+    return av - bv;
+  });
 
   // Recalculate next user pick absolute order to re-run probability math
   const nextP = rec.willBeAvailable;
@@ -1426,18 +1449,16 @@ export function renderDraftPage(league = store.getActiveLeague()) {
   list.forEach(p => {
     const row = document.createElement('tr');
     
-    // Determine availability status bar color
-    // Calculate availability at next pick (approx)
-    const sd = Math.max(3, p.adp * 0.1); 
-    const z = (currentPick + league.leagueSize - p.adp) / sd;
-    const t = 1 / (1 + 0.2316419 * Math.abs(z));
-    const d = 0.3989423 * Math.exp(-z * z / 2);
-    let pVal = 1 - d * t * (0.3193815 + t * (-0.3565638 + t * (1.781478 + t * (-1.821256 + t * 1.330274))));
-    if (z < 0) pVal = 1 - pVal;
-    const avPct = Math.min(100, Math.max(0, Math.round((1 - pVal) * 100)));
+    // Will he last until my next pick? One implementation, shared with the
+    // recommendation engine -- there were three, two of them in one file, and
+    // on the same board state they answered 2%, 5% and 9% for the same player.
+    // Null when his ADP is unknown: a survival curve fitted to a missing draft
+    // position is a percentage about nothing.
+    const avPct = survivalPct(p, currentPick + league.leagueSize);
 
     let avBadge = 'badge-green';
-    if (avPct < 30) avBadge = 'badge-red';
+    if (avPct === null) avBadge = 'badge-muted';
+    else if (avPct < 30) avBadge = 'badge-red';
     else if (avPct < 70) avBadge = 'badge-gold';
 
     // One price on the page, from the engine that was measured.
@@ -1458,7 +1479,7 @@ export function renderDraftPage(league = store.getActiveLeague()) {
       <td><span style="display:inline-flex; align-items:center;">${num(p.projectedPoints)}${generateSparkline(p.matchProjs)}</span></td>
       <td>${num(p.adp)}</td>
       <td${isAuction ? '' : ' style="display:none;"'}><strong style="color:var(--accent-green); font-weight:700;">${typeof targetBid === 'number' ? `$${int(targetBid)}` : '—'}</strong></td>
-      <td><span class="badge-solid ${avBadge}">${int(avPct)}%</span></td>
+      <td><span class="badge-solid ${avBadge}">${avPct === null ? '—' : `${int(avPct)}%`}</span></td>
       <td>
         <button class="btn-primary js-draft-row" style="padding:0.25rem 0.5rem; font-size:0.75rem;"
                 data-player-id="${attr(p.id)}">Draft</button>
@@ -2017,11 +2038,11 @@ export function renderRosterPage(league = store.getActiveLeague()) {
     <div style="border-top:1px solid var(--border-color); padding-top:1rem;">
       <h4 style="font-size:0.85rem; text-transform:uppercase; color:var(--text-secondary); margin-bottom:0.5rem;">Position Counts:</h4>
       <div style="display:flex; justify-content:space-between; font-size:0.9rem; color:var(--text-primary);">
-        <span>QBs: <strong>${esc(players.filter(p=>p.position==='QB').length)} / ${league.rosterSettings.QB}</strong></span>
-        <span>RBs: <strong>${esc(players.filter(p=>p.position==='RB').length)} / ${league.rosterSettings.RB}</strong></span>
-        <span>WRs: <strong>${esc(players.filter(p=>p.position==='WR').length)} / ${league.rosterSettings.WR}</strong></span>
-        <span>TEs: <strong>${esc(players.filter(p=>p.position==='TE').length)} / ${league.rosterSettings.TE}</strong></span>
+        ${['QB', 'RB', 'WR', 'TE'].map((pos) => `<span>${esc(pos)}s: <strong>${
+          int(players.filter(p => p.position === pos).length)} / ${
+          int(league.rosterSettings?.[pos])}</strong></span>`).join('')}
       </div>
+      ${assumedSettingsNote(league)}
     </div>
 
     <div style="border-top:1px solid var(--border-color); padding-top:1rem; font-size:0.85rem; color:var(--text-secondary);">
@@ -2029,6 +2050,22 @@ export function renderRosterPage(league = store.getActiveLeague()) {
       ${depthCheckText(players, league)}
     </div>
   `;
+}
+
+/**
+ * Say when the denominator above is an assumption rather than a reading.
+ *
+ * An ESPN draft room publishes no roster configuration, so every extension
+ * payload takes a mapper that applies the standard 1/2/2/1 shape. That is the
+ * best available answer, but "2" printed after a slash is indistinguishable
+ * from a number the league actually told us -- and in a 3-WR league it is
+ * wrong, along with every need and bid ceiling derived from it.
+ */
+function assumedSettingsNote(league) {
+  if (league.rosterSettingsSource !== 'assumed') return '';
+  return `<p style="font-size:0.72rem; color:var(--text-muted); margin-top:0.4rem;">
+    Slot counts are the standard shape, not this league's — a draft room does not
+    publish them. Set them in Settings if your league differs.</p>`;
 }
 
 /**
@@ -2693,10 +2730,8 @@ function renderPreseasonOutlook(league, runs = 3000) {
   set('sim-champ-pct', o.titlePct + '%');
   set('sim-bye-pct', o.byePct + '%');
 
-  const rosterSize = (league.rosterSettings?.startersCount || 9)
-    + (league.rosterSettings?.benchCount || 7);
   const made = ((league.draftState || {}).selections || []).length;
-  const total = (league.leagueSize || (league.teams || []).length) * rosterSize;
+  const total = (league.leagueSize || (league.teams || []).length) * rosterSize(league);
   const drafting = made < total;
   const par = (100 / o.leagueSize).toFixed(1);
   set('sim-playoff-note', `Average finish is seed ${o.averageSeed} of ${o.leagueSize}`
@@ -2775,7 +2810,31 @@ export function renderChampionshipPage(league = store.getActiveLeague()) {
     showLoading('Running 1,000 Monte Carlo calculations...');
     setTimeout(() => {
       const sim = runSeasonSimulation(league, runsCount);
-      
+
+      // The simulator declines rather than substituting a constant score for a
+      // team it cannot read. Every panel below is derived from those same
+      // projections, so all of them say so together -- a page showing three
+      // dashes above a confidently named "top rival" would be worse than
+      // either answer alone.
+      if (sim.unknown) {
+        ['sim-playoff-pct', 'sim-champ-pct', 'sim-bye-pct'].forEach((id) => {
+          const el = document.getElementById(id);
+          if (el) el.innerHTML = '—';
+        });
+        const actionBox = document.getElementById('sim-action-plan');
+        if (actionBox) {
+          actionBox.innerHTML = `<div class="empty-state">Nothing to simulate. ${esc(sim.reason)}
+            A season is played against opponents, so odds computed without them would be
+            a number about this league rather than a number from it.</div>`;
+        }
+        const threatBox = document.getElementById('sim-threat-assessment');
+        if (threatBox) {
+          threatBox.innerHTML = '<div class="empty-state">No rival ranking without opponent rosters.</div>';
+        }
+        hideLoading();
+        return;
+      }
+
       document.getElementById('sim-playoff-pct').innerHTML = `${sim.playoffPct}%`;
       document.getElementById('sim-champ-pct').innerHTML = `${sim.champPct}%`;
       document.getElementById('sim-bye-pct').innerHTML = `${sim.byePct}%`;

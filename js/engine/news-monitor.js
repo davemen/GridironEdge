@@ -71,6 +71,7 @@ const PATTERNS = [
 ];
 
 import { playerKey } from '../player-database.js';
+import { NFL_NICKNAMES } from '../nfl-teams.js';
 
 const num = (v, d = 0) => (typeof v === 'number' && isFinite(v) ? v : d);
 
@@ -87,24 +88,32 @@ const num = (v, d = 0) => (typeof v === 'number' && isFinite(v) ? v : d);
  */
 export const normalizeName = playerKey;
 
-/** NFL team abbreviations, keyed by the club names ESPN writes in its tags. */
-export const TEAM_ALIASES = {
-  ARI: ['cardinals', 'arizona'], ATL: ['falcons', 'atlanta'],
-  BAL: ['ravens', 'baltimore'], BUF: ['bills', 'buffalo'],
-  CAR: ['panthers', 'carolina'], CHI: ['bears', 'chicago'],
-  CIN: ['bengals', 'cincinnati'], CLE: ['browns', 'cleveland'],
-  DAL: ['cowboys', 'dallas'], DEN: ['broncos', 'denver'],
-  DET: ['lions', 'detroit'], GB: ['packers', 'green bay'],
-  HOU: ['texans', 'houston'], IND: ['colts', 'indianapolis'],
-  JAX: ['jaguars', 'jacksonville'], KC: ['chiefs', 'kansas city'],
-  LAC: ['chargers'], LAR: ['rams'], LV: ['raiders', 'las vegas'],
-  MIA: ['dolphins', 'miami'], MIN: ['vikings', 'minnesota'],
-  NE: ['patriots', 'new england'], NO: ['saints', 'new orleans'],
-  NYG: ['giants'], NYJ: ['jets'], PHI: ['eagles', 'philadelphia'],
-  PIT: ['steelers', 'pittsburgh'], SEA: ['seahawks', 'seattle'],
-  SF: ['49ers', 'san francisco'], TB: ['buccaneers', 'tampa bay'],
-  TEN: ['titans', 'tennessee'], WAS: ['commanders', 'washington'],
+/**
+ * NFL team abbreviations, keyed by the club names ESPN writes in its tags.
+ *
+ * The nicknames come from js/nfl-teams.js rather than being written again here
+ * -- this was one of five copies of the club list, and the only difference that
+ * earns its own table is the city, which headlines use and the nickname map
+ * does not carry.
+ */
+const CITIES = {
+  ARI: 'arizona', ATL: 'atlanta', BAL: 'baltimore', BUF: 'buffalo',
+  CAR: 'carolina', CHI: 'chicago', CIN: 'cincinnati', CLE: 'cleveland',
+  DAL: 'dallas', DEN: 'denver', DET: 'detroit', GB: 'green bay',
+  HOU: 'houston', IND: 'indianapolis', JAX: 'jacksonville', KC: 'kansas city',
+  MIA: 'miami', MIN: 'minnesota', NE: 'new england', NO: 'new orleans',
+  PHI: 'philadelphia', PIT: 'pittsburgh', SEA: 'seattle', SF: 'san francisco',
+  TB: 'tampa bay', TEN: 'tennessee', WAS: 'washington', LV: 'las vegas',
+  // Two clubs share Los Angeles and one shares New York, so the city alone
+  // cannot pick between them: they match on nickname only.
+  LAC: null, LAR: null, NYG: null, NYJ: null,
 };
+
+export const TEAM_ALIASES = Object.entries(NFL_NICKNAMES).reduce((out, [nickname, abbrev]) => {
+  out[abbrev] = [nickname];
+  if (CITIES[abbrev]) out[abbrev].push(CITIES[abbrev]);
+  return out;
+}, {});
 
 /**
  * Why an article matters to a specific roster, or null if it does not.

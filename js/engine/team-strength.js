@@ -23,7 +23,7 @@
  * never been scheduled between two teams that did not exist.
  */
 
-import { STARTER_SLOTS, FLEX_POS, N_FLEX, REGULAR_WEEKS, PLAYOFF_TEAMS, BYE_TEAMS }
+import { STARTER_SLOTS, FLEX_POS, N_FLEX, REGULAR_WEEKS, PLAYOFF_TEAMS, BYE_TEAMS, rosterSize }
   from './lineup-rules.js';
 
 // Week-to-week scoring noise for a whole lineup, in points. Fantasy teams are
@@ -111,9 +111,7 @@ function replacementLevels(league) {
 
 /** Is the draft still running? */
 function draftIncomplete(league) {
-  const rosterSize = (league.rosterSettings?.startersCount || 9)
-    + (league.rosterSettings?.benchCount || 7);
-  const total = (league.leagueSize || (league.teams || []).length) * rosterSize;
+  const total = (league.leagueSize || (league.teams || []).length) * rosterSize(league);
   const made = ((league.draftState || {}).selections || []).length;
   return made < total;
 }

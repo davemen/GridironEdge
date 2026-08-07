@@ -200,5 +200,108 @@ console.log('\nwhich team is yours');
     fresh.myTeamId === 1 && fresh.myTeamIdSource === 'scrape');
 }
 
+console.log('\nthe API mapper, which nothing exercised at all');
+{
+  // js/espn-client.js:505-530 had zero coverage. Setting every team's budget to
+  // $1, blanking every team name, or dropping every roster entry all passed the
+  // whole suite -- and FAAB is the money every bid ceiling is derived from.
+  const apiLeague = (over = {}) => ({
+    id: 77,
+    settings: {
+      name: 'API League', size: 2,
+      rosterSettings: { lineupSlotCounts: { 0: 1, 2: 2, 4: 3, 6: 1, 23: 2, 16: 1, 17: 1, 20: 5 } },
+      scheduleSettings: {}, scoringSettings: {},
+    },
+    teams: [
+      { id: 1, location: 'Motor City', nickname: 'Machines',
+        transactionCounter: { remainingBudget: 137 },
+        record: { overall: { wins: 3, losses: 1, ties: 0, pointsFor: 412.5 } },
+        roster: { entries: [
+          { playerPoolEntry: { player: { id: 3001, fullName: 'Josh Allen',
+              defaultPositionId: 1, proTeamId: 2, byeWeek: 7 },
+            ratings: { overall: { projectedPoints: 24.5 } } } },
+          { playerPoolEntry: { player: { id: 3002, fullName: 'Bijan Robinson',
+              defaultPositionId: 2, proTeamId: 1 } } },
+        ] } },
+      { id: 2, location: 'Bay', nickname: 'Bandits',
+        record: { overall: { wins: 1, losses: 3, ties: 0, pointsFor: 350 } },
+        roster: { entries: [
+          { playerPoolEntry: { player: { id: 3003, fullName: 'Ja Marr Chase',
+              defaultPositionId: 3, proTeamId: 4 },
+            ratings: { overall: { projectedPoints: 19.25 } } } },
+        ] } },
+    ],
+    ...over,
+  });
+
+  const l = espnClient.mapESPNLeague(apiLeague());
+  check('team names come from the payload',
+    l.teams[0].teamName === 'Motor City Machines', l.teams[0].teamName);
+  check('the record is carried through',
+    l.teams[0].record.wins === 3 && l.teams[0].record.losses === 1,
+    JSON.stringify(l.teams[0].record));
+  check('the budget is the budget ESPN reported',
+    l.teams[0].faabRemaining === 137, String(l.teams[0].faabRemaining));
+  // Both mappers defaulted this field, one to 200 and one to 100 -- same field,
+  // same consumer, two invented budgets.
+  check('a team with no budget field gets the one default, not a second one',
+    l.teams[1].faabRemaining === 200, String(l.teams[1].faabRemaining));
+  check('rosters are not empty', l.teams[0].roster.length === 2,
+    `${l.teams[0].roster.length} players`);
+
+  // ESPN was never asked for a player catalogue, so mockPlayers filled the
+  // database and every roster id resolved to nobody.
+  check('every roster id resolves to a player',
+    l.teams.every((t) => t.roster.every((id) => Boolean(l.playerDatabase[id]))),
+    JSON.stringify(l.teams.map((t) => t.roster)));
+  check('no mock record leaked in',
+    Object.keys(l.playerDatabase).every((k) => !/^(QB|RB|WR|TE|K|DST)_\d/.test(k)),
+    Object.keys(l.playerDatabase).slice(0, 4).join(','));
+  check('a player keeps his real projection',
+    l.playerDatabase['3001'].projectedPoints === 24.5);
+  // Unknown means replacement level, never a mid-range guess.
+  check('a player with no projection is valued at replacement level',
+    l.playerDatabase['3002'].projectedPoints === 4.5,
+    String(l.playerDatabase['3002'].projectedPoints));
+  // proTeamId 2 is Buffalo. It used to be stored as the club "2".
+  check('the club is a club, not an id', l.playerDatabase['3001'].team === 'BUF',
+    l.playerDatabase['3001'].team);
+  check('an unknown bye week and ADP are null, not 6 and 150',
+    l.playerDatabase['3002'].byeWeek === null && l.playerDatabase['3002'].adp === null,
+    `${l.playerDatabase['3002'].byeWeek} / ${l.playerDatabase['3002'].adp}`);
+  check('and a known bye week survives', l.playerDatabase['3001'].byeWeek === 7);
+
+  // The slot counts are published on this path, so they are read, not assumed.
+  check('the real slot counts are used', l.rosterSettings.WR === 3 && l.rosterSettings.FLEX === 2,
+    JSON.stringify(l.rosterSettings));
+  check('and the totals are derived from them',
+    l.rosterSettings.startersCount === 11 && l.rosterSettings.benchCount === 5,
+    `${l.rosterSettings.startersCount} + ${l.rosterSettings.benchCount}`);
+  check('this path says it read them', l.rosterSettingsSource === 'league');
+  check('and it does not claim to know whose team is whose',
+    l.myTeamId === null, String(l.myTeamId));
+  check('projections are not reported missing when players resolved',
+    l.projectionsMissing === false);
+
+  // A league with nothing to resolve says so rather than borrowing the sandbox.
+  const empty = espnClient.mapESPNLeague(apiLeague({
+    teams: [{ id: 1, location: 'A', nickname: 'B', record: { overall: {} }, roster: { entries: [] } }],
+  }));
+  check('a league with no players at all reports it',
+    empty.projectionsMissing === true && Object.keys(empty.playerDatabase).length === 0);
+}
+
+console.log('\nthe scraped mapper marks what it had to assume');
+{
+  const l = await espnClient.importScrapedPayload(payload(
+    [pick(1, 'Josh Allen', 'QB', 'BUF', 1, 19)], { leagueId: 'ASSUMED' }));
+  // An ESPN draft room publishes no roster configuration. The shape is still
+  // the standard one, but it is labelled so the interface can say so.
+  check('the scraped path admits its roster settings are assumed',
+    l.rosterSettingsSource === 'assumed', String(l.rosterSettingsSource));
+  check('and it still carries a usable shape',
+    l.rosterSettings.startersCount === 9 && l.rosterSettings.benchCount === 7);
+}
+
 console.log(`\n${passed} passed, ${failed} failed`);
 if (failed) process.exit(1);

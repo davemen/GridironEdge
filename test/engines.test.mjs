@@ -31,6 +31,9 @@ const { toPlayerDatabase } = await import(join(ROOT, 'js/player-database.js'));
 const { runSeasonSimulation } = await import(join(ROOT, 'js/engine/simulator.js'));
 const { optimizeLineup } = await import(join(ROOT, 'js/engine/lineup-optimizer.js'));
 const { generateTradeProposals } = await import(join(ROOT, 'js/engine/trade-generator.js'));
+const { slotList, starterSlots, openStarterSlots, flexCount, startersCount, rosterSize,
+        DEFAULT_ROSTER_SETTINGS } = await import(join(ROOT, 'js/engine/lineup-rules.js'));
+const { survivalProbability, survivalPct } = await import(join(ROOT, 'js/engine/survival.js'));
 
 let passed = 0, failed = 0;
 function check(name, cond, detail = '') {
@@ -107,11 +110,29 @@ console.log('\nthe lineup optimizer fills the lineup and benches the injured');
     lineup === null ? 'returned null' : typeof lineup);
 
   if (lineup && lineup.starters) {
-    // Nine slots: QB, RB, RB, WR, WR, TE, FLEX, D/ST, K -- but this roster is
-    // drawn from the top of the board and may not hold a K or D/ST, so assert
-    // the ceiling and that nothing is seated twice.
-    check('it never seats more than the lineup holds', lineup.starters.length <= 9,
-      `${lineup.starters.length} starters`);
+    // A CEILING is what this used to assert -- starters.length <= 9 -- and four
+    // of the nine slots could then be deleted from the optimizer with the suite
+    // still green: the second RB, the second WR, the kicker and the defense all
+    // vanished undetected. Assert the exact slots the roster can actually fill.
+    const want = slotList(ROSTER_SETTINGS).filter((slot) => {
+      const eligible = slot.isFlex ? slot.pos : [slot.pos];
+      return roster.some((id) => db[id] && eligible.includes(db[id].position));
+    });
+    check('it seats every slot the roster can fill, and no more',
+      lineup.starters.length === want.length,
+      `${lineup.starters.length} starters against ${want.length} fillable slots`);
+    // Composition, not just the count: two RBs where the league starts one RB
+    // and one TE is the same number of players and a different lineup.
+    const wantPos = {};
+    slotList(ROSTER_SETTINGS).filter((sl) => !sl.isFlex).forEach((sl) => {
+      const have = roster.filter((id) => db[id] && db[id].position === sl.pos).length;
+      if (have) wantPos[sl.pos] = (wantPos[sl.pos] || 0) + 1;
+    });
+    const gotPos = {};
+    lineup.starters.forEach((p) => { gotPos[p.position] = (gotPos[p.position] || 0) + 1; });
+    check('every fixed slot is filled by its own position',
+      Object.keys(wantPos).every((pos) => (gotPos[pos] || 0) >= wantPos[pos]),
+      `wanted at least ${JSON.stringify(wantPos)}, got ${JSON.stringify(gotPos)}`);
     const ids = lineup.starters.map((p) => p && p.id);
     check('it never starts the same player twice',
       new Set(ids).size === ids.length);
@@ -139,6 +160,109 @@ console.log('\nthe lineup optimizer fills the lineup and benches the injured');
     guarded && guarded.starters
       && !guarded.starters.some((p) => p && p.id === outId),
     'an Out player was seated');
+}
+
+console.log('\nthe simulator declines rather than substituting a constant');
+{
+  // Every team projection fell back to the literal 105.0 when a roster could
+  // not be read, and a league loaded over the ESPN API resolved zero players on
+  // every team -- so the Championship page showed playoff odds, championship
+  // odds, a bye percentage and a named top rival, none of which came from a
+  // projection. 105.0 does not look like a missing value on screen.
+  const blind = leagueWith(0);
+  blind.teams.forEach((t) => { t.roster = []; });
+  const out = runSeasonSimulation(blind, 50);
+  check('a league with no readable roster returns unknown, not a percentage',
+    out.unknown === true, JSON.stringify(out).slice(0, 120));
+  check('and no odds at all', out.champPct === null && out.playoffPct === null
+    && out.byePct === null, `${out.champPct}/${out.playoffPct}/${out.byePct}`);
+  check('and says which teams it could not read',
+    /No roster in this league/.test(out.reason || ''), out.reason);
+
+  // Ids that resolve to nobody are the API case exactly: rosters full of
+  // numeric ESPN ids against a database keyed some other way.
+  const unresolved = leagueWith(0);
+  unresolved.teams.forEach((t) => { t.roster = ['9000001', '9000002']; });
+  check('rosters of unresolvable ids are unknown too',
+    runSeasonSimulation(unresolved, 50).unknown === true);
+
+  // One blind team is enough: every game it plays would be decided by a
+  // substituted score, and it plays half the league.
+  const partly = leagueWith(0);
+  partly.teams[3].roster = [];
+  const half = runSeasonSimulation(partly, 50);
+  check('one unreadable team is enough to decline', half.unknown === true);
+  check('and it says how many', /1 of 10 teams/.test(half.reason || ''), half.reason);
+
+  // And the ordinary case still answers.
+  check('a readable league still returns real odds',
+    typeof runSeasonSimulation(leagueWith(0), 50).champPct === 'number');
+}
+
+console.log('\nthe league\'s own slot counts drive the lineup');
+{
+  const roster = leagueWith(0).teams[0].roster;
+  const wide = { QB: 2, RB: 2, WR: 3, TE: 1, FLEX: 2, 'D/ST': 1, K: 1, benchCount: 5 };
+  const thin = { QB: 1, RB: 1, WR: 1, TE: 0, FLEX: 0, 'D/ST': 0, K: 0, benchCount: 9 };
+
+  const a = optimizeLineup(roster, db, wide, 'floor');
+  const b = optimizeLineup(roster, db, thin, 'floor');
+  // `settings` was accepted and never read: these two produced byte-identical
+  // starters, and three callers passed real league settings into it.
+  check('two incompatible leagues do not get the same lineup',
+    JSON.stringify(a.starters.map((p) => p.id)) !== JSON.stringify(b.starters.map((p) => p.id)));
+  check('a 2QB league starts two quarterbacks',
+    a.starters.filter((p) => p.position === 'QB').length === 2,
+    `${a.starters.filter((p) => p.position === 'QB').length} QBs`);
+  check('a 1QB/1RB/1WR league starts three players',
+    b.starters.length === 3, `${b.starters.length} starters`);
+
+  // The flex is ONE slot shared across RB/WR/TE. Counting it per position
+  // claimed eight flex-eligible starters where the lineup has six, so a
+  // complete roster still reported an open slot.
+  const full = openStarterSlots({ QB: 1, RB: 2, WR: 2, TE: 1, 'D/ST': 1, K: 1 });
+  check('a full standard roster reports one open slot, the flex',
+    Object.values(full).every((n) => n <= 1) && (full.RB === 1 && full.WR === 1 && full.TE === 1),
+    JSON.stringify(full));
+  const complete = openStarterSlots({ QB: 1, RB: 3, WR: 2, TE: 1, 'D/ST': 1, K: 1 });
+  check('and none once the flex is filled', Object.keys(complete).length === 0,
+    JSON.stringify(complete));
+
+  // The constants themselves, so a mutation to any of them is caught.
+  check('the default shape is 9 starters and 7 bench',
+    startersCount() === 9 && rosterSize({}) === 16,
+    `${startersCount()} + bench = ${rosterSize({})}`);
+  check('a 3-WR 2-flex league is 12 starters', startersCount(wide) === 12,
+    String(startersCount(wide)));
+  check('slotList numbers duplicate slots and labels the flex',
+    slotList().map((sl) => sl.label).join(',') === 'QB,RB1,RB2,WR1,WR2,TE,D/ST,K,FLEX',
+    slotList().map((sl) => sl.label).join(','));
+  check('two flex slots are labelled apart',
+    slotList(wide).filter((sl) => sl.isFlex).map((sl) => sl.label).join(',') === 'FLEX1,FLEX2');
+  check('the default settings and the default constants agree',
+    startersCount(DEFAULT_ROSTER_SETTINGS) === DEFAULT_ROSTER_SETTINGS.startersCount
+      && flexCount(DEFAULT_ROSTER_SETTINGS) === 1);
+  check('a league that starts no kicker has no kicker slot',
+    slotList(thin).every((sl) => sl.pos !== 'K'));
+}
+
+console.log('\none answer to "will he last until my next pick"');
+{
+  // Three implementations, two of them 110 lines apart in one file, answered
+  // 2%, 5% and 9% for the same player on the same board.
+  const early = { adp: 10 }, late = { adp: 200 };
+  check('a player long past his ADP is unlikely to last',
+    survivalPct(early, 60) < 5, String(survivalPct(early, 60)));
+  check('a player far ahead of his ADP is likely to last',
+    survivalPct(late, 60) > 95, String(survivalPct(late, 60)));
+  check('the curve is monotonic in the pick number',
+    survivalProbability(late, 40) > survivalProbability(late, 120));
+  check('it is a probability', survivalProbability(early, 60) >= 0
+    && survivalProbability(early, 60) <= 1);
+  // An unknown ADP used to be read as 200 -- late enough to be treated as
+  // certain to last, which is a claim, not an absence.
+  check('an unknown ADP has no answer', survivalProbability({ adp: null }, 60) === null
+    && survivalPct({}, 60) === null);
 }
 
 console.log('\nthe trade generator survives a roster it cannot trade from');

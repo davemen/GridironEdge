@@ -40,7 +40,7 @@
  * is the whole point, and a static chart cannot. See BACKTEST.md.
  */
 
-import { STARTER_SLOTS, FLEX_POS, N_FLEX, MAX_AT_POS, openStarterSlots }
+import { STARTER_SLOTS, FLEX_POS, N_FLEX, MAX_AT_POS, openStarterSlots, rosterSize }
   from './lineup-rules.js';
 
 const BENCH_WEIGHT = 0.12;       // depth is worth something, but far less than a starter
@@ -63,8 +63,7 @@ const seasonPoints = (p) => num(p.projectedPoints) * GAMES;
  */
 export function buildLeagueState(league, parById = null) {
   const db = league.playerDatabase || {};
-  const rosterSize = (league.rosterSettings?.startersCount || 9)
-    + (league.rosterSettings?.benchCount || 7);
+  const size = rosterSize(league);
   const selections = league.draftState?.selections || [];
 
   const teams = league.teams.map((t) => ({
@@ -94,7 +93,7 @@ export function buildLeagueState(league, parById = null) {
   });
 
   teams.forEach((t) => {
-    t.spotsLeft = Math.max(0, rosterSize - t.roster.length);
+    t.spotsLeft = Math.max(0, size - t.roster.length);
     // Every open slot needs at least $1 held back, so this is the true ceiling.
     t.maxBid = t.spotsLeft > 0 ? Math.max(0, t.budget - (t.spotsLeft - 1)) : 0;
     t.needs = openStarterSlots(t.counts);
@@ -107,7 +106,7 @@ export function buildLeagueState(league, parById = null) {
   return {
     teams,
     byId,
-    rosterSize,
+    rosterSize: size,
     myTeamId: league.myTeamId,
     // Null when the owner is unknown, never teams[0]. An auction room does not
     // always say which team is yours, and the scrape reports null rather than
