@@ -83,18 +83,27 @@ class ESPNClient {
       const prevLeague = previous ? store.state.leagues[previous] : null;
       const prevWasSandbox = !prevLeague || prevLeague.isSandbox || previous === SANDBOX;
 
-      if (previous === mapped.leagueId || !previous || prevWasSandbox) {
+      // Is the league on screen still being fed? Two rooms open at once means
+      // both are syncing seconds apart. A room you have since left goes quiet.
+      // Refusing every other league outright -- which the first version did --
+      // meant that moving to a new draft left the app stuck on the old one for
+      // good, showing rosters from a draft that had finished.
+      const STALE_MS = 45 * 1000;
+      const prevSeen = prevLeague && prevLeague.lastUpdated
+        ? Date.parse(prevLeague.lastUpdated) : 0;
+      const prevIsLive = prevSeen > 0 && (Date.now() - prevSeen) < STALE_MS;
+
+      if (previous === mapped.leagueId || !previous || prevWasSandbox || !prevIsLive) {
         if (previous !== mapped.leagueId) {
           console.log('[Gridiron Edge] Now showing league ' + mapped.leagueId
             + (mapped.leagueName ? ' (' + mapped.leagueName + ')' : ''));
         }
         store.state.competingLeagueId = null;
       } else {
-        // Two draft rooms open at once, both syncing. Taking whichever posted
+        // Both are live: two draft rooms open at once. Taking whichever posted
         // last made the app flip between drafts every few seconds and show a
-        // roster belonging to neither. Keep the league already on screen, put
-        // this one back in the drawer, and say it exists rather than swapping
-        // under you.
+        // roster belonging to neither. Keep the one on screen and say the other
+        // exists rather than swapping under you.
         store.state.currentLeagueId = previous;
         store.state.competingLeagueId = mapped.leagueId;
       }
