@@ -800,6 +800,15 @@ function watchlistKey(league, limit, options) {
   ]);
 }
 
+// A cold recompute still blocks the render thread for 36-101ms depending on
+// draft progress, and that lands in the same task as the sale that caused it.
+// Moving it to an idle callback was considered and NOT done: it would mean
+// painting the previous board -- the one still listing the player who just sold
+// -- for a frame or two, marked as recomputing. On a page whose purpose is
+// answering before the clock runs out, a brief block is better than a briefly
+// wrong answer, and the cache means it is paid once per sale rather than once
+// per tick.
+//
 // Four entries, oldest evicted. One was enough until you remember the app
 // renders a competing-league banner precisely because two rooms sync at once:
 // alternating between two rooms took a one-entry cache to a 0% hit rate and

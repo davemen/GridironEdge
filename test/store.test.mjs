@@ -105,6 +105,51 @@ console.log('\nrepeated saves collapse into one render');
   check('three saves in a turn notify once', notified === 1, `${notified} notifications`);
 }
 
+console.log('\nthe player database is stored once, not once per league');
+{
+  // Each league carried its own copy of the same 523 records: about 128KB
+  // serialised, 2.7MB at twenty-one leagues, against a 5-10MB quota.
+  store.state.leagues = {};
+  store.state.currentLeagueId = null;
+  const shared = {};
+  for (let i = 0; i < 200; i++) {
+    shared[`FP_p${i}`] = { id: `FP_p${i}`, key: `p ${i}`, name: `Player ${i}`,
+      position: 'WR', team: 'FA', projectedPoints: 10 };
+  }
+  store.state.playerDatabase = shared;
+
+  const withStub = (id) => ({
+    ...shared,
+    [`MOCK_${id}`]: { id: `MOCK_${id}`, key: `stub ${id}`, name: `Stub ${id}`,
+      position: 'RB', team: 'FA', projectedPoints: 4.5 },
+  });
+
+  store.saveLeague('one', { leagueId: 'one', teams: [], playerDatabase: withStub('a') });
+  const oneSize = (globalThis.localStorage.getItem('gridiron_edge_state') || '').length;
+  store.saveLeague('two', { leagueId: 'two', teams: [], playerDatabase: withStub('b') });
+  const twoSize = (globalThis.localStorage.getItem('gridiron_edge_state') || '').length;
+
+  // A second league must cost a stub, not a database.
+  const perLeague = twoSize - oneSize;
+  check('a second league adds a few hundred bytes, not a database',
+    perLeague < oneSize / 4, `${perLeague} chars for the second league, `
+      + `against ${oneSize} for the first`);
+
+  // And it must come back whole, including the stub only that league holds --
+  // a pick recorded under a stub id is unreadable without it.
+  store.load();
+  const one = store.state.leagues.one;
+  const two = store.state.leagues.two;
+  check('every shared record is restored',
+    Object.keys(one.playerDatabase).length === Object.keys(shared).length + 1,
+    `${Object.keys(one.playerDatabase).length} records`);
+  check("and each league keeps its own stubs, not the other's",
+    Boolean(one.playerDatabase.MOCK_a) && !one.playerDatabase.MOCK_b
+      && Boolean(two.playerDatabase.MOCK_b) && !two.playerDatabase.MOCK_a);
+  check('a shared record is intact', one.playerDatabase.FP_p7
+    && one.playerDatabase.FP_p7.name === 'Player 7');
+}
+
 console.log('\nstored state is bounded, and its keys are just keys');
 {
   // Nothing capped state.leagues, and each league carries its own copy of the

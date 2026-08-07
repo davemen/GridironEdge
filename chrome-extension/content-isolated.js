@@ -51,7 +51,12 @@
    * twice in opposite directions: first the worker lacked the byte cap this
    * one had, then this one lacked the count caps the worker gained. Each time,
    * one path accepted a payload the other refused.
-   */
+   *
+ * Both hops stringify the payload to measure it, so a sync pays for that twice.
+ * That is a deliberate trade: passing a size along would mean trusting a number
+ * from the sender, and the two gates staying textually identical is what stops
+ * them drifting apart again -- which has happened twice, in opposite directions.
+ */
   const MAX_PAYLOAD_BYTES = 5 * 1024 * 1024;
   const MAX_TEAMS = 32;
   const MAX_PICKS = 1000;

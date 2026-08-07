@@ -23,6 +23,45 @@ export function isSafeKey(key) {
   return k.length > 0 && k !== '__proto__' && k !== 'constructor' && k !== 'prototype';
 }
 
+
+/**
+ * Every league keeps its own copy of the player database, and every copy is
+ * the same 523 records plus a handful of unresolved stubs.
+ *
+ * Measured at about 128KB per league serialised: twenty-one leagues came to
+ * 2.7MB against a 5-10MB localStorage quota, and once save() starts failing
+ * the app runs on state that is never persisted. The cap in pruneLeagues
+ * bounds that; this removes most of the reason for the cap.
+ *
+ * The shared records are written once, at state.playerDatabase. A league
+ * stores only what it holds that the shared copy does not -- the stubs the
+ * mapper creates for names it could not resolve, which are genuinely
+ * per-league and must survive a reload, because a pick stored under a stub id
+ * is unreadable without it.
+ */
+const SHARED_DB = '__shared__';
+
+function shareDatabase() {
+  return function replacer(key, value) {
+    if (key !== 'playerDatabase' || !value || typeof value !== 'object') return value;
+    // `this` is the object being serialised: the state itself, or one league.
+    if (this === undefined || !this.leagueId) return value;   // the shared copy
+    const shared = store.state.playerDatabase || {};
+    const own = {};
+    Object.keys(value).forEach((id) => { if (!shared[id]) own[id] = value[id]; });
+    return { [SHARED_DB]: true, own };
+  };
+}
+
+function restoreSharedDatabase(state) {
+  const shared = state.playerDatabase || {};
+  Object.values(state.leagues || {}).forEach((league) => {
+    const db = league && league.playerDatabase;
+    if (!db || !db[SHARED_DB]) return;
+    league.playerDatabase = { ...shared, ...(db.own || {}) };
+  });
+}
+
 const defaultState = {
   currentLeagueId: null,
   leagues: {}, // Map of leagueId -> League data
@@ -49,6 +88,7 @@ class Store {
       // reading a property of undefined. Every collection gets a floor.
       const parsed = data ? JSON.parse(data) : {};
       this.state = { ...defaultState, ...(parsed && typeof parsed === 'object' ? parsed : {}) };
+      restoreSharedDatabase(this.state);
       if (!this.state.leagues || typeof this.state.leagues !== 'object') this.state.leagues = {};
       if (!this.state.playerDatabase || typeof this.state.playerDatabase !== 'object') {
         this.state.playerDatabase = {};
@@ -79,7 +119,7 @@ class Store {
    */
   save() {
     try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(this.state));
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(this.state, shareDatabase()));
       this.persistFailed = false;
     } catch (e) {
       // Quota is the realistic cause. Keep going and tell the interface, rather

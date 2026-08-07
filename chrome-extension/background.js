@@ -53,6 +53,11 @@ function broadcast(message) {
  * teams and picks as it likes and every one of them is rendered. This path is
  * reachable without passing through the content script's copy, so a bound
  * present in only one of them is a bound that is not enforced.
+ *
+ * Both hops stringify the payload to measure it, so a sync pays for that twice.
+ * That is a deliberate trade: passing a size along would mean trusting a number
+ * from the sender, and the two gates staying textually identical is what stops
+ * them drifting apart again -- which has happened twice, in opposite directions.
  */
 const MAX_PAYLOAD_BYTES = 5 * 1024 * 1024;
 const MAX_TEAMS = 32;
