@@ -974,14 +974,14 @@
         // exact equality, then blame team 1 for every miss. That silently piled
         // the whole draft onto one roster: if you were team 1 you owned
         // everybody, and if you were not, your roster never filled at all.
-        // Punctuation has to go. "Mac's Marauders" against "Macs Marauders
-        // Team", or a curly apostrophe against a straight one, is not a match by
-        // any string comparison -- and this is the third time in this codebase
-        // that an apostrophe has silently broken a lookup.
+        // Punctuation has to go. "Mac's Marauders" against "Macs Marauders",
+        // or a curly apostrophe against a straight one, is not a match by any
+        // string comparison -- and this is the third time in this codebase that
+        // an apostrophe has silently broken a lookup.
         const norm = (x) => String(x || '')
           .toLowerCase()
           .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
-          // Apostrophes are REMOVED, not spaced -- "Mac's" and "Daves" have to
+          // Apostrophes are REMOVED, not spaced -- "Mac's" and "Macs" have to
           // land on the same string. Turning them into spaces produces
           // "mac s marauders", which matches neither spelling. This is the
           // identical mistake that once priced Ja'Marr Chase at replacement.
