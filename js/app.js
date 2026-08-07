@@ -551,6 +551,81 @@ function renderApp(state) {
   }
 }
 
+/**
+ * What to do next, while the draft is still running.
+ *
+ * Waiver claims and trades are not available yet, so the highest-impact move is
+ * always the same shape: which slot is costing you the most, who is the best
+ * player left who fills it, and -- in an auction -- what he should cost and
+ * where to stop. Every figure here is computed, not asserted: the gap is
+ * measured against what the rest of the league gets from the same slot, and the
+ * prices come from the same engine the Live Draft tab uses.
+ */
+function draftMovesHtml(league, ranked, meRanked) {
+  const moves = highestImpactMoves(league, freeAgentsIn(league));
+  const isAuction = (league.draftState || {}).draftType === 'auction';
+  const nom = (league.draftState || {}).currentNomination;
+  let html = '';
+
+  // A live nomination outranks everything -- it is the only decision with a
+  // clock on it.
+  if (nom) {
+    const nomPlayer = findNominatedPlayer(league.playerDatabase || {},
+      typeof nom === 'object' ? nom.name : nom);
+    if (nomPlayer) {
+      try {
+        const bid = (league.draftState || {}).currentNominationBid || 0;
+        const rec = recommendBid(league, nomPlayer, bid);
+        const tone = rec.action === 'BID' ? 'high-confidence'
+          : rec.action === 'HOLD' ? 'medium-confidence' : 'low-confidence';
+        const badge = rec.action === 'BID' ? 'badge-green'
+          : rec.action === 'HOLD' ? 'badge-gold' : 'badge-red';
+        html += `
+          <div class="recommendation-item ${tone}">
+            <div class="item-action-title">On the block: ${nomPlayer.name} (${nomPlayer.position})
+              <span class="badge-solid ${badge}">${(ACTION_STYLE[rec.action] || {}).label || rec.action}</span></div>
+            <div class="item-details">
+              ${rec.recommendedBid > 0 ? `Bid $${rec.recommendedBid}, walk away at $${rec.maxBid}. ` : ''}
+              Market forecast $${rec.expectedPrice}. ${rec.reason}
+            </div>
+          </div>`;
+      } catch (e) { /* a nomination we cannot price is not worth a broken card */ }
+    }
+  }
+
+  const top = moves.filter((m) => m.candidate).slice(0, 3);
+  top.forEach((m) => {
+    const p = m.candidate;
+    let price = '';
+    if (isAuction) {
+      try {
+        const rec = recommendBid(league, p, 0);
+        if (rec.maxBid > 0) price = ` Worth up to $${rec.maxBid}; market says about $${rec.expectedPrice}.`;
+      } catch (e) { /* fall back to the points case below */ }
+    }
+    // An unfilled slot is not worth zero -- it is worth whatever is still
+    // signable there -- so the gain quoted is over that, not over nothing.
+    const why = m.empty
+      ? `${m.slot} is unfilled. The best you could still sign projects `
+        + `${m.currentPoints}/wk; he beats that by ${m.upgrade}.`
+      : `${m.slot} projects ${m.currentPoints}/wk, ${m.gap} behind the league median of ${m.leagueMedian}.`;
+    html += `
+      <div class="recommendation-item ${m.empty ? 'high-confidence' : 'medium-confidence'}">
+        <div class="item-action-title">Target ${p.name} (${p.position})
+          <span class="badge-solid ${m.empty ? 'badge-green' : 'badge-gold'}">+${m.upgrade}/wk</span></div>
+        <div class="item-details">${why}${price}</div>
+      </div>`;
+  });
+
+  if (!html) {
+    const done = meRanked && !meRanked.holes.length;
+    html = `<div class="empty-state">${done
+      ? 'Every starting slot is filled. Remaining picks are bench depth — take the best player left.'
+      : 'Nothing available improves a starting slot yet.'}</div>`;
+  }
+  return html;
+}
+
 // Render Dashboard (Home) View
 function renderHomePage(league = store.getActiveLeague()) {
   if (!league) return;
@@ -643,9 +718,14 @@ function renderHomePage(league = store.getActiveLeague()) {
   // Render top 3 recommendations list
   const listContainer = document.getElementById('home-recommendations');
   listContainer.innerHTML = '';
-  
-  const waiverRec = getWaiverRecommendations(league)[0];
-  const tradeRec = generateTradeProposals(league)[0];
+
+  // While the draft is running, waiver claims and trade proposals are not
+  // actions you can take -- and when both engines returned nothing the card
+  // said "Roster is fully optimized" over six empty starting slots. What is
+  // actually highest-impact during a draft is who to buy next and what to pay.
+  const drafting = picksMade < picksTotal;
+  const waiverRec = drafting ? null : getWaiverRecommendations(league)[0];
+  const tradeRec = drafting ? null : generateTradeProposals(league)[0];
   const activeAlert = myRoster.map(id => db[id]).find(p => p && p.injuryStatus !== 'Healthy');
 
   let itemsHtml = '';
@@ -674,8 +754,11 @@ function renderHomePage(league = store.getActiveLeague()) {
     `;
   }
 
+  if (drafting) itemsHtml = draftMovesHtml(league, ranked, meRanked) + itemsHtml;
+
   if (!itemsHtml) {
-    itemsHtml = '<div class="empty-state">No current actions needed. Roster is fully optimized.</div>';
+    itemsHtml = '<div class="empty-state">No current actions needed — every starting slot '
+      + 'is filled and nothing on the wire beats what you have.</div>';
   }
   listContainer.innerHTML = itemsHtml;
 
