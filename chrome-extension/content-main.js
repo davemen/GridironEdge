@@ -5,7 +5,7 @@
   // Version marker: lets a console check confirm whether Chrome is running the
   // current content script or a cached older one, which is the first thing to
   // rule out when a fix appears to have had no effect.
-  try { window.__GRIDIRON_EDGE_VERSION__ = '2026.08.07-dst2'; } catch (e) {}
+  try { window.__GRIDIRON_EDGE_VERSION__ = '2026.08.07-dst3'; } catch (e) {}
   console.log("[Gridiron Edge Sync] Main world script initialized (2026.08.05-bidfix).");
 
   let lastSyncKey = null;
@@ -162,6 +162,14 @@
       const elements = container.querySelectorAll('tr, [role="row"], [class*="row" i], [class*="item" i], div');
       const selections = [];
       const seenPicks = new Set();
+      // Why each row was thrown away. Rows are dropped silently by design --
+      // most of what this selector returns is not a pick -- but that also hides
+      // the real picks being lost, which is how two defenses went missing for
+      // three attempts running. Keep the ones that looked like a pick.
+      const rejected = [];
+      const note = (why, text) => {
+        if (rejected.length < 40 && /d\/?st|dst/i.test(text)) rejected.push({ why, text: text.slice(0, 120) });
+      };
 
       elements.forEach(el => {
         if (!el || typeof el.innerText !== 'string') return;
@@ -172,7 +180,7 @@
         // three discarded it, and with it the pick.
         const looksDst = parts.some((x) => DST_ALIASES.has(x.toUpperCase()))
           || parts.some((x) => NFL_NICKNAMES[x.toLowerCase()]);
-        if (parts.length < (looksDst ? 2 : 3)) return;
+        if (parts.length < (looksDst ? 2 : 3)) { note('too few tokens', text); return; }
         
         let pick = -1;
         let nameStartIdx = 1;
@@ -204,7 +212,7 @@
         for (let i = nameStartIdx; i < parts.length; i++) {
           if (nflTeams.has(parts[i].toUpperCase())) teamTokenCount++;
         }
-        if (teamTokenCount > 1) return;
+        if (teamTokenCount > 1) { note('names more than one NFL team', text); return; }
 
         // Take the FIRST team and position token, not the last. Scanning the
         // whole row and overwriting on every match meant a merged row pointed
@@ -224,9 +232,17 @@
         // the app, and the D/ST slot stayed empty however the draft went. The
         // team requirement is relaxed for defenses only; for everyone else it
         // still guards against a wrapper div swallowing the whole table.
-        const isDst = posIdx !== -1 && DST_ALIASES.has(parts[posIdx].toUpperCase());
+        // A row naming a club and no position is still a defense -- that is the
+        // one position whose name identifies it. Requiring a position token
+        // dropped the pick outright.
+        const nickIdx = parts.findIndex((x, i) => i >= nameStartIdx && NFL_NICKNAMES[x.toLowerCase()]);
+        const isDst = (posIdx !== -1 && DST_ALIASES.has(parts[posIdx].toUpperCase()))
+          || (posIdx === -1 && nickIdx !== -1);
 
-        if (posIdx !== -1 && (teamIdx !== -1 || isDst)) {
+        if (posIdx === -1 && !isDst) { note('no position token', text); return; }
+        if (posIdx !== -1 && teamIdx === -1 && !isDst) { note('no NFL team token', text); return; }
+
+        if (isDst || (posIdx !== -1 && teamIdx !== -1)) {
 
           const endIdx = teamIdx === -1 ? posIdx : Math.min(teamIdx, posIdx);
           const nameParts = parts.slice(nameStartIdx, endIdx);
@@ -275,7 +291,8 @@
           }
 
           const ident = (playerName + '|' + (isDst ? 'D/ST' : parts[posIdx])).toLowerCase();
-          if (!playerName || seenPicks.has(ident)) return;
+          if (!playerName) { note('no player name found', text); return; }
+          if (seenPicks.has(ident)) { note('duplicate of ' + playerName, text); return; }
           seenPicks.add(ident);
 
           selections.push({
@@ -289,6 +306,10 @@
           });
         }
       });
+
+      // Reachable from the console whether or not anything parsed, so a pick
+      // that was dropped can be seen rather than deduced.
+      try { window.__GRIDIRON_EDGE_REJECTED__ = rejected; } catch (e) { /* best effort */ }
 
       if (selections.length > 0) {
         selections.sort((a, b) => a.overallPickNumber - b.overallPickNumber);
@@ -700,6 +721,14 @@
                      nfl: p.playerTeam, ownerId: p.drafterTeamId, bid: p.bidAmount };
           }));
           console.log('MY PICKS:', mine.map(function (p) { return p.playerName; }).join(', ') || '(none)');
+          var rej = window.__GRIDIRON_EDGE_REJECTED__ || [];
+          if (rej.length) {
+            console.log('%c ROWS DROPPED THAT MENTIONED A DEFENSE ',
+              'background:#f59e0b;color:#000;font-weight:bold');
+            console.table(rej);
+          } else {
+            console.log('No defense-looking rows were dropped.');
+          }
           return d;
         };
       } catch (e) { /* console access is best effort */ }
