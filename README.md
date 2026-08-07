@@ -28,6 +28,9 @@ Works on **Chrome, Edge, Brave and any other Chromium browser, on macOS, Windows
 and Linux.** Earlier versions needed a local Python web server and a macOS-only
 launcher script; both are gone.
 
+**Safari** needs one build step and an Apple Developer account — see
+[SAFARI.md](SAFARI.md).
+
 ### How data gets in
 
 **During a draft.** The content script reads the draft room as it changes — a

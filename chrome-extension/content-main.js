@@ -867,7 +867,17 @@
       console.log("[Gridiron Edge Sync] Auto-sync detected change. Dispatching postMessage...", syncKey, "isDOMScraped:", data.isDOMScraped);
 
       // Dispatch to the window for content-isolated.js to pick up
-      window.postMessage({ type: 'GRIDIRON_EDGE_SYNC', data }, '*');
+      // Two ways out, because this script runs in two places. In the MAIN world
+      // it has no extension APIs and must hand off via postMessage to the
+      // isolated half; injected as a fallback into the isolated world it can
+      // message the worker itself. Targeted at ESPN rather than '*' so the
+      // scraped draft is not broadcast to every listener in the frame.
+      if (typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.id) {
+        chrome.runtime.sendMessage({ action: 'sync', data });
+      } else {
+        window.postMessage({ type: 'GRIDIRON_EDGE_SYNC', data },
+          'https://fantasy.espn.com');
+      }
     } catch (err) {
       console.warn("[Gridiron Edge Sync] Sync loop error:", err.message);
     }

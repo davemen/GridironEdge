@@ -48,7 +48,11 @@ globalThis.chrome = {
     onChanged: { addListener: (f) => listeners.storage.push(f),
                  removeListener: () => {} },
   },
-  tabs: { query: async () => [], create: async () => {}, update: async () => {} },
+  tabs: { query: async () => [], create: async () => {}, update: async () => {},
+          // The worker watches draft tabs so it can fall back to isolated-world
+          // injection where MAIN is unsupported (Safari).
+          onUpdated: { addListener: () => {} } },
+  scripting: { executeScript: async () => [] },
   action: { onClicked: { addListener: () => {} } },
 };
 globalThis.window = globalThis;

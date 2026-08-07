@@ -88,6 +88,49 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   return true;    // keep the channel open for the async sendResponse
 });
 
+/**
+ * MAIN-world injection is not guaranteed everywhere.
+ *
+ * The scraper is declared with `world: "MAIN"` because reading ESPN's own React
+ * store is the fastest route to draft state. Chromium honours that; other
+ * engines — Safari in particular — have supported it for less long and it cannot
+ * be assumed. If a draft tab has been open for a few seconds and has never
+ * reported, inject the same script into the isolated world instead. It loses the
+ * store shortcut and falls back to reading the rendered DOM, which is a path it
+ * already has and already tests.
+ */
+const FALLBACK_AFTER_MS = 6000;
+const reported = new Set();
+
+chrome.runtime.onMessage.addListener((message, sender) => {
+  if (message && message.action === 'sync' && sender && sender.tab) {
+    reported.add(sender.tab.id);
+  }
+  return false;
+});
+
+chrome.tabs.onUpdated.addListener((tabId, info, tab) => {
+  if (info.status !== 'complete') return;
+  if (!tab.url || !tab.url.startsWith('https://fantasy.espn.com/')) return;
+  if (!/\/draft/.test(tab.url)) return;
+
+  reported.delete(tabId);
+  setTimeout(async () => {
+    if (reported.has(tabId)) return;   // MAIN world is working; nothing to do
+    try {
+      await chrome.scripting.executeScript({
+        target: { tabId },
+        files: ['chrome-extension/content-main.js'],
+        // No `world` -- the isolated world, which every engine supports.
+      });
+      console.warn('[Gridiron Edge] MAIN-world injection did not report; '
+        + 'running the scraper in the isolated world instead (DOM only).');
+    } catch (e) {
+      console.warn('[Gridiron Edge] Fallback injection failed:', e.message);
+    }
+  }, FALLBACK_AFTER_MS);
+});
+
 // Clicking the toolbar icon opens the app itself, reusing the tab if it is
 // already open so a live draft does not end up with six copies of the page.
 chrome.action.onClicked.addListener(async () => {
