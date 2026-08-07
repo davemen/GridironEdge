@@ -5,7 +5,7 @@
   // Version marker: lets a console check confirm whether Chrome is running the
   // current content script or a cached older one, which is the first thing to
   // rule out when a fix appears to have had no effect.
-  try { window.__GRIDIRON_EDGE_VERSION__ = '2026.08.07-picks'; } catch (e) {}
+  try { window.__GRIDIRON_EDGE_VERSION__ = '2026.08.07-dst2'; } catch (e) {}
   console.log("[Gridiron Edge Sync] Main world script initialized (2026.08.05-bidfix).");
 
   let lastSyncKey = null;
@@ -139,6 +139,20 @@
       const container = findDraftSummaryContainer();
       if (!container) return null;
 
+  // Every club by nickname. A defense is the one "player" whose name IS a team,
+  // so a results row can put the nickname before the position token, after it,
+  // or on its own -- and a parser that assumes one order loses the pick. With
+  // this, the nickname can be found anywhere in the row.
+  const NFL_NICKNAMES = {
+    patriots: 'NE', ravens: 'BAL', '49ers': 'SF', bills: 'BUF', cowboys: 'DAL',
+    dolphins: 'MIA', jets: 'NYJ', eagles: 'PHI', chiefs: 'KC', raiders: 'LV',
+    broncos: 'DEN', chargers: 'LAC', vikings: 'MIN', bears: 'CHI', packers: 'GB',
+    lions: 'DET', buccaneers: 'TB', saints: 'NO', falcons: 'ATL', panthers: 'CAR',
+    commanders: 'WAS', giants: 'NYG', cardinals: 'ARI', seahawks: 'SEA', rams: 'LAR',
+    jaguars: 'JAX', colts: 'IND', titans: 'TEN', texans: 'HOU', steelers: 'PIT',
+    browns: 'CLE', bengals: 'CIN',
+  };
+
       const nflTeams = new Set(['DET', 'LAR', 'ATL', 'CIN', 'SEA', 'SF', 'GB', 'KC', 'BUF', 'DAL', 'PHI', 'MIA', 'NYJ', 'NE', 'LV', 'DEN', 'LAC', 'MIN', 'CHI', 'TB', 'NO', 'CAR', 'WAS', 'NYG', 'ARI', 'JAX', 'IND', 'TEN', 'HOU', 'BAL', 'PIT', 'CLE', 'FA']);
       // Feeds spell a team defense several ways, and the row is thrown away
       // entirely if the position token is not recognised.
@@ -154,7 +168,11 @@
         const text = el.innerText.trim();
         if (el.children.length > 8 || text.length > 150 || text.length < 10) return;
         const parts = text.split(/[\s\n]+/);
-        if (parts.length < 3) return;
+        // "Broncos D/ST" is a complete row and only two tokens long. Requiring
+        // three discarded it, and with it the pick.
+        const looksDst = parts.some((x) => DST_ALIASES.has(x.toUpperCase()))
+          || parts.some((x) => NFL_NICKNAMES[x.toLowerCase()]);
+        if (parts.length < (looksDst ? 2 : 3)) return;
         
         let pick = -1;
         let nameStartIdx = 1;
@@ -212,7 +230,8 @@
 
           const endIdx = teamIdx === -1 ? posIdx : Math.min(teamIdx, posIdx);
           const nameParts = parts.slice(nameStartIdx, endIdx);
-          const playerName = nameParts.join(' ');
+          let playerName = nameParts.join(' ');
+          let teamAbbr = teamIdx === -1 ? 'FA' : parts[teamIdx];
 
           const maxIdx = Math.max(teamIdx, posIdx);
           const remaining = parts.slice(maxIdx + 1);
@@ -243,6 +262,18 @@
           // Dedupe by who was bought, not by the leading number. That number is
           // not always a pick number, and two rows sharing one silently dropped
           // the second -- losing a real pick with no error anywhere.
+          // For a defense, take the nickname from anywhere in the row rather
+          // than only from the tokens before the position. Slicing by position
+          // yields an empty name whenever the row reads "D/ST Broncos", and an
+          // empty name meant the pick was dropped without a trace.
+          if (isDst) {
+            const nickTok = parts.find((x) => NFL_NICKNAMES[x.toLowerCase()]);
+            if (nickTok) {
+              playerName = nickTok;
+              if (teamIdx === -1) teamAbbr = NFL_NICKNAMES[nickTok.toLowerCase()];
+            }
+          }
+
           const ident = (playerName + '|' + (isDst ? 'D/ST' : parts[posIdx])).toLowerCase();
           if (!playerName || seenPicks.has(ident)) return;
           seenPicks.add(ident);
@@ -250,7 +281,7 @@
           selections.push({
             overallPickNumber: pick === -1 ? selections.length + 1 : pick,
             playerName,
-            playerTeam: teamIdx === -1 ? 'FA' : parts[teamIdx],
+            playerTeam: teamAbbr,
             // Normalise so the app sees one spelling.
             playerPosition: isDst ? 'D/ST' : parts[posIdx],
             drafterTeamName,
