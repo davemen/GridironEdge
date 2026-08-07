@@ -738,7 +738,12 @@ function renderHomePage(league = store.getActiveLeague()) {
   // Strength and weakness, measured against what the rest of the league gets
   // from the same starting slot, rather than a two-line guess about receiver
   // counts that could call an empty roster "Core Quarterback".
-  const moves = highestImpactMoves(league, freeAgentsIn(league));
+  let moves = [];
+  try {
+    moves = highestImpactMoves(league, freeAgentsIn(league));
+  } catch (err) {
+    console.error('Roster assessment failed:', err);
+  }
   const worst = moves[0];
   const bySlotGap = meRanked
     ? meRanked.slots.filter(s => s.player).map((s) => {
@@ -803,7 +808,21 @@ function renderHomePage(league = store.getActiveLeague()) {
     `;
   }
 
-  if (preseasonMoves) itemsHtml = draftMovesHtml(league, ranked, meRanked, drafting) + itemsHtml;
+  if (preseasonMoves) {
+    // A card that throws renders as nothing, which is indistinguishable from a
+    // card with nothing to say -- and that ambiguity has cost several rounds of
+    // guessing. Show the failure instead of swallowing it.
+    try {
+      itemsHtml = draftMovesHtml(league, ranked, meRanked, drafting) + itemsHtml;
+    } catch (err) {
+      console.error('Highest-impact moves failed:', err);
+      itemsHtml = `
+        <div class="recommendation-item low-confidence">
+          <div class="item-action-title">Could not work out your best moves</div>
+          <div class="item-details">${err.message}</div>
+        </div>` + itemsHtml;
+    }
+  }
 
   if (!itemsHtml) {
     itemsHtml = '<div class="empty-state">No current actions needed — every starting slot '
