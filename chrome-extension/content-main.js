@@ -5,7 +5,7 @@
   // Version marker: lets a console check confirm whether Chrome is running the
   // current content script or a cached older one, which is the first thing to
   // rule out when a fix appears to have had no effect.
-  try { window.__GRIDIRON_EDGE_VERSION__ = '2026.08.07-dst3'; } catch (e) {}
+  try { window.__GRIDIRON_EDGE_VERSION__ = '2026.08.07-dedupe'; } catch (e) {}
   console.log("[Gridiron Edge Sync] Main world script initialized (2026.08.05-bidfix).");
 
   let lastSyncKey = null;
@@ -161,7 +161,12 @@
       
       const elements = container.querySelectorAll('tr, [role="row"], [class*="row" i], [class*="item" i], div');
       const selections = [];
-      const seenPicks = new Set();
+      // ident -> { index, score }. First-wins was wrong: the same defense appears
+      // in the results table AND in the roster panel, and the panel's bare
+      // "Broncos D/ST / DEN / D/ST" row has no pick number and no drafter. Seen
+      // first, it won, and the real row carrying "Mac's Marauders" was thrown
+      // away as its duplicate -- so the pick existed but belonged to nobody.
+      const seenPicks = new Map();
       // Why each row was thrown away. Rows are dropped silently by design --
       // most of what this selector returns is not a pick -- but that also hides
       // the real picks being lost, which is how two defenses went missing for
@@ -267,6 +272,9 @@
 
           const drafterParts = remaining.filter(p => {
             if (p === '-' || p.startsWith('$') || p.startsWith('-$')) return false;
+            // A trailing position or team token is column noise, not a manager.
+            // Without this the roster panel's row named its drafter "D/ST".
+            if (positions.has(p.toUpperCase()) || nflTeams.has(p.toUpperCase())) return false;
             const num = parseFloat(p);
             if (!isNaN(num)) {
               if (p.includes('.') || num > 32) return false;
@@ -292,9 +300,21 @@
 
           const ident = (playerName + '|' + (isDst ? 'D/ST' : parts[posIdx])).toLowerCase();
           if (!playerName) { note('no player name found', text); return; }
-          if (seenPicks.has(ident)) { note('duplicate of ' + playerName, text); return; }
+
+          // Of two rows naming the same player, keep the one that says more:
+          // a real pick number and a named drafter beat a bare panel entry.
+          const score = (pick !== -1 ? 2 : 0)
+            + (drafterParts.length ? 2 : 0)
+            + (bidAmount !== null ? 1 : 0);
+          const prior = seenPicks.get(ident);
+          if (prior) {
+            if (score <= prior.score) { note('duplicate of ' + playerName, text); return; }
+            note('replaced a poorer row for ' + playerName, text);
+            selections[prior.index] = null;      // compacted below
+          }
           seenPicks.add(ident);
 
+          seenPicks.set(ident, { index: selections.length, score });
           selections.push({
             overallPickNumber: pick === -1 ? selections.length + 1 : pick,
             playerName,
@@ -306,6 +326,11 @@
           });
         }
       });
+
+      // Drop the placeholders left by rows that were superseded.
+      const kept = selections.filter(Boolean);
+      selections.length = 0;
+      kept.forEach((x) => selections.push(x));
 
       // Reachable from the console whether or not anything parsed, so a pick
       // that was dropped can be seen rather than deduced.
