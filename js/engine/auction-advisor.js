@@ -47,7 +47,7 @@ const MAX_AT_POS = { QB: 3, RB: 7, WR: 7, TE: 3, 'D/ST': 2, K: 2 };
 
 const BENCH_WEIGHT = 0.12;       // depth is worth something, but far less than a starter
 const MUST_BUY_POINTS = 10.0;    // lineup points lost by missing him
-const PLAN_CANDIDATES = 110;    // deep enough to include the $1-3 tail a roster is finished with
+const PLAN_CANDIDATES = 110;    // the priced part of the board
 const STARTER_MARGIN = 1.25;     // hold 25% over forecast for slots you must fill
 const GAMES = 17;
 
@@ -188,6 +188,38 @@ export function parValues(available, state, budget = 200) {
     });
   }
   return par;
+}
+
+/**
+ * How many points a dollar buys at the board's own prices.
+ *
+ * Par splits the league's spendable money in proportion to value over
+ * replacement, so the ratio between them IS the going exchange rate. It is what
+ * makes "this player is replaceable" a statement about money rather than taste:
+ * paying $x more than a substitute costs is worth it only if the upgrade beats
+ * what $x would buy anywhere else.
+ */
+export function pointsPerDollar(available, state, budget = 200) {
+  const replacementRank = { QB: 14, RB: 34, WR: 40, TE: 14, 'D/ST': 13, K: 13 };
+  const byPos = {};
+  available.forEach((p) => {
+    (byPos[p.position] = byPos[p.position] || []).push(seasonPoints(p));
+  });
+  Object.keys(byPos).forEach((k) => byPos[k].sort((a, b) => b - a));
+  const replacement = {};
+  Object.keys(byPos).forEach((pos) => {
+    const list = byPos[pos];
+    const idx = Math.min(list.length - 1, (replacementRank[pos] || 20) - 1);
+    replacement[pos] = list[Math.max(0, idx)] || 0;
+  });
+  const nRostered = Math.min(state.leagueSize * state.rosterSize, available.length);
+  const surplus = Math.max(1, state.leagueSize * (budget - state.rosterSize));
+  const total = available
+    .map((p) => Math.max(0, seasonPoints(p) - (replacement[p.position] || 0)))
+    .sort((a, b) => b - a)
+    .slice(0, nRostered)
+    .reduce((a, b) => a + b, 0);
+  return total / surplus;
 }
 
 /**
@@ -438,10 +470,30 @@ export function recommendBid(league, player, currentBid = 0, options = {}) {
   // It needs the cheap tail as well as the stars: real rosters are finished off
   // with $1-3 players, and a board of nothing but studs leaves the planner
   // unable to fill a roster at all.
-  const board = available
+  const ranked = available
     .map((p, i) => ({ player: p, par: par[i] }))
-    .sort((a, b) => b.par - a.par)
-    .slice(0, PLAN_CANDIDATES)
+    .sort((a, b) => b.par - a.par);
+  const picked = ranked.slice(0, PLAN_CANDIDATES);
+  // Taking the top N by par alone leaves the planner unable to fill a slot whose
+  // whole position is cheap. Every kicker and defense prices near the $1 floor,
+  // so none of them made the cut -- and a planner that cannot see a SECOND
+  // defense concludes the nominated one is irreplaceable and will pay anything
+  // for him. Guarantee a few bodies at every position the lineup requires.
+  const seen = new Set(picked.map((b) => b.player.id));
+  const onBoard = {};
+  picked.forEach((b) => { onBoard[b.player.position] = (onBoard[b.player.position] || 0) + 1; });
+  Object.keys(STARTER_SLOTS).forEach((pos) => {
+    // Only backfill a position the board cannot already staff. Topping up
+    // positions that are well represented would change what the planner buys
+    // everywhere, which is not the problem being solved here.
+    const want = (STARTER_SLOTS[pos] || 1) + 2;
+    const short = want - (onBoard[pos] || 0);
+    if (short <= 0) return;
+    ranked.filter((b) => b.player.position === pos && !seen.has(b.player.id))
+      .slice(0, short)
+      .forEach((b) => { picked.push(b); seen.add(b.player.id); });
+  });
+  const board = picked
     .map(({ player: p, par: v }) => ({ player: p, price: forecastPrice(p, v, state, infl) }));
 
   // Losing him means he is off the board entirely -- so both sides of the
@@ -479,7 +531,13 @@ export function recommendBid(league, player, currentBid = 0, options = {}) {
   // is filled, leftover money SHOULD go to the best bench available, and
   // clamping it to market would leave you tying every auction and finishing
   // with a row of $1 players.
-  const hasHoles = Object.keys(me.needs).length > 0;
+  // A hole only counts if the board can actually fill it. When the projection
+  // set held no kickers or defenses, those two slots were permanently open, so
+  // this stayed true for the entire draft and the cap never lifted. Guarding on
+  // what is actually available means an incomplete import cannot silently
+  // re-arm it.
+  const fillable = new Set(available.map((p) => p.position));
+  const hasHoles = Object.keys(me.needs).some((pos) => fillable.has(pos));
   let luxuryCap = null;
   if (!fillsSlot && hasHoles) {
     const { reserve, slots } = starterReserve(me, boardMinus);
@@ -494,6 +552,22 @@ export function recommendBid(league, player, currentBid = 0, options = {}) {
     // Depth is worth having at a discount and worth nothing at a premium.
     luxuryCap = Math.min(affordCap, Math.round(price));
     maxBid = Math.min(maxBid, luxuryCap);
+  }
+
+  // Price him against his substitute. The planner values a roster, not a player,
+  // and once your starters are set it sees leftover money as nearly worthless --
+  // so it would hand a whole budget to whoever filled the last slot, even a
+  // defense with an all-but-identical one behind him. The market disagrees: a
+  // dollar buys points at a known rate, so paying over the substitute's price is
+  // only worth the upgrade it actually buys.
+  const rate = pointsPerDollar(available, shell, startBudget);
+  const alt = boardMinus
+    .filter((b) => b.player.position === player.position)
+    .sort((a, b) => seasonPoints(b.player) - seasonPoints(a.player))[0];
+  if (alt && rate > 0) {
+    const upgrade = Math.max(0, seasonPoints(player) - seasonPoints(alt.player));
+    const subCap = Math.ceil(alt.price + upgrade / rate);
+    maxBid = Math.min(maxBid, Math.max(1, subCap));
   }
 
   const mustBuyThreshold = options.mustBuyPoints || MUST_BUY_POINTS;

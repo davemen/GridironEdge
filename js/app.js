@@ -1133,15 +1133,15 @@ function renderRosterPage(league = store.getActiveLeague()) {
   const starters = [];
   const bench = [];
 
+  // Best available at each slot, not first drafted. `players` is in draft
+  // order, so picking the first match put whoever was taken earliest in RB1 and
+  // could leave a better back on the bench.
+  const byProj = (a, b) => (b.projectedPoints || 0) - (a.projectedPoints || 0);
   slots.forEach(slot => {
-    // Find highest projection matching position
-    const match = players.find(p => {
-      if (allocatedIds.has(p.id)) return false;
-      if (slot.isFlex) {
-        return slot.pos.includes(p.position);
-      }
-      return p.position === slot.pos;
-    });
+    const match = players
+      .filter(p => !allocatedIds.has(p.id)
+                && (slot.isFlex ? slot.pos.includes(p.position) : p.position === slot.pos))
+      .sort(byProj)[0];
 
     if (match) {
       allocatedIds.add(match.id);
@@ -1194,11 +1194,29 @@ function renderRosterPage(league = store.getActiveLeague()) {
     rosterGrid.appendChild(slotRow);
   });
 
-  // Draw bench list
-  bench.forEach((b, index) => {
+  // Draw every bench slot the league has, filled or not. Drawing only the
+  // filled ones meant that early in a draft -- exactly when you most want to see
+  // how much room is left -- the bench section was invisible.
+  bench.sort(byProj);
+  const benchSlots = Math.max(bench.length,
+                              league.rosterSettings?.benchCount || bench.length);
+  for (let index = 0; index < benchSlots; index++) {
+    const b = bench[index];
     const slotRow = document.createElement('div');
     slotRow.className = 'roster-slot';
-    
+
+    if (!b) {
+      slotRow.innerHTML = `
+        <span class="slot-pos">BENCH</span>
+        <div class="player-info-cell"><span style="color:var(--text-muted);">Empty Slot</span></div>
+        <span class="player-opponent"></span>
+        <span class="player-proj"></span>
+        <div class="player-status" style="text-align:right;"></div>
+      `;
+      rosterGrid.appendChild(slotRow);
+      continue;
+    }
+
     let injBadge = '';
     if (b.injuryStatus !== 'Healthy') {
       injBadge = `<span class="badge-solid badge-red" style="font-size:0.65rem; margin-left:0.25rem;">${b.injuryStatus}</span>`;
@@ -1213,13 +1231,13 @@ function renderRosterPage(league = store.getActiveLeague()) {
         </div>
       </div>
       <span class="player-opponent">${b.opponent ? `vs ${b.opponent}` : 'FA'}</span>
-      <span class="player-proj" style="display:inline-flex; align-items:center;">${b.projectedPoints.toFixed(1)}${generateSparkline(b.matchProjs)}</span>
+      <span class="player-proj" style="display:inline-flex; align-items:center;">${(b.projectedPoints || 0).toFixed(1)}${generateSparkline(b.matchProjs)}</span>
       <div class="player-status" style="text-align:right;">
         <span class="badge-solid badge-gold" style="background:transparent; border-color:var(--text-muted); color:var(--text-secondary);">Bench</span>
       </div>
     `;
     rosterGrid.appendChild(slotRow);
-  });
+  }
 
   // Health assessment card
   const healthCard = document.getElementById('roster-health-analysis');

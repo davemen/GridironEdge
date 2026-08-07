@@ -7,10 +7,18 @@
  * cleanly the draft room was scraped. Fixing the scraper without fixing this
  * would have produced confident numbers built on nothing.
  *
- * data/projections-2026.json holds 459 players from the FantasyPros week-0
+ * data/projections-2026.json holds 523 players from the FantasyPros week-0
  * consensus of 88 analysts, with projections derived the way the backtest
  * validated: take a player's positional rank and read expected season points
  * off a curve fitted to what that rank actually returned in 2016-2025.
+ *
+ * That set covers all six roster positions. It originally held only the four
+ * offensive skill positions, so a kicker or a team defense could not be drafted
+ * at all -- and the auction engine, seeing two starting slots it could never
+ * fill, kept its "steer toward the holes" rule switched on for the whole draft.
+ * Kicker and D/ST scoring is not in the weekly stats as a fantasy total, so both
+ * curves are rebuilt from the underlying counting stats under ESPN's default
+ * scoring rather than assumed.
  * Converting rank to position-aware points was the single largest accuracy gain
  * measured (rank correlation 0.52 -> 0.62), because the receiver ranked 40th
  * overall and the quarterback ranked 40th are not the same asset.
@@ -21,6 +29,12 @@
  */
 
 const SUFFIX = /\b(jr|sr|ii|iii|iv|v)\b/g;
+// What a draft room appends to a team defense, in the shapes that survive
+// playerKey(): "D/ST" becomes "d st", "DST" stays, and some feeds spell it out.
+// Deliberately NOT global -- a /g regex carries lastIndex between .test() calls,
+// so the same name would match on one lookup and miss on the next.
+const DST_TAG = /\b(d st|dst|def|defense|special teams)\b/;
+const DST_TAG_ALL = new RegExp(DST_TAG.source, 'g');
 
 /** Match names across feeds that punctuate differently. */
 export function playerKey(name) {
@@ -112,6 +126,20 @@ export function findPlayer(db, name, position) {
 
   const exact = all.find((p) => p.key === key);
   if (exact) return exact;
+
+  // Team defenses are named by nickname in a draft room and by full team name
+  // in the consensus -- "Texans D/ST" against "Houston Texans" -- so neither an
+  // exact nor a contains match can join them. Compare on the nickname, which is
+  // the last word of the full name and unique across the league.
+  if (position === 'D/ST' || DST_TAG.test(key)) {
+    const nick = key.replace(DST_TAG_ALL, ' ').replace(/\s+/g, ' ').trim();
+    if (nick) {
+      const last = nick.split(' ').pop();
+      const hit = all.filter((p) => p.position === 'D/ST'
+        && (p.key === nick || p.key.split(' ').pop() === last));
+      if (hit.length === 1) return hit[0];
+    }
+  }
 
   const partial = all.filter(
     (p) => p.key.includes(key) || key.includes(p.key)
