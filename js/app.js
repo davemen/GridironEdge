@@ -1029,7 +1029,7 @@ export function renderHomePage(league = store.getActiveLeague()) {
   if (tradeRec) {
     itemsHtml += `
       <div class="recommendation-item medium-confidence">
-        <div class="item-action-title">Trade for ${esc(tradeRec.getPlayer.name)} <span class="badge-solid badge-gold">${tradeRec.probability}% Accept</span></div>
+        <div class="item-action-title">Trade for ${esc(tradeRec.getPlayer.name)}</div>
         <div class="item-details">Give ${esc(tradeRec.givePlayer.name)} to ${esc(tradeRec.opponentName)}. ${esc(tradeRec.myImpact)}</div>
       </div>
     `;
@@ -1171,7 +1171,7 @@ export function renderHomePage(league = store.getActiveLeague()) {
     row.innerHTML = `
       <td>${index + 1}</td>
       <td>${esc(t.teamName)} ${t.teamId === league.myTeamId ? '<span style="font-size:0.75rem; color:var(--accent-cyan);">(Me)</span>' : ''}</td>
-      <td>${t.record.wins}-${t.record.losses}</td>
+      <td>${int(t.record?.wins)}-${int(t.record?.losses)}</td>
       <td>${t.pointsScored.toFixed(1)}</td>
     `;
     standingsBody.appendChild(row);
@@ -1766,7 +1766,7 @@ function renderAuctionBoard(league, db, rec) {
         <div style="display:flex; align-items:center; gap:0.5rem;">
           <select class="input-control" id="nom-winner-team"
                   style="flex:2; padding:0.4rem; font-size:0.85rem; height:32px;">
-            ${league.teams.map(t => `<option value="${t.teamId}" ${t.teamId === league.myTeamId ? 'selected' : ''}>${esc(t.teamName)}</option>`).join('')}
+            ${league.teams.map(t => `<option value="${attr(t.teamId)}" ${t.teamId === league.myTeamId ? 'selected' : ''}>${esc(t.teamName)}</option>`).join('')}
           </select>
           <input type="number" class="input-control" id="nom-winner-price"
                  value="${initial.recommendedBid || 1}" min="1"
@@ -2321,7 +2321,7 @@ function waiverCardHtml(t, idx) {
       </div>
 
       ${t.triggers.length ? `<div class="item-alternatives">
-        <strong>Watch for:</strong> ${t.triggers.join(' · ')}</div>` : ''}
+        <strong>Watch for:</strong> ${t.triggers.map(esc).join(' · ')}</div>` : ''}
 
       <div style="margin-top:0.75rem; text-align:right;">
         <button class="btn-success" style="padding:0.35rem 0.75rem; font-size:0.8rem;"
@@ -2547,40 +2547,40 @@ export function renderTradesPage(league = store.getActiveLeague()) {
     const item = document.createElement('div');
     item.className = 'recommendation-item medium-confidence';
 
-    let probBadge = 'badge-gold';
-    if (p.probability > 70) probBadge = 'badge-green';
-    else if (p.probability < 40) probBadge = 'badge-red';
-
+    // There was an "Acceptance Probability" badge here, colour-coded green
+    // above 70 and red below 40, from a number the engine invented: 75 minus
+    // twelve times the points gap. Nothing measures whether trades are
+    // accepted. The points gap is what was actually computed, and it is
+    // already shown below as the weekly points change.
     item.innerHTML = `
       <div class="item-action-title">
         <span>Trade with <strong>${esc(p.opponentName)}</strong> (Manager: ${esc(p.managerName)})</span>
-        <span class="badge-solid ${probBadge}">${p.probability}% Acceptance Probability</span>
       </div>
       
       <div class="form-row" style="margin:0.75rem 0;">
         <div style="background:var(--bg-surface-elevated); padding:0.75rem; border-radius:4px; border:1px solid var(--border-color);">
           <span style="font-size:0.75rem; text-transform:uppercase; color:var(--text-muted); display:block;">You Give</span>
           <strong>${esc(p.givePlayer.name)}</strong> (${esc(p.givePlayer.position)}-${esc(p.givePlayer.team)})
-          <span style="font-size:0.8rem; display:block; color:var(--text-secondary); margin-top:0.25rem;">Proj: ${p.givePlayer.projectedPoints} pts</span>
+          <span style="font-size:0.8rem; display:block; color:var(--text-secondary); margin-top:0.25rem;">Proj: ${num(p.givePlayer.projectedPoints)} pts</span>
         </div>
         <div style="background:var(--bg-surface-elevated); padding:0.75rem; border-radius:4px; border:1px solid var(--border-color);">
           <span style="font-size:0.75rem; text-transform:uppercase; color:var(--text-muted); display:block;">You Get</span>
           <strong>${esc(p.getPlayer.name)}</strong> (${esc(p.getPlayer.position)}-${esc(p.getPlayer.team)})
-          <span style="font-size:0.8rem; display:block; color:var(--accent-cyan); margin-top:0.25rem;">Proj: ${p.getPlayer.projectedPoints} pts</span>
+          <span style="font-size:0.8rem; display:block; color:var(--accent-cyan); margin-top:0.25rem;">Proj: ${num(p.getPlayer.projectedPoints)} pts</span>
         </div>
       </div>
 
       <div style="font-size:0.85rem; color:var(--text-secondary); display:flex; flex-direction:column; gap:0.25rem; margin-bottom:0.75rem;">
-        <span><strong>Championship Impact:</strong> ${p.myImpact}</span>
-        <span><strong>Value to Partner:</strong> ${p.oppImpact}</span>
-        <span><strong>Risk Factor:</strong> ${p.risk}</span>
+        <span><strong>Weekly points change:</strong> ${esc(p.myImpact)}</span>
+        <span><strong>Value to Partner:</strong> ${esc(p.oppImpact)}</span>
+        <span><strong>Risk Factor:</strong> ${esc(p.risk)}</span>
       </div>
 
       <div style="background:rgba(255,255,255,0.02); padding:0.75rem; border-radius:4px; border:1px solid var(--border-color); margin-bottom:0.75rem;">
         <span style="font-size:0.75rem; font-weight:700; color:var(--text-secondary); display:block; margin-bottom:0.25rem;">Negotiation Ranges:</span>
-        <span style="display:block; font-size:0.8rem;">Open Offer: ${p.negotiation.open}</span>
-        <span style="display:block; font-size:0.8rem;">Counter Limit: ${p.negotiation.counter}</span>
-        <span style="display:block; font-size:0.8rem; color:var(--accent-red);">Walk-Away: ${p.negotiation.walkAway}</span>
+        <span style="display:block; font-size:0.8rem;">Open Offer: ${esc(p.negotiation.open)}</span>
+        <span style="display:block; font-size:0.8rem;">Counter Limit: ${esc(p.negotiation.counter)}</span>
+        <span style="display:block; font-size:0.8rem; color:var(--accent-red);">Walk-Away: ${esc(p.negotiation.walkAway)}</span>
       </div>
 
       <div class="form-group" style="margin-bottom:0.75rem;">
@@ -2632,7 +2632,7 @@ export function renderLeaguePage(league = store.getActiveLeague()) {
   league.teams.forEach(t => {
     const opt = document.createElement('option');
     opt.value = t.teamId;
-    opt.innerHTML = `${esc(t.teamName)} (Wins: ${t.record.wins})`;
+    opt.innerHTML = `${esc(t.teamName)} (Wins: ${int(t.record?.wins)})`;
     selector.appendChild(opt);
   });
 
@@ -2686,7 +2686,7 @@ function drawOpponentProfile(teamId, league) {
       <div style="display:flex; flex-direction:column; gap:1rem; font-size:0.9rem;">
         <div>
           <span style="color:var(--text-muted); display:block; font-size:0.75rem; text-transform:uppercase;">Remaining FAAB</span>
-          <span style="font-size:1.5rem; font-weight:800; color:var(--accent-green);">$${team.faabRemaining}</span>
+          <span style="font-size:1.5rem; font-weight:800; color:var(--accent-green);">$${int(team.faabRemaining)}</span>
         </div>
         <div>
           <span style="color:var(--text-muted); display:block; font-size:0.75rem; text-transform:uppercase;">Roster Strengths</span>
@@ -2963,7 +2963,7 @@ export function renderAlertsPage(league = store.getActiveLeague()) {
     alertsHtml += `
       <div class="recommendation-item medium-confidence">
         <div class="item-action-title">Trade Target: ${esc(tradeRec.getPlayer.name)} (${esc(tradeRec.getPlayer.position)}) <span class="badge-solid badge-gold">Proposal</span></div>
-        <div class="item-details">Offer ${esc(tradeRec.givePlayer.name)} to ${esc(tradeRec.opponentName)}. Estimated ${tradeRec.probability}% acceptance rate.</div>
+        <div class="item-details">Offer ${esc(tradeRec.givePlayer.name)} to ${esc(tradeRec.opponentName)}.</div>
       </div>
     `;
   }

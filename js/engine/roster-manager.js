@@ -613,7 +613,17 @@ export function evaluateWaivers(league, options = {}) {
   const benchReport = evaluateBench(league, options);
   const phase = benchReport.phase;
   const myTeam = league.teams.find((t) => t.teamId === league.myTeamId);
-  if (!myTeam) return { phase, targets: [], weakest: null, topMove: null };
+  // The SAME shape as the full return, not a subset. This dropped `bench` and
+  // `missingInputs`, and renderWaiversPage reads both unguarded -- so a league
+  // whose owner is unknown, which is the ordinary state of a scraped auction
+  // room, took the whole waivers page down with a TypeError instead of showing
+  // the empty state two lines below it.
+  if (!myTeam) {
+    return {
+      phase, targets: [], bench: benchReport.bench, weakest: benchReport.weakest,
+      topMove: null, missingInputs: MISSING_INPUTS,
+    };
+  }
 
   const roster = rosterOf(myTeam, db);
   const freeAgents = benchReport.freeAgents || freeAgentPool(league, db);

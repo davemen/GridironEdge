@@ -82,20 +82,27 @@ export function generateTradeProposals(league) {
         // Calculate points difference
         const valDiff = getPlayer.projectedPoints - givePlayer.projectedPoints;
         
-        // Calculate acceptance probability based on trade parity
-        // Trade is realistic if valuations are close (within 3 points)
-        const parity = Math.abs(valDiff);
-        let acceptanceProb = 75 - Math.round(parity * 12);
-        
-        // Boost probability if it solves clear gaps for both teams
-        acceptanceProb = Math.min(90, Math.max(25, acceptanceProb + 10));
+        // There was an "acceptance probability" here -- 75 minus twelve times
+        // the points gap, clamped to 25..90 -- rendered as "85% Acceptance
+        // Probability" and colour-coded green above 70, red below 40. Nothing
+        // measures it: BACKTEST.md has no entry for whether anyone accepts
+        // anything, and it did not read the opponent's needs, his roster or a
+        // single trade that has ever happened. A confidence colour on a number
+        // that came from nowhere is the most convincing kind of invention.
+        //
+        // What IS computed is the points gap, so that is what is reported.
 
         // Negotiation boundaries
         // The positions were literally "WR" and "RB" here whatever the players
         // actually were, so a QB-for-TE offer described itself as WR-for-RB.
         const openOffer = `Trade ${givePlayer.name} (${givePlayer.position}-${givePlayer.team})`
           + ` for ${getPlayer.name} (${getPlayer.position}-${getPlayer.team})`;
-        const counterLimit = `Include a late-round draft swap or $5 FAAB budget addition.`;
+        // Both of these were fixed sentences. "Include a late-round draft swap
+        // or $5 FAAB budget addition" is also nonsense in an auction league,
+        // which is the only kind this app scrapes.
+        const counterLimit = `Even value here is ${getPlayer.name} for ${givePlayer.name}`
+          + ` straight up: the gap is ${Math.abs(Math.round(valDiff * 10) / 10)}`
+          + ` projected points a week.`;
         const walkAway = `Do not accept if they demand an additional starting ${weGivePos}.`;
 
         // Direct message template
@@ -114,7 +121,6 @@ export function generateTradeProposals(league) {
             + ` projected points a week at ${getPlayer.position}`,
           oppImpact: `They get ${givePlayer.projectedPoints} projected points a week`
             + ` at ${givePlayer.position}`,
-          probability: acceptanceProb,
           risk: getPlayer.injuryStatus !== 'Healthy' ? 'High (injury concern)' : 'Low',
           negotiation: {
             open: openOffer,
@@ -159,13 +165,21 @@ export function generateTradeProposals(league) {
           // primary path -- "a points figure with a percent sign stuck on it"
           // -- while the fallback kept the invented number.
           myImpact: `+${Math.round((get.projectedPoints - give.projectedPoints) * 10) / 10} pts/wk`,
-          oppImpact: `Balances scoring rotation`,
-          probability: 55,
-          risk: 'Low',
+          // "Balances scoring rotation" was a fixed sentence, `probability: 55`
+          // a fixed number rendered as "55% Acceptance Probability", and the
+          // three negotiation lines were fixed strings that named no player.
+          // Every one of them read as analysis of this specific trade.
+          oppImpact: `They get ${give.projectedPoints} projected points a week`
+            + ` at ${give.position}`,
+          risk: get.injuryStatus && get.injuryStatus !== 'Healthy'
+            ? `High (${get.name} is ${get.injuryStatus})` : 'Low',
           negotiation: {
-            open: `Trade ${give.name} for ${get.name}`,
-            counter: `Swap bench players of similar position`,
-            walkAway: `Do not add premium draft picks`
+            open: `Trade ${give.name} (${give.position}-${give.team})`
+              + ` for ${get.name} (${get.position}-${get.team})`,
+            counter: `The gap is `
+              + `${Math.abs(Math.round((get.projectedPoints - give.projectedPoints) * 10) / 10)}`
+              + ` projected points a week.`,
+            walkAway: `Do not accept if they demand an additional starting ${give.position}.`
           },
           dmText: `Hey ${opponent.managerName}, interested in swapping ${give.name} for ${get.name}? Might help balance out both our rosters.`
         });
