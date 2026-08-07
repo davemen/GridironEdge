@@ -69,6 +69,17 @@ class ESPNClient {
       
       const mapped = this.mapESPNLeague(parsed);
       store.saveLeague(mapped.leagueId, mapped);
+      // Saving it was not enough: the app renders whichever league is ACTIVE,
+      // and this never made the imported one active. So once the sandbox had
+      // been loaded even briefly, the mock league stayed on screen forever --
+      // "Championship Bound", mock standings, an assessment computed on invented
+      // rosters -- while every live sync landed in the store unseen. A draft you
+      // are syncing is the league you are looking at.
+      if (store.state.currentLeagueId !== mapped.leagueId) {
+        console.log('[Gridiron Edge] Now showing league ' + mapped.leagueId
+          + (mapped.leagueName ? ' (' + mapped.leagueName + ')' : ''));
+        store.setActiveLeagueId(mapped.leagueId);
+      }
       return mapped;
     } catch (e) {
       console.error('Failed to import scraped payload:', e);
@@ -595,7 +606,8 @@ class ESPNClient {
    */
   loadMockLeague() {
     store.updatePlayerDatabase(mockPlayers);
-    store.saveLeague(mockLeague.leagueId, mockLeague);
+    // Flagged so the interface can say out loud that nothing on screen is real.
+    store.saveLeague(mockLeague.leagueId, { ...mockLeague, isSandbox: true });
     store.setActiveLeagueId(mockLeague.leagueId);
   }
 }

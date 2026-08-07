@@ -428,6 +428,23 @@ function setupModals() {
   });
 }
 
+/** Says plainly when the league on screen is demo data rather than yours. */
+function renderSandboxBanner(league) {
+  let el = document.getElementById('sandbox-banner');
+  const isMock = Boolean(league && (league.isSandbox || league.leagueId === '48317-espn-mock'));
+  if (!isMock) { if (el) el.remove(); return; }
+  if (!el) {
+    el = document.createElement('div');
+    el.id = 'sandbox-banner';
+    el.style.cssText = 'background:linear-gradient(90deg,#7c2d12,#b45309);color:#fff;'
+      + 'padding:0.6rem 1rem;font-size:0.85rem;font-weight:600;text-align:center;'
+      + 'border-bottom:1px solid #f59e0b;';
+    document.body.insertBefore(el, document.body.firstChild);
+  }
+  el.innerHTML = 'SANDBOX — every team, roster and number on screen is demo data, '
+    + 'not your league. Sync a draft, or import a league, to replace it.';
+}
+
 // Central Redraw Router
 function renderApp(state) {
   const league = store.getActiveLeague();
@@ -447,6 +464,10 @@ function renderApp(state) {
   // Show navigation bar
   navBar.style.display = 'flex';
   views.setup.classList.remove('active');
+
+  // The sandbox is invented data. It looked identical to a real league on every
+  // screen, so a stale one could be mistaken for a broken sync for a long time.
+  renderSandboxBanner(league);
 
   // Re-draw active navigation tab links
   const links = navBar.querySelectorAll('.nav-link');
@@ -605,31 +626,19 @@ function renderHomePage(league = store.getActiveLeague()) {
   if (weekLabel) weekLabel.textContent = week5Match ? ` (Week ${week5Match.week})` : '';
 
   if (!week5Match) {
-    // No fixture, but the league is still rankable: show this roster against
-    // the strongest one in it, which is the matchup that actually matters
-    // before a season starts.
-    const ranked = rankTeams(league);
-    const me = ranked.find(t => t.isMe);
-    const rival = ranked.find(t => !t.isMe);
-    document.getElementById('match-my-name').innerHTML =
-      (myTeam?.teamName || 'My Team') + (me ? ` <span style="font-size:0.8rem; color:var(--text-muted);">#${me.rank} of ${ranked.length}</span>` : '');
-    document.getElementById('match-my-proj').innerHTML = me ? me.points.toFixed(1) : '—';
-    document.getElementById('match-opp-name').innerHTML = rival
-      ? `${rival.teamName} <span style="font-size:0.8rem; color:var(--text-muted);">league best</span>` : '—';
-    document.getElementById('match-opp-proj').innerHTML = rival ? rival.points.toFixed(1) : '—';
-
-    const hint = document.getElementById('matchup-strategy-hint');
-    if (me && rival) {
-      const gap = me.points - rival.points;
-      const holes = me.holes.length
-        ? ` You still have nothing starting at ${me.holes.join(', ')}, worth about `
-          + `${Math.round(ranked.reduce((a, t) => a + t.points, 0) / ranked.length / 9)} points a week each.`
-        : '';
-      hint.innerHTML = `<strong>Preseason, no schedule yet.</strong><br>`
-        + `Ranked on the lineup each roster can field today, you are `
-        + (gap >= 0 ? `the strongest team in the league` : `${Math.abs(gap).toFixed(1)} points a week behind the best`)
-        + `.${holes} Weekly matchup advice starts once fixtures exist.`;
-    } else {
+    // Empty, and said so. There is no fixture, so there is no matchup -- and a
+    // head-to-head card filled with something else is the fake data this was
+    // meant to remove. The real preseason read lives on the standings and the
+    // championship plan, where it is labelled for what it is.
+    document.getElementById('match-my-name').innerHTML = '';
+    document.getElementById('match-my-proj').innerHTML = '—';
+    document.getElementById('match-opp-name').innerHTML = '';
+    document.getElementById('match-opp-proj').innerHTML = '—';
+    document.getElementById('matchup-strategy-hint').innerHTML =
+      '<strong>No matchup yet.</strong><br>This league has no schedule, so there is '
+      + 'no opponent to analyse. Roster strength and championship odds are on the '
+      + 'Championship Plan tab.';
+  } else {
       hint.innerHTML = '<strong>No schedule and no roster yet.</strong><br>Connect a league to begin.';
     }
   } else {
