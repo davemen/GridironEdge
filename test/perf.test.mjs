@@ -29,9 +29,10 @@
 import { readFileSync } from 'fs';
 import { fileURLToPath } from 'url';
 import { join } from 'path';
-import { toPlayerDatabase, findPlayer, noteChange, dbRevision, cloneDatabase }
+import { toPlayerDatabase, findPlayer, linearScanCount as linearScans, noteChange, dbRevision, cloneDatabase }
   from '../js/player-database.js';
-import { recommendBid, targetBoard, planValue, lineupPoints, targetBoardRecomputes as recomputes }
+import { recommendBid, targetBoard, planValue, lineupPoints, targetBoardRecomputes as recomputes,
+         lineupShapeBuilds as shapeBuilds }
   from '../js/engine/auction-advisor.js';
 
 const ROOT = join(fileURLToPath(new URL('.', import.meta.url)), '..');
@@ -159,12 +160,28 @@ console.log('\nname resolution is indexed, and actually resolves');
     names.forEach((n) => { if (findPlayer(db, n)) resolved++; });
   });
   check('findPlayer resolves the names it is given', resolved >= 195, `${resolved}/200`);
-  check('200 lookups stay under budget', ms < budget(8), `${ms.toFixed(1)}ms`);
+  // Counted, not timed. `ms < budget(8)` against a measured 0.4ms was 20x of
+  // slack, and it was timing the machine: the thing it exists to catch is the
+  // index being bypassed, and that IS the linear scan. 200 indexed lookups
+  // should scan zero times.
+  const scansBefore = linearScans();
+  names.forEach((n) => findPlayer(db, n));
+  check('and does it from the index, without a linear scan',
+    linearScans() - scansBefore <= 5,
+    `${linearScans() - scansBefore} full-board scans for 200 known names`);
 
   // A record with no key must not defeat the index: it once cost 51ms per 190.
   const polluted = { ...db, NO_KEY: { id: 'NO_KEY', name: 'Keyless', position: 'WR' } };
-  const dirty = fastest(() => names.forEach((n) => findPlayer(polluted, n)));
-  check('one keyless record does not collapse the index', dirty < budget(12), `${dirty.toFixed(1)}ms`);
+  const dirtyBefore = linearScans();
+  names.forEach((n) => findPlayer(polluted, n));
+  check('one keyless record does not collapse the index',
+    linearScans() - dirtyBefore <= 5,
+    `${linearScans() - dirtyBefore} full-board scans with a keyless record present`);
+  // The timings stay visible, because a change in the constant factor is worth
+  // seeing even when it is not the gate.
+  console.log(`       (200 indexed lookups ${ms.toFixed(2)}ms, `
+    + `with a keyless record ${fastest(() => names.forEach((n) => findPlayer(polluted, n))).toFixed(2)}ms`
+    + ` -- reported, not asserted)`);
 }
 
 console.log('\nthe hot path stays within budget');
@@ -185,20 +202,39 @@ console.log('\nthe hot path stays within budget');
     fresh.leagueId = `COLD_${coldN++}`;
     targetBoard(fresh, 8);
   });
-  // A generous ceiling on purpose. node --test runs these files in PARALLEL, so
-  // this assertion measures the machine as much as the code: at a 400ms budget
-  // it went red on every full-suite run while passing standalone. It is here to
-  // catch a regression of the order this round actually produced -- a lineup
-  // shape allocated inside the innermost loop took the cold board from ~205ms
-  // to ~500ms -- not to police tens of milliseconds. The recompute counter
-  // below is what guards the cache; this guards the algorithm.
-  check('a cold targetBoard stays under 900ms', tb < budget(900), `${tb.toFixed(1)}ms`);
-  const rb = fastest(() => recommendBid(l, player, 0));
-  // 12ms was set against a best-of-three, which is not what a user waits on.
-  // The median of the same call on the same machine is 10-11ms with a p90 of
-  // ~15: the budget moved because the measurement got honest, not because the
-  // engine got slower. Anything approaching 25ms is the regression this is for.
-  check('recommendBid stays under 25ms', rb < budget(25), `${rb.toFixed(1)}ms`);
+  /* -------------------------------------------------------------------------
+   * Count the work, do not time it.
+   *
+   * This was `a cold targetBoard stays under 900ms`, and it failed both ways
+   * at once. BLIND: round 8 re-introduced the exact regression the old comment
+   * named -- the lineup shape allocated inside lineupPointsFromGroups -- and
+   * the budget passed 3 runs in 5 at a median of 588ms. FLAKY: on a healthy
+   * tree it was red 2 runs in 5 standalone, and six UNMUTATED copies of the
+   * tree run in parallel came back six of six red, at 1021-1151ms. That
+   * flakiness is not cosmetic -- it made a whole mutation campaign report 224
+   * of 224 mutants killed, because every mutant "failed" the suite.
+   *
+   * The same call is 115ms in a warm process and 664ms as the first thing a
+   * process does. The budget was measuring JIT warm-up and machine load.
+   *
+   * The count is not. Hoisted: 234 shape builds per cold board, one per
+   * planValue. Inside the loop: 271,273. A ceiling of 1,000 is two orders of
+   * magnitude below the regression and four above the correct value, so it
+   * cannot flake and cannot miss.
+   * --------------------------------------------------------------------- */
+  const shapesBefore = shapeBuilds();
+  const coldLeague = JSON.parse(JSON.stringify(l));
+  coldLeague.leagueId = `COLD_COUNT_${coldN++}`;
+  targetBoard(coldLeague, 8);
+  const built = shapeBuilds() - shapesBefore;
+  check('a cold targetBoard builds one lineup shape per plan, not per lineup',
+    built > 0 && built < 1000, `${built} shape builds`);
+  // The timings are still measured and still printed, because a 10x regression
+  // is worth seeing -- they are just no longer the gate. Anything the counter
+  // cannot see is a change in the constant factor, and this is where it shows.
+  console.log(`       (cold targetBoard ${tb.toFixed(0)}ms, `
+    + `recommendBid ${fastest(() => recommendBid(l, player, 0)).toFixed(1)}ms `
+    + `-- reported, not asserted: see the comment above)`);
 }
 
 console.log('\nthe watchlist is not recomputed for a bid that cannot change it');
@@ -290,9 +326,16 @@ console.log('\nevery input the board reads is in the cache key');
 
   // One entry meant two rooms alternating never hit -- worse than no cache,
   // because it paid for the key and recomputed anyway.
+  // Counted, not timed. This was `alt < budget(20)` against a measured 0.1ms --
+  // 200x of slack, on an assertion whose exact instrument was already imported
+  // at the top of this file. WATCHLIST_CACHE_MAX 4 -> 1, the precise regression
+  // the comment at auction-advisor.js:844 describes ("0% hit rate and 127.9ms
+  // per tick"), passed it.
   targetBoard(A, 6); targetBoard(B, 6);
-  const alt = fastest(() => { for (let i = 0; i < 20; i++) { targetBoard(A, 6); targetBoard(B, 6); } });
-  check('two rooms alternating still hit the cache', alt < budget(20), `${alt.toFixed(1)}ms for 40 calls`);
+  const altBefore = recomputes();
+  for (let i = 0; i < 20; i++) { targetBoard(A, 6); targetBoard(B, 6); }
+  check('two rooms alternating still hit the cache',
+    recomputes() === altBefore, `${recomputes() - altBefore} recomputes over 40 calls`);
 
   // A rewrite of every projection at the SAME key count must move the board.
   //

@@ -286,7 +286,27 @@ export function forecastPrice(player, par, state, infl) {
  * of a cold board in slotCount plus its forEach, with GC behind it. The cold
  * board went from ~205ms to ~500ms and took the perf suite red.
  */
+/**
+ * Counted, because a wall-clock budget could not see the regression it named.
+ *
+ * test/perf.test.mjs guarded this with "a cold targetBoard stays under 900ms".
+ * Round 8 re-introduced the exact regression that comment describes -- the
+ * shape allocated inside lineupPointsFromGroups -- and the budget PASSED, 3
+ * runs in 5, at a median of 588ms. It was also red 2 runs in 5 on a healthy
+ * tree, and six unmutated copies run in parallel came back six of six red.
+ * A guard that fails on good code and passes on bad code is worse than none:
+ * it trains you to re-run until it is green.
+ *
+ * The count is the thing that actually changed. Hoisted, a cold board calls
+ * this 235 times -- once per planValue. Inside the loop it was 271,273. No
+ * machine load can move those numbers, so the counter catches deterministically
+ * what four seconds of timing could not catch at all.
+ */
+let shapeBuilds = 0;
+export function lineupShapeBuilds() { return shapeBuilds; }
+
 function lineupShape(settings) {
+  shapeBuilds++;
   const slots = starterSlots(settings);
   return { slots, positions: Object.keys(slots), nFlex: flexCount(settings) };
 }

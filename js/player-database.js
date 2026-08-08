@@ -272,6 +272,15 @@ export function cloneDatabase(db) {
  * about suffixes and punctuation often enough to matter. Returns null when
  * genuinely unknown, so callers can say so instead of inventing a projection.
  */
+/**
+ * How many times findPlayer has fallen back to a full linear scan.
+ *
+ * Exported for test/perf.test.mjs, which asserts the index actually resolves
+ * rather than timing how long it takes to fail to.
+ */
+let linearScans = 0;
+export function linearScanCount() { return linearScans; }
+
 export function findPlayer(db, name, position, team, bid) {
   if (!name) return null;
   const key = playerKey(name);
@@ -315,11 +324,17 @@ export function findPlayer(db, name, position, team, bid) {
     }
   }
 
-  // A contains-match is loose enough to cross positions: the single hit for
-  // "Washington" is the receiver Parker Washington, not a defense. Returning it
-  // regardless of the position asked for is how a wideout ended up filling a
-  // roster slot nobody drafted him into. When the caller knows the position,
-  // honour it.
+  /* -------------------------------------------------------------------------
+   * The linear fallback, counted.
+   *
+   * This walks all 523 records with two substring tests each, and it is the
+   * path that runs when the index does NOT resolve a name -- 6.93ms per 200
+   * names against 0.22ms when the index answers, 31x. test/perf.test.mjs used
+   * to guard the index with a wall-clock budget carrying 20x of slack; a count
+   * says the same thing without measuring the machine, because "the index
+   * stopped working" and "this scan ran 200 times" are the same event.
+   * --------------------------------------------------------------------- */
+  linearScans++;
   let partial = all.filter(
     (p) => p.key.includes(key) || key.includes(p.key)
   );
