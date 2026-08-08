@@ -187,11 +187,27 @@ export function preseasonOutlook(league, runs = 2000, rng = Math.random) {
   const unreadable = teams.filter((t) => t.rostered === 0);
   const partialBoard = (league.coverage && league.coverage.kind
     && league.coverage.kind !== 'full-board');
-  if ((unreadable.length > 0 && unreadable.length < n) || (partialBoard && unreadable.length)) {
+  // ALL unreadable is a case too, and it was the one that slipped through.
+  //
+  // "Everyone is equally empty" is a true answer only before anyone has
+  // picked. A league whose projection file failed to load has every team
+  // unreadable and no coverage field, so it fell past both clauses above and
+  // simulated: measured through the real renderers, a dashboard reading 10.9%
+  // championship, 60.3% playoff, and a note saying "Yours projects 0 points a
+  // week against a league best of 0". projectionsMissing was true throughout
+  // and never mentioned.
+  const picksMade = ((league.draftState || {}).selections || []).length;
+  const nothingToReadAtAll = unreadable.length === n
+    && (picksMade > 0 || league.projectionsMissing);
+  if ((unreadable.length > 0 && unreadable.length < n)
+      || (partialBoard && unreadable.length)
+      || nothingToReadAtAll) {
     return {
       unknown: true,
       reason: unreadable.length === n
-        ? 'No roster in this league resolved to projected players.'
+        ? (league.projectionsMissing
+          ? 'No player projections loaded, so no roster can be scored.'
+          : 'No roster in this league resolved to projected players.')
         : `${unreadable.length} of ${n} teams have no roster the app can read, `
           + 'so there is nothing to rank them against.',
       playoffPct: null, byePct: null, titlePct: null,

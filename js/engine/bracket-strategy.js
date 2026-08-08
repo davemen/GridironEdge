@@ -80,13 +80,29 @@ export function recommendLineupStrategy(league, options = {}) {
   }
 
   if (!opponent) {
-    return { ...base, strategy: 'floor', favoured: null, winProbability: 0.5,
+    return { ...base, strategy: 'floor', favoured: null, winProbability: null,
       confidence: 'low',
       reason: 'No opponent identified this week, so the lineup defaults to the '
         + 'steadier option.' };
   }
 
   const wp = winProbability(myTeam, opponent);
+
+  // No scoring, no verdict. winProbability correctly returns null when neither
+  // team has played -- under a comment insisting on it -- and then everything
+  // below treated it as a number: `null >= 0.5` is false so you were the
+  // UNDERDOG, Math.abs(null - 0.5) is 0.5 so the confidence was HIGH, and
+  // Math.round(null * 100) is 0. On a league imported before a game has been
+  // played, which is this app's normal state, the card read "You are the
+  // underdog (0%). Play the ceiling" at high confidence -- next to a number the
+  // page had correctly rendered as "not yet".
+  if (wp === null) {
+    return { ...base, strategy: 'floor', favoured: null, winProbability: null,
+      confidence: 'low',
+      reason: 'No games have been scored yet, so there is no favourite to play '
+        + 'for or against. The lineup defaults to the steadier option.' };
+  }
+
   const favoured = wp >= 0.5;
 
   if (!isPlayoffs) {

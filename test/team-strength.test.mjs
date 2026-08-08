@@ -233,6 +233,30 @@ console.log('\nthe preseason engine declines on a league it can only half see');
   check('a partial-coverage scrape declines too',
     preseasonOutlook(scraped, 300).unknown === true);
 
+  // A league whose projections never loaded has EVERY team unreadable and no
+  // coverage field, so it fell past both clauses above and simulated: measured
+  // through the real renderers, 10.9% championship and 60.3% playoff, beside a
+  // note reading "Yours projects 0 points a week against a league best of 0",
+  // with projectionsMissing true throughout and never mentioned.
+  const noProj = buildLeague(10, 14);
+  noProj.teams.forEach((t) => { t.roster = []; });
+  noProj.projectionsMissing = true;
+  const np = preseasonOutlook(noProj, 300);
+  check('a league with no projections at all declines', np.unknown === true,
+    `titlePct ${np.titlePct}`);
+  check('and says which fact it is', /no player projections/i.test(np.reason || ''),
+    np.reason);
+
+  // Same shape, but the reason is different: the projections loaded and the
+  // rosters are simply unread.
+  const drafted = buildLeague(10, 14);
+  drafted.teams.forEach((t) => { t.roster = []; });
+  drafted.draftState.selections = [{ playerId: 'x', teamId: 1 }];
+  const dr = preseasonOutlook(drafted, 300);
+  check('a drafted league with no readable roster declines too', dr.unknown === true);
+  check('and blames the rosters, not the projections',
+    /resolved to projected players/i.test(dr.reason || ''), dr.reason);
+
   // But the cases that ARE answerable must still answer, or the fix is a
   // different kind of wrong.
   const whole = buildLeague(10, 14);

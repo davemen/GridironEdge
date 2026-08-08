@@ -116,6 +116,30 @@ console.log('\nno scoring means no probability, not a coin flip');
     { pointsScored: 100 });
   check('one standard deviation of margin is ~84%', Math.abs(p - 0.8413) < 0.002,
     String(p));
+
+  // And the null must survive the RECOMMENDATION, not just the function.
+  //
+  // Everything downstream treated it as a number: `null >= 0.5` is false so you
+  // were the underdog, Math.abs(null - 0.5) is 0.5 so the confidence was HIGH,
+  // and Math.round(null * 100) is 0. On a league imported before a game has
+  // been played -- this app's normal state -- the playoff card read "You are
+  // the underdog (0%). Play the ceiling" at high confidence.
+  const blank = (week) => ({
+    leagueId: 'NP', myTeamId: 1, currentWeek: week,
+    teams: [{ teamId: 1, teamName: 'A', pointsScored: 0, roster: [],
+              record: { wins: 0, losses: 0, ties: 0 } },
+            { teamId: 2, teamName: 'B', pointsScored: 0, roster: [],
+              record: { wins: 0, losses: 0, ties: 0 } }],
+    schedule: [{ week, team1Id: 1, team2Id: 2, completed: false }],
+    playerDatabase: {},
+  });
+  const r = recommendLineupStrategy(blank(15), 15);
+  check('an unscored playoff week reports no win probability',
+    r.winProbability === null, String(r.winProbability));
+  check('and does not call you the underdog', r.favoured === null,
+    String(r.favoured));
+  check('and does not claim high confidence', r.confidence === 'low', r.confidence);
+  check('and its reason contains no percentage', !/%/.test(r.reason), r.reason);
 }
 
 console.log(`\n${passed} passed, ${failed} failed\n`);
