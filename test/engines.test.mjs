@@ -162,6 +162,54 @@ console.log('\nthe lineup optimizer fills the lineup and benches the injured');
     'an Out player was seated');
 }
 
+console.log('\nthe playoff bracket gives no seed a structural advantage');
+{
+  // The byes used to rejoin only after the rest had been played down to ONE
+  // survivor, so the second seed walked straight into the final: over 200,000
+  // brackets with six identical teams, seed 2 won 50.1% and seed 1 24.9%, and
+  // seeds 3-6 shared 6.2% each. team-strength implements the correct shape 200
+  // lines away, and both engines write the same three spans on screen.
+  //
+  // Six identical rosters, so any spread in the result is the bracket's doing.
+  const identical = leagueWith(0, 6);
+  const shared = identical.teams[0].roster;
+  identical.teams.forEach((t) => { t.roster = shared; });
+  identical.draftState.selections = identical.teams.flatMap((t) =>
+    t.roster.map((id) => ({ playerId: id, teamId: t.teamId })));
+
+  const pct = identical.teams.map((t) => {
+    const l = { ...identical, myTeamId: t.teamId };
+    return runSeasonSimulation(l, 1500).champPct;
+  });
+  const par = 100 / identical.teams.length;
+  check('no team wins the title far more often than par',
+    Math.max(...pct) < par * 2,
+    `par ${par.toFixed(1)}%, spread ${JSON.stringify(pct)}`);
+
+  // By SEED, which is where the bug actually lived and which the by-team check
+  // above cannot see: with identical teams the seeding is random, so no seat
+  // consistently gets seed 2. Driving the bracket directly with fixed seeds and
+  // equal scoring is what exposes it.
+  const { playBracket } = await import(join(ROOT, 'js/engine/simulator.js'));
+  const SEEDS = [1, 2, 3, 4, 5, 6];
+  const equal = Object.fromEntries(SEEDS.map((id) => [id, 100]));
+  const titles = Object.fromEntries(SEEDS.map((id) => [id, 0]));
+  const RUNS = 20000;
+  for (let r = 0; r < RUNS; r++) titles[playBracket(SEEDS, equal)] += 1;
+  const seedPct = SEEDS.map((id) => (titles[id] / RUNS) * 100);
+  // Seeds 1 and 2 hold byes, so they SHOULD win more often -- but a bye is
+  // worth one round, not a walkover. Seed 2 used to take 50.1% against seed
+  // 1's 24.9% while seeds 3-6 shared 6.2% each.
+  check('the two byes are worth the same as each other',
+    Math.abs(seedPct[0] - seedPct[1]) < 4,
+    `seed 1 ${seedPct[0].toFixed(1)}%, seed 2 ${seedPct[1].toFixed(1)}%`);
+  check('and no seed is a structural favourite',
+    Math.max(...seedPct) < 40, JSON.stringify(seedPct.map((p) => Number(p.toFixed(1)))));
+  check('while a bye is still worth something',
+    Math.min(seedPct[0], seedPct[1]) > Math.max(...seedPct.slice(2)),
+    JSON.stringify(seedPct.map((p) => Number(p.toFixed(1)))));
+}
+
 console.log('\nthe simulator declines rather than substituting a constant');
 {
   // Every team projection fell back to the literal 105.0 when a roster could

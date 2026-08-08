@@ -12,6 +12,55 @@ function randomNormal(mean = 0, stdDev = 1) {
   return num * stdDev + mean;
 }
 
+/**
+ * Play the bracket out, scored from the teams actually in it.
+ *
+ * The bracket was six randomNormal draws with hardcoded means -- 115 v 110,
+ * 112 v 112, 116 v 114 -- that never read a roster, a projection or the
+ * seed's identity. The champion was a coin flip between fixed indices, so
+ * the "probability of winning the title" on the home page was noise wearing
+ * the clothes of a forecast: exactly what CLAUDE.md exists to prevent, and
+ * invisible on screen because invented output looks like real output.
+ *
+ * It also referenced only pTeams[0..3], so widening the field to six left
+ * seeds 5 and 6 permanently unable to win.
+ *
+ * The per-week projections are computed by the caller, so each game uses the
+ * two teams' own scoring with the same 12-point weekly spread as the regular
+ * season. Top seeds get byes; the rest pair highest against lowest.
+ */
+export function playBracket(seeds, weekProj) {
+  const scoreOf = (id) => Math.max(50, randomNormal((weekProj || {})[id], 12));
+  const beats = (a, b) => (scoreOf(a) >= scoreOf(b) ? a : b);
+  // The byes rejoin after ONE round, not after the rest have been played down
+  // to a single survivor.
+  //
+  // The first version looped the non-bye group to one team before the byes
+  // came back, so seed 2 walked straight into the final: over 200,000
+  // brackets with six identical teams, seed 2 won 50.1% and seed 1 24.9%,
+  // while seeds 3-6 shared 6.2% each. That is not a seeding advantage, it is
+  // a structural one, and team-strength implements the correct form 200 lines
+  // away with a comment describing exactly this shape.
+  //
+  // Seeding is preserved between rounds so the highest survivor keeps meeting
+  // the lowest, which is what a bye is worth.
+  const rank = new Map(seeds.map((id, i) => [id, i]));
+  const bySeed = (a, b) => rank.get(a) - rank.get(b);
+  const playRound = (field) => {
+    const next = [];
+    const queue = field.slice();
+    while (queue.length > 1) next.push(beats(queue.shift(), queue.pop()));
+    if (queue.length) next.push(queue.shift());
+    return next.sort(bySeed);
+  };
+
+  const byes = seeds.slice(0, BYE_TEAMS);
+  const firstRound = playRound(seeds.slice(BYE_TEAMS));
+  let alive = byes.concat(firstRound).sort(bySeed);
+  while (alive.length > 1) alive = playRound(alive);
+  return alive[0];
+}
+
 export function runSeasonSimulation(league, runs = 1000) {
   const db = league.playerDatabase;
   const teams = league.teams;
@@ -145,43 +194,7 @@ export function runSeasonSimulation(league, runs = 1000) {
   };
 
 
-  /**
-   * Play the bracket out, scored from the teams actually in it.
-   *
-   * The bracket was six randomNormal draws with hardcoded means -- 115 v 110,
-   * 112 v 112, 116 v 114 -- that never read a roster, a projection or the
-   * seed's identity. The champion was a coin flip between fixed indices, so
-   * the "probability of winning the title" on the home page was noise wearing
-   * the clothes of a forecast: exactly what CLAUDE.md exists to prevent, and
-   * invisible on screen because invented output looks like real output.
-   *
-   * It also referenced only pTeams[0..3], so widening the field to six left
-   * seeds 5 and 6 permanently unable to win.
-   *
-   * The per-week projections are already computed above, so each game uses the
-   * two teams' own scoring with the same 12-point weekly spread as the regular
-   * season. Top seeds get byes; the rest pair highest against lowest.
-   */
-  function playBracket(seeds, weekProj) {
-    const scoreOf = (id) => Math.max(50, randomNormal((weekProj || {})[id], 12));
-    const beats = (a, b) => (scoreOf(a) >= scoreOf(b) ? a : b);
-    const byes = seeds.slice(0, BYE_TEAMS);
-    let rest = seeds.slice(BYE_TEAMS);
-    while (rest.length > 1) {
-      const next = [];
-      while (rest.length > 1) next.push(beats(rest.shift(), rest.pop()));
-      if (rest.length) next.push(rest.shift());
-      rest = next;
-    }
-    let alive = byes.concat(rest);
-    while (alive.length > 1) {
-      const next = [];
-      while (alive.length > 1) next.push(beats(alive.shift(), alive.pop()));
-      if (alive.length) next.push(alive.shift());
-      alive = next;
-    }
-    return alive[0];
-  }
+
 
   // Pre-calculate normal and windy projections per week for all teams (Weeks 5-14)
   const teamProjectionsPerWeek = {};
