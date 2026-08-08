@@ -3,12 +3,18 @@
  *
  * One definition, because there were three, and they disagreed on the board.
  * Two of them lived 110 lines apart in draft-assistant.js and the third in
- * app.js; on a 10-team snake on the clock at pick 25 with the next at 36 they
+ * app.js; on a 10-team snake, on the clock at pick 25 with the next at 36, they
  * answered, for the same player:
  *
  *     ADP 30  ->   2%  /   5%  /   9%
  *     ADP 40  ->  84%  /  89%  /  75%
  *     ADP 45  ->  98%  /  99%  /  91%
+ *
+ * The third column is this module -- `test/engines.test.mjs` pins all three of
+ * its figures, so the comparison cannot go stale on the side that still exists.
+ * The first two columns are a record of code that has been deleted and cannot
+ * be recomputed from here; they are what those implementations returned when
+ * they were removed, not a claim this file can re-derive.
  *
  * They differed in the spread assumed around ADP (0.10 against 0.15 of it) and
  * in the normal approximation used. The app.js copy also took `currentPick +
@@ -52,9 +58,15 @@ export function survivalProbability(player, pickNumber) {
  * Consolidating the CURVE was not enough: app.js went on computing
  * `currentPick + leagueSize`, a linear-draft assumption on a board that renders
  * for snake drafts, which is the very thing this module's header names as the
- * reason the app.js copy was wrong. Measured on a 10-team snake from slot 1 on
- * pick 25, the two answers were 41 and 35 -- and so 43% and 80% for the same
- * player. One question, one answer, derived in one place.
+ * reason the app.js copy was wrong. Measured on a 10-team snake from slot 1 at
+ * pick 25, the two answers are pick 40 and pick 35 -- and so 50% against 80%
+ * for a player with ADP 40, a coin flip shown as a near-certainty. One
+ * question, one answer, derived in one place.
+ *
+ * This paragraph said 41 and 43%. Neither was reachable: 41 is not a pick slot
+ * 1 ever holds, and no ADP gives 43% at pick 40. Both figures are now pinned
+ * by test, because a worked example nobody can reproduce is indistinguishable
+ * from an invented one.
  */
 export function nextPickFor(league, currentPick) {
   const size = Number(league && league.leagueSize) || 0;

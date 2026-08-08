@@ -369,5 +369,48 @@ console.log('\nesc() escapes every character it claims to');
   check('attr escapes as strictly as esc', attr === esc || attr('"') === '&quot;');
 }
 
+console.log('\nthe audit report is built from the same escaper as the app');
+{
+  // audit-report.html is generated from history.json, which five agents write
+  // to every round -- titles, evidence and fix text straight out of a model.
+  // The generator had its own three-character escaper that left ' and ` alone,
+  // which is the drift js/escape.js exists to prevent, and a dozen numeric
+  // sinks were interpolated raw on the grounds that a score is a number.
+  const { mkdtempSync, mkdirSync, writeFileSync, readFileSync, cpSync } = await import('fs');
+  const { tmpdir } = await import('os');
+  const { execFileSync } = await import('child_process');
+  const dir = mkdtempSync(join(tmpdir(), 'gridiron-audit-'));
+  mkdirSync(join(dir, 'audit'));
+  mkdirSync(join(dir, 'js'));
+  cpSync(join(ROOT, 'audit/build-report.mjs'), join(dir, 'audit/build-report.mjs'));
+  cpSync(join(ROOT, 'js/escape.js'), join(dir, 'js/escape.js'));
+
+  const cat = () => ({
+    score: TAG, findings: [{ severity: TAG, title: TAG, where: TAG, evidence: TAG, fix: TAG }],
+    justification: TAG, verified: TAG, notChecked: TAG,
+  });
+  writeFileSync(join(dir, 'audit/history.json'), JSON.stringify({
+    rounds: [{
+      round: TAG, date: TAG, commit: TAG,
+      categories: { security: cat(), tests: cat(), performance: cat(),
+                    documentation: cat(), readability: cat() },
+    }],
+  }));
+  execFileSync(process.execPath, [join(dir, 'audit/build-report.mjs')], { stdio: 'ignore' });
+  const out = readFileSync(join(dir, 'audit-report.html'), 'utf8');
+  check('a hostile history file opens no tag of its own',
+    !/<img|<script/i.test(out), (out.match(/<(img|script)[^>]*>/i) || [''])[0]);
+  // ...and it reached the page, so the check above is not passing on an empty
+  // render. `onerror=` as literal text is the escaped payload, not a sink.
+  check('and the payload did reach the page, escaped',
+    out.includes('&lt;img src=x onerror=alert(1)&gt;'));
+  check('and the generator defines no escaper of its own',
+    !/replace\(\/&\/g/.test(readFileSync(join(ROOT, 'audit/build-report.mjs'), 'utf8')));
+  // A score is not a number just because it is meant to be one: history.json is
+  // JSON we did not write, and every score sink took it verbatim.
+  check('a score that is not a number renders as a dash, not as markup',
+    out.includes('>—<') || out.includes('—/100'), 'no numeric fallback reached the page');
+}
+
 console.log(`\n${passed} passed, ${failed} failed`);
 if (failed) process.exit(1);

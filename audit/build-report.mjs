@@ -10,6 +10,10 @@
 import { readFileSync, writeFileSync } from 'fs';
 import { fileURLToPath } from 'url';
 import { join } from 'path';
+// The app's escaper, not a second one. This file had its own three-character
+// copy that did not escape ' or `, which is the exact drift `js/escape.js`
+// exists to stop -- and history.json is written by five agents a round.
+import { esc, int } from '../js/escape.js';
 
 const ROOT = join(fileURLToPath(new URL('.', import.meta.url)), '..');
 const history = JSON.parse(readFileSync(join(ROOT, 'audit/history.json'), 'utf8'));
@@ -23,10 +27,6 @@ const CATS = [
 ];
 const TARGET = 90;
 const SEV_ORDER = { critical: 0, high: 1, medium: 2, low: 3 };
-
-const esc = (s) => String(s ?? '')
-  .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
-  .replace(/"/g, '&quot;');
 
 /** Score to status role. The threshold IS the state, so status colors apply. */
 function statusOf(score) {
@@ -64,12 +64,12 @@ function sparkline(scores, status) {
   const dots = pts.map(([px, py], i) => `
     <circle cx="${px.toFixed(1)}" cy="${py.toFixed(1)}" r="4.5"
             fill="var(--status)" stroke="var(--surface-1)" stroke-width="2">
-      <title>Round ${i + 1}: ${scores[i]}/100</title>
+      <title>Round ${i + 1}: ${int(scores[i])}/100</title>
     </circle>`).join('');
 
   return `
   <svg class="spark" viewBox="0 0 ${W} ${H}" role="img"
-       aria-label="Score by round: ${scores.join(', ')} out of 100. Target ${TARGET}.">
+       aria-label="Score by round: ${scores.map((v) => int(v)).join(', ')} out of 100. Target ${TARGET}.">
     <line x1="${PAD_X}" y1="${target.toFixed(1)}" x2="${W - PAD_X}" y2="${target.toFixed(1)}"
           stroke="var(--grid)" stroke-width="1" stroke-dasharray="3 3"/>
     <text x="${W - PAD_X}" y="${(target - 4).toFixed(1)}" class="spark-note"
@@ -120,8 +120,8 @@ const cards = CATS.map(([key, label]) => {
     <div class="card-top">
       <h2>${label}</h2>
       <div class="score-row">
-        <span class="score">${pending ? '—' : cat.score}</span><span class="of">/100</span>
-        ${delta === null ? '' : `<span class="delta ${delta > 0 ? 'up' : delta < 0 ? 'down' : 'flat'}">${delta > 0 ? '+' : ''}${delta}</span>`}
+        <span class="score">${pending ? '—' : int(cat.score)}</span><span class="of">/100</span>
+        ${delta === null ? '' : `<span class="delta ${delta > 0 ? 'up' : delta < 0 ? 'down' : 'flat'}">${delta > 0 ? '+' : ''}${int(delta)}</span>`}
       </div>
     </div>
     <div class="status-line"><span class="dot">${STATUS_ICON[status]}</span> ${STATUS_LABEL[status]}
@@ -135,7 +135,7 @@ const detail = CATS.map(([key, label]) => {
   return `
   <details class="cat-detail" ${(cat.findings || []).some((f) => !f.fixed) ? 'open' : ''}>
     <summary><span class="sum-name">${label}</span>
-      <span class="sum-score" data-status="${statusOf(cat.score)}">${cat.score ?? '—'}/100</span></summary>
+      <span class="sum-score" data-status="${statusOf(cat.score)}">${int(cat.score)}/100</span></summary>
     ${cat.justification ? `<p class="just">${esc(cat.justification)}</p>` : ''}
     ${findingsHtml(cat.findings)}
     ${cat.verified ? `<p class="meta"><span class="lbl">Verified</span> ${esc(cat.verified)}</p>` : ''}
@@ -146,17 +146,17 @@ const detail = CATS.map(([key, label]) => {
 const tableRows = CATS.map(([key, label]) => `
   <tr><th scope="row">${label}</th>${rounds.map((r) => {
     const v = r.categories[key]?.score;
-    return `<td>${v ?? '—'}</td>`;
+    return `<td>${int(v)}</td>`;
   }).join('')}</tr>`).join('');
 
 const priorRounds = rounds.length < 2 ? '' : `
 <details class="history">
-  <summary>Previous rounds (${rounds.length - 1})</summary>
+  <summary>Previous rounds (${int(rounds.length - 1)})</summary>
   ${rounds.slice(0, -1).reverse().map((r) => `
     <div class="prior">
-      <h3>Round ${r.round} — ${esc(r.date)}${r.commit ? ` · <code>${esc(r.commit)}</code>` : ''}</h3>
+      <h3>Round ${int(r.round)} — ${esc(r.date)}${r.commit ? ` · <code>${esc(r.commit)}</code>` : ''}</h3>
       <div class="prior-scores">${CATS.map(([k, l]) =>
-        `<span class="chip" data-status="${statusOf(r.categories[k]?.score ?? 0)}">${l} ${r.categories[k]?.score ?? '—'}</span>`).join('')}</div>
+        `<span class="chip" data-status="${statusOf(r.categories[k]?.score ?? 0)}">${l} ${int(r.categories[k]?.score)}</span>`).join('')}</div>
     </div>`).join('')}
 </details>`;
 
@@ -305,7 +305,7 @@ const html = `<!doctype html>
 <div class="wrap">
   <header class="top">
     <h1>Gridiron Edge — 5-point audit</h1>
-    <p class="sub">Round ${latest.round} · ${esc(latest.date)}${latest.commit ? ` · commit <code>${esc(latest.commit)}</code>` : ''}
+    <p class="sub">Round ${int(latest.round)} · ${esc(latest.date)}${latest.commit ? ` · commit <code>${esc(latest.commit)}</code>` : ''}
       · five independent agents, one per dimension</p>
     <div class="verdict" data-pass="${allPass ? 'yes' : 'no'}">
       ${stillRunning.length
@@ -317,7 +317,7 @@ const html = `<!doctype html>
 
   <div class="grid">${cards}</div>
 
-  <h2 class="section">Findings — round ${latest.round}</h2>
+  <h2 class="section">Findings — round ${int(latest.round)}</h2>
   ${detail}
 
   ${priorRounds}
@@ -325,7 +325,7 @@ const html = `<!doctype html>
   <h2 class="section">Scores by round</h2>
   <div class="tablewrap">
     <table>
-      <thead><tr><th scope="col">Category</th>${rounds.map((r) => `<th scope="col">R${r.round}</th>`).join('')}</tr></thead>
+      <thead><tr><th scope="col">Category</th>${rounds.map((r) => `<th scope="col">R${int(r.round)}</th>`).join('')}</tr></thead>
       <tbody>${tableRows}</tbody>
     </table>
   </div>

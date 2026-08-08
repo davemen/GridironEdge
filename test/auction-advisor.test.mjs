@@ -12,6 +12,7 @@ import {
   buildLeagueState, parValues, marketInflation, forecastPrice,
   lineupPoints, planValue, recommendBid, targetBoard,
 } from '../js/engine/auction-advisor.js';
+import { rosterSize } from '../js/engine/lineup-rules.js';
 
 let passed = 0, failed = 0;
 function check(name, cond, detail = '') {
@@ -164,9 +165,14 @@ console.log('\nbid recommendation');
 
 console.log('\nfull-size player pool');
 {
-  // The mock database holds 22 players for a 12-team league that needs 192
-  // roster spots, which makes literally everyone scarce. Real imports are deep,
-  // so build a realistic pool to test the parts that depend on having options.
+  // The mock database is far too small for a 12-team league -- the assertion
+  // below says how small, because this comment said 22 for a database that had
+  // held 31 for some time. Everyone in it is scarce. Real imports are deep, so
+  // build a realistic pool to test the parts that depend on having options.
+  check('the mock database is smaller than one league\'s rosters',
+    Object.keys(mockPlayers).length === 31 && rosterSize(mockLeague) * 12 === 192,
+    `${Object.keys(mockPlayers).length} players for ${rosterSize(mockLeague) * 12} spots`);
+
   const deep = freshLeague();
   const db = {};
   const shape = { QB: [24, 8], RB: [22, 4], WR: [21, 4], TE: [16, 3] };

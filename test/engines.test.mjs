@@ -413,7 +413,15 @@ console.log('\nevery engine describes the same lineup for the same league');
 console.log('\none answer to "will he last until my next pick"');
 {
   // Three implementations, two of them 110 lines apart in one file, answered
-  // 2%, 5% and 9% for the same player on the same board.
+  // 2%, 5% and 9% for the same player on the same board. survival.js prints
+  // that comparison in its header; this pins the column that still exists, so
+  // the surviving side of it cannot drift while the header goes on quoting it.
+  // The manager on the clock at pick 25 of a 10-team snake is seat 5, whose
+  // next pick is 36 -- that is the board the header's table is computed on.
+  check('the header table\'s own column still reads 9 / 75 / 91',
+    [30, 40, 45].map((adp) => survivalPct({ adp }, 36)).join('/') === '9/75/91',
+    [30, 40, 45].map((adp) => survivalPct({ adp }, 36)).join('/'));
+
   const early = { adp: 10 }, late = { adp: 200 };
   check('a player long past his ADP is unlikely to last',
     survivalPct(early, 60) < 5, String(survivalPct(early, 60)));
@@ -431,7 +439,9 @@ console.log('\none answer to "will he last until my next pick"');
   // One curve was not enough: the draft board went on computing the next pick
   // as currentPick + leagueSize -- a LINEAR assumption on a snake board, which
   // is the thing this module's header names as the reason the old copy was
-  // wrong. Same player, same board, 43% against 80%.
+  // wrong. Same player, same board, 50% against 80%: a coin flip shown as a
+  // near-certainty. `nextPickFor`'s doc block said 41 and 43%, and neither
+  // number was reachable, so both are asserted here now.
   const { nextPickFor } = await import(join(ROOT, 'js/engine/survival.js'));
   const snake = (seat, size, currentPick) => ({
     leagueSize: size,
@@ -449,6 +459,10 @@ console.log('\none answer to "will he last until my next pick"');
   check('and the answer is a pick this seat actually holds',
     nextPickFor(snake(0, 10, 25), 25) === 40,
     String(nextPickFor(snake(0, 10, 25), 25)));
+  check('and that is the difference the doc block claims: 50% against 80%',
+    survivalPct({ adp: 40 }, nextPickFor(snake(0, 10, 25), 25)) === 50
+      && survivalPct({ adp: 40 }, 35) === 80,
+    `${survivalPct({ adp: 40 }, nextPickFor(snake(0, 10, 25), 25))} vs ${survivalPct({ adp: 40 }, 35)}`);
   check('a seat that is about to pick gets that pick',
     nextPickFor(snake(3, 10, 3), 3) === 4, String(nextPickFor(snake(3, 10, 3), 3)));
   // An auction room carries no draft order, and one full turn is the honest

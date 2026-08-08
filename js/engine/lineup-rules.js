@@ -48,15 +48,13 @@ export const DEFAULT_ROSTER_SETTINGS = Object.freeze({
   startersCount: 9, benchCount: 7,
 });
 
-/** Fixed starting positions, in the order a lineup grid shows them. */
-const SLOT_ORDER = ['QB', 'RB', 'WR', 'TE', 'D/ST', 'K'];
-
 /**
- * NOT exported, and that is the point.
+ * Fixed starting positions, in the order a lineup grid shows them.
  *
- * These were exported as STARTER_SLOTS and N_FLEX, and four engines --
- * auction-advisor, team-strength, roster-manager and app.js -- imported them
- * INSTEAD of the settings-aware functions below, while this header claimed the
+ * Module-private, and that is the point. The slot COUNTS were exported here as
+ * STARTER_SLOTS and N_FLEX, and four engines -- auction-advisor,
+ * team-strength, roster-manager and app.js -- imported them INSTEAD of the
+ * settings-aware functions below, while the header above claimed the
  * consolidation was finished. So the module shipped two contradicting
  * definitions of one thing: starterSlots({WR:3,FLEX:2}) answered WR 3 and flex
  * 2 while STARTER_SLOTS answered WR 2 and N_FLEX 1, and the auction engine --
@@ -64,8 +62,16 @@ const SLOT_ORDER = ['QB', 'RB', 'WR', 'TE', 'D/ST', 'K'];
  * league. On a 2-QB superflex board the optimizer started two quarterbacks and
  * team-strength benched the second.
  *
- * Keeping them module-private means the only way to ask about a lineup is to
- * say which league you mean.
+ * Only the ORDER lives here now, because it is the same in every league. The
+ * counts are unreachable without saying which league you mean.
+ */
+const SLOT_ORDER = ['QB', 'RB', 'WR', 'TE', 'D/ST', 'K'];
+
+/**
+ * Which positions may fill a flex slot. Exported because the roster grid, the
+ * optimizer and `openStarterSlots` all need the same list -- and unlike the
+ * counts, it does not vary with league settings, so there is nothing to say
+ * "which league" about.
  */
 export const FLEX_POS = ['RB', 'WR', 'TE'];
 
@@ -75,7 +81,9 @@ export const MAX_AT_POS = { QB: 3, RB: 7, WR: 7, TE: 3, 'D/ST': 2, K: 2 };
 /** Season shape. Used by both the preseason model and the in-season simulator. */
 export const REGULAR_WEEKS = 14;
 export const PLAYOFF_TEAMS = 6;
-export const BYE_TEAMS = 2;
+// There is no BYE_TEAMS. A flat 2 was exported here and it is exactly the bug
+// `byeCount` below exists to prevent, so leaving it available -- even unused --
+// leaves the wrong answer one import away.
 
 /**
  * How many teams make the playoffs in a league of this size.

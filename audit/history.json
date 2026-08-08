@@ -2534,7 +2534,7 @@
               "severity": "low",
               "title": "Apple Team ID hardcoded in a public repo",
               "where": "tools/install-safari.sh:27",
-              "evidence": "DWQ9ZN5SGU. Not a credential; a phishing pivot.",
+              "evidence": "The Apple Team ID, redacted from this record after it was fixed in the source. Not a credential; a phishing pivot.",
               "fix": "Read it from the environment or a gitignored file.",
               "fixed": true
             }
