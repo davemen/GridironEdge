@@ -246,6 +246,77 @@ console.log('\nthe league\'s own slot counts drive the lineup');
     slotList(thin).every((sl) => sl.pos !== 'K'));
 }
 
+console.log('\nevery engine describes the same lineup for the same league');
+{
+  // lineup-rules exported settings-aware functions AND frozen constants, and
+  // four engines imported the constants -- so the module that exists to hold
+  // ONE definition shipped two contradicting ones. Measured then: on a
+  // 3-WR/2-FLEX league the optimizer seated 11 and team-strength seated 9; on a
+  // 2-QB superflex board the optimizer started two quarterbacks and
+  // team-strength benched the second. The constants are gone; this is what
+  // stops them coming back under another name.
+  const { bestLineup, rankTeams } = await import(join(ROOT, 'js/engine/team-strength.js'));
+  const { lineupBreakdown } = await import(join(ROOT, 'js/engine/roster-manager.js'));
+
+  const SHAPES = [
+    { name: '3-WR, 2-FLEX', s: { QB: 1, RB: 2, WR: 3, TE: 1, FLEX: 2, 'D/ST': 1, K: 1, benchCount: 5 } },
+    { name: '2-QB superflex', s: { QB: 2, RB: 2, WR: 2, TE: 1, FLEX: 1, 'D/ST': 1, K: 1, benchCount: 6 } },
+    { name: 'the standard shape', s: ROSTER_SETTINGS },
+  ];
+
+  for (const { name, s } of SHAPES) {
+    const want = slotList(s);
+    // A roster deep enough to fill any of these shapes.
+    const roster = [];
+    ['QB', 'RB', 'WR', 'TE', 'D/ST', 'K'].forEach((pos) => {
+      roster.push(...board.filter((p) => p.position === pos).slice(0, 5).map((p) => p.id));
+    });
+
+    const opt = optimizeLineup(roster, db, s, 'floor');
+    check(`${name}: the optimizer seats ${want.length}`,
+      opt.starters.length === want.length,
+      `${opt.starters.length} against ${want.length}`);
+
+    const players = roster.map((id) => db[id]);
+    const bl = bestLineup(roster, db, null, s);
+    check(`${name}: team-strength agrees on the slot count`,
+      bl.slots.length === want.length, `${bl.slots.length} against ${want.length}`);
+    const blPos = bl.slots.filter((sl) => !/FLEX/.test(sl.slot)).map((sl) => sl.slot).sort();
+    const wantPos = want.filter((sl) => !sl.isFlex).map((sl) => sl.pos).sort();
+    check(`${name}: and on which positions they are`,
+      JSON.stringify(blPos) === JSON.stringify(wantPos),
+      `${JSON.stringify(blPos)} against ${JSON.stringify(wantPos)}`);
+
+    const bd = lineupBreakdown(players, s);
+    check(`${name}: roster-manager seats the same number`,
+      bd.starters.length === want.length, `${bd.starters.length} against ${want.length}`);
+
+    // Through the PUBLIC entry point, not the helper. Calling bestLineup with
+    // settings directly cannot see a caller that forgets to pass them, which is
+    // exactly how four engines came to be using the frozen shape: the argument
+    // was optional, so omitting it was invisible.
+    const lg = leagueWith(0);
+    lg.rosterSettings = s;
+    lg.teams[0].roster = roster;
+    const ranked = rankTeams(lg);
+    const mine = ranked.find((t) => t.teamId === lg.teams[0].teamId);
+    check(`${name}: rankTeams reports ${want.length} slots for the league it was given`,
+      mine.slots.length === want.length, `${mine.slots.length} against ${want.length}`);
+    check(`${name}: and ${s.QB} quarterback slot(s)`,
+      mine.slots.filter((sl) => sl.slot === 'QB').length === s.QB,
+      String(mine.slots.filter((sl) => sl.slot === 'QB').length));
+
+    // The one that actually bit: a 2-QB league must start two quarterbacks
+    // everywhere, or the auction engine prices a position the lineup does not
+    // have.
+    const qbWant = s.QB;
+    check(`${name}: the optimizer starts ${qbWant} QB(s)`,
+      opt.starters.filter((p) => p.position === 'QB').length === qbWant);
+    check(`${name}: and so does team-strength`,
+      bl.slots.filter((sl) => sl.slot === 'QB').length === qbWant);
+  }
+}
+
 console.log('\none answer to "will he last until my next pick"');
 {
   // Three implementations, two of them 110 lines apart in one file, answered

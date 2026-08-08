@@ -57,7 +57,7 @@ const INJURY = {
 };
 
 import { playerKey, draftedNameKey } from '../player-database.js';
-import { STARTER_SLOTS, FLEX_POS, N_FLEX } from './lineup-rules.js';
+import { FLEX_POS, starterSlots, flexCount } from './lineup-rules.js';
 
 const num = (v, d = 0) => (typeof v === 'number' && isFinite(v) ? v : d);
 const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
@@ -237,20 +237,21 @@ function rosterOf(team, db) {
 }
 
 /** Who starts, who sits, and what the lineup is worth. */
-export function lineupBreakdown(roster) {
+export function lineupBreakdown(roster, settings) {
   const byPos = {};
   roster.forEach((p) => { (byPos[p.position] = byPos[p.position] || []).push(p); });
   Object.keys(byPos).forEach((k) => byPos[k].sort((a, b) => effectivePpg(b) - effectivePpg(a)));
 
   const starters = [];
   const spare = [];
-  Object.keys(STARTER_SLOTS).forEach((pos) => {
+  const lineup = starterSlots(settings);
+  Object.keys(lineup).forEach((pos) => {
     const list = byPos[pos] || [];
-    starters.push(...list.slice(0, STARTER_SLOTS[pos]));
-    if (FLEX_POS.includes(pos)) spare.push(...list.slice(STARTER_SLOTS[pos]));
+    starters.push(...list.slice(0, lineup[pos]));
+    if (FLEX_POS.includes(pos)) spare.push(...list.slice(lineup[pos]));
   });
   spare.sort((a, b) => effectivePpg(b) - effectivePpg(a));
-  const flex = spare.slice(0, N_FLEX);
+  const flex = spare.slice(0, flexCount(settings));
   const starterIds = new Set([...starters, ...flex].map((p) => p.id));
 
   return {
@@ -282,7 +283,7 @@ export function startProbability(player, roster, phase) {
   const ahead = others.filter(
     (p) => p.position === player.position && effectivePpg(p) > effectivePpg(player)
   );
-  const slots = STARTER_SLOTS[player.position] || 1;
+  const slots = starterSlots()[player.position] || 1;
   const blockers = Math.max(0, Math.min(ahead.length, slots + (FLEX_POS.includes(player.position) ? 1 : 0)));
   if (blockers === 0) return 0.6;
 

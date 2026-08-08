@@ -264,6 +264,44 @@ for (const scenario of [
   check('Championship Outlook has a figure', /\d/.test(champ), `got "${champ}"`);
 }
 
+console.log("\nthe roster panel counts the league's OWN starting slots");
+{
+  // openStarterSlots takes the league's settings, and the argument is
+  // optional -- which is exactly how four engines came to be computing with the
+  // standard shape while the module claimed to be settings-aware. A display
+  // helper that drops it is invisible unless something asserts on a league that
+  // is not standard.
+  const league = buildLeague({ picks: 0 });
+  const db = league.playerDatabase;
+  const board = Object.values(db).sort((a, b) => b.projectedPoints - a.projectedPoints);
+  const two = (pos) => board.filter((p) => p.position === pos).slice(0, 2).map((p) => p.id);
+  const team = { teamId: 5, teamName: 'T', roster: [...two('WR')] };
+
+  league.rosterSettings = { QB: 1, RB: 2, WR: 2, TE: 1, FLEX: 1, 'D/ST': 1, K: 1,
+                            startersCount: 9, benchCount: 7 };
+  check('with two receivers, a 2-WR league still wants one for the flex',
+    /WR/.test(app.rosterNeedFor(team, league)), app.rosterNeedFor(team, league));
+
+  league.rosterSettings = { ...league.rosterSettings, WR: 3, startersCount: 10 };
+  const three = app.rosterNeedFor(team, league);
+  check('a 3-WR league still wants receivers with two on the roster',
+    /WR/.test(three), three);
+
+  // The case that separates them: three receivers fills a 3-WR lineup's fixed
+  // slots but not its flex, and fills a 2-WR lineup's slots AND flex.
+  const team3 = { teamId: 5, teamName: 'T',
+                  roster: board.filter((p) => p.position === 'WR').slice(0, 3).map((p) => p.id) };
+  league.rosterSettings = { QB: 1, RB: 2, WR: 2, TE: 1, FLEX: 1, 'D/ST': 1, K: 1,
+                            startersCount: 9, benchCount: 7 };
+  const need2 = app.rosterNeedFor(team3, league);
+  league.rosterSettings = { ...league.rosterSettings, WR: 3, startersCount: 10 };
+  const need3 = app.rosterNeedFor(team3, league);
+  check('three receivers read differently in a 2-WR and a 3-WR league',
+    need2 !== need3, `both said "${need2}"`);
+  check('and the 2-WR league no longer wants a receiver', !/WR/.test(need2), need2);
+  check('while the 3-WR league still does', /WR/.test(need3), need3);
+}
+
 console.log('\na board the app can only half see shows no odds');
 {
   // The engines decline rather than scoring teams they cannot read. Both

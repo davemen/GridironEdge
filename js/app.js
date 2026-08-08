@@ -13,7 +13,7 @@ import { optimizeLineup } from './engine/lineup-optimizer.js';
 import { recommendLineupStrategy } from './engine/bracket-strategy.js';
 import { evaluateWaivers, getWaiverRecommendations, freeAgentPool, CATEGORY, ACTION }
   from './engine/roster-manager.js';
-import { STARTER_SLOTS, FLEX_POS, N_FLEX, openStarterSlots, rosterSize }
+import { FLEX_POS, openStarterSlots, rosterSize, starterSlots, flexCount }
   from './engine/lineup-rules.js';
 import { refreshNews, fetchLeagueNews, normalizeName, relevanceTo, EVENT_IMPACT }
   from './engine/news-monitor.js';
@@ -830,9 +830,11 @@ function opponentReadFor(team, league) {
     const pl = db[id];
     if (pl) counts[pl.position] = (counts[pl.position] || 0) + 1;
   });
-  const need = openStarterSlots(counts);
-  const surplus = Object.keys(STARTER_SLOTS).filter(
-    (pos) => (counts[pos] || 0) > (STARTER_SLOTS[pos] + (FLEX_POS.includes(pos) ? N_FLEX : 0))
+  const need = openStarterSlots(counts, league.rosterSettings);
+  const lineup = starterSlots(league.rosterSettings);
+  const surplus = Object.keys(lineup).filter(
+    (pos) => (counts[pos] || 0) > (lineup[pos]
+      + (FLEX_POS.includes(pos) ? flexCount(league.rosterSettings) : 0))
   );
   const short = Object.keys(need);
 
@@ -851,21 +853,23 @@ function rosterSurplusFor(team, league) {
     const pl = db[id];
     if (pl) counts[pl.position] = (counts[pl.position] || 0) + 1;
   });
-  const spare = Object.keys(STARTER_SLOTS).filter(
-    (pos) => (counts[pos] || 0) > STARTER_SLOTS[pos] + (FLEX_POS.includes(pos) ? N_FLEX : 0)
+  const lineup2 = starterSlots(league.rosterSettings);
+  const spare = Object.keys(lineup2).filter(
+    (pos) => (counts[pos] || 0) > lineup2[pos]
+      + (FLEX_POS.includes(pos) ? flexCount(league.rosterSettings) : 0)
   );
   return spare.length ? `Spare ${spare.join(', ')}` : 'Nothing spare';
 }
 
-/** Starting slots a team has not filled. */
-function rosterNeedFor(team, league) {
+/** Starting slots a team has not filled. Exported so a test can pin it. */
+export function rosterNeedFor(team, league) {
   const db = (league && league.playerDatabase) || {};
   const counts = {};
   (team.roster || []).forEach((id) => {
     const pl = db[id];
     if (pl) counts[pl.position] = (counts[pl.position] || 0) + 1;
   });
-  const need = Object.keys(openStarterSlots(counts));
+  const need = Object.keys(openStarterSlots(counts, league.rosterSettings));
   return need.length ? need.join(', ') : 'Starters complete';
 }
 

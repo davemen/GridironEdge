@@ -23,7 +23,7 @@
  * never been scheduled between two teams that did not exist.
  */
 
-import { STARTER_SLOTS, FLEX_POS, N_FLEX, REGULAR_WEEKS, PLAYOFF_TEAMS, BYE_TEAMS, rosterSize }
+import { FLEX_POS, REGULAR_WEEKS, PLAYOFF_TEAMS, BYE_TEAMS, rosterSize, starterSlots, flexCount }
   from './lineup-rules.js';
 
 // Week-to-week scoring noise for a whole lineup, in points. Fantasy teams are
@@ -37,7 +37,7 @@ const num = (v, d = 0) => (typeof v === 'number' && isFinite(v) ? v : d);
  * The best legal starting lineup a roster can field, and what it projects.
  * Returns per-slot detail so a weakness can be named rather than just scored.
  */
-export function bestLineup(roster, db, replacement = null) {
+export function bestLineup(roster, db, replacement = null, settings = undefined) {
   const players = (roster || []).map((id) => db[id]).filter(Boolean);
   const pool = {};
   players.forEach((p) => {
@@ -49,8 +49,9 @@ export function bestLineup(roster, db, replacement = null) {
 
   const used = new Set();
   const slots = [];
-  Object.keys(STARTER_SLOTS).forEach((pos) => {
-    for (let i = 0; i < STARTER_SLOTS[pos]; i++) {
+  const lineup = starterSlots(settings);
+  Object.keys(lineup).forEach((pos) => {
+    for (let i = 0; i < lineup[pos]; i++) {
       const pick = (pool[pos] || []).find((p) => !used.has(p.id));
       if (pick) used.add(pick.id);
       // Mid-draft, an unfilled slot is not worth zero -- it is worth whatever
@@ -63,7 +64,7 @@ export function bestLineup(roster, db, replacement = null) {
                    projected: !pick && fallback > 0 });
     }
   });
-  for (let i = 0; i < N_FLEX; i++) {
+  for (let i = 0; i < flexCount(settings); i++) {
     const cands = FLEX_POS.flatMap((pos) => (pool[pos] || []).filter((p) => !used.has(p.id)));
     cands.sort((a, b) => num(b.projectedPoints) - num(a.projectedPoints));
     const pick = cands[0];
@@ -98,7 +99,7 @@ export function replacementLevels(league) {
   });
   const n = Math.max(1, league.leagueSize || (league.teams || []).length || 10);
   const out = {};
-  Object.keys(STARTER_SLOTS).forEach((pos) => {
+  Object.keys(starterSlots(league.rosterSettings)).forEach((pos) => {
     const avail = Object.values(db)
       .filter((p) => p.position === pos && !taken.has(String(p.id)))
       .map((p) => num(p.projectedPoints))
@@ -129,7 +130,7 @@ export function rankTeams(league, options = {}) {
     ? options.projectFinal : draftIncomplete(league);
   const replacement = projectFinal ? replacementLevels(league) : null;
   const rows = (league.teams || []).map((t) => {
-    const lineup = bestLineup(t.roster, db, replacement);
+    const lineup = bestLineup(t.roster, db, replacement, league.rosterSettings);
     return {
       teamId: t.teamId,
       teamName: t.teamName,

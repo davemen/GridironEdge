@@ -9,15 +9,24 @@
  * already had, giving the playoff field six teams in one engine and four in
  * another while both wrote to the same three spans on screen.
  *
- * That header used to claim the consolidation had happened. It had not: an
- * audit found the pair of walks and the if-chain still there, plus a fourth
- * shape in draft-assistant.js which had reintroduced the exact flex bug
- * described below. They agreed only because every league was handed a
- * fabricated 1/2/2/1/1 shape, so nothing ever exercised the disagreement.
+ * That header has twice claimed a consolidation that had not happened, so this
+ * version says what is true and names what is not.
  *
- * Everything here now takes the league's own `rosterSettings` and falls back to
- * DEFAULT_ROSTER_SETTINGS, so a 3-WR or 2-flex league is described by one set
- * of functions rather than by five guesses.
+ * TRUE: every function here takes the league's own `rosterSettings`, and the
+ * engines pass it -- auction-advisor, team-strength, roster-manager,
+ * lineup-optimizer, simulator, draft-assistant and app.js all derive their
+ * slots from these functions. A 3-WR or 2-flex league is described once.
+ *
+ * The round before this one added those functions and left the frozen
+ * constants exported beside them, and four engines went on importing the
+ * constants -- so the module shipped two contradicting answers and the auction
+ * engine priced every league as a 2-WR one-flex league. The constants are gone
+ * rather than deprecated: the only way to ask about a lineup is now to say
+ * which league you mean, which is what makes the next omission impossible
+ * rather than merely discouraged.
+ *
+ * NOT consolidated, and deliberately: `app.js`'s roster-grid array, which is a
+ * display concern with its own labels.
  *
  * The flex is a slot shared between running backs, receivers and tight ends.
  * Granting each of them its own flex allowance claimed eight flex-eligible
@@ -42,9 +51,23 @@ export const DEFAULT_ROSTER_SETTINGS = Object.freeze({
 /** Fixed starting positions, in the order a lineup grid shows them. */
 const SLOT_ORDER = ['QB', 'RB', 'WR', 'TE', 'D/ST', 'K'];
 
-export const STARTER_SLOTS = { QB: 1, RB: 2, WR: 2, TE: 1, 'D/ST': 1, K: 1 };
+/**
+ * NOT exported, and that is the point.
+ *
+ * These were exported as STARTER_SLOTS and N_FLEX, and four engines --
+ * auction-advisor, team-strength, roster-manager and app.js -- imported them
+ * INSTEAD of the settings-aware functions below, while this header claimed the
+ * consolidation was finished. So the module shipped two contradicting
+ * definitions of one thing: starterSlots({WR:3,FLEX:2}) answered WR 3 and flex
+ * 2 while STARTER_SLOTS answered WR 2 and N_FLEX 1, and the auction engine --
+ * the reason this project exists -- priced every league as a 2-WR one-flex
+ * league. On a 2-QB superflex board the optimizer started two quarterbacks and
+ * team-strength benched the second.
+ *
+ * Keeping them module-private means the only way to ask about a lineup is to
+ * say which league you mean.
+ */
 export const FLEX_POS = ['RB', 'WR', 'TE'];
-export const N_FLEX = 1;
 
 /** How many of a position a roster may hold. */
 export const MAX_AT_POS = { QB: 3, RB: 7, WR: 7, TE: 3, 'D/ST': 2, K: 2 };
@@ -56,10 +79,6 @@ export const BYE_TEAMS = 2;
 
 /** Where a position sits on the field, for grouping and display. */
 export const OFFENSE = ['QB', 'RB', 'WR', 'TE'];
-
-/** Total starting slots, flex included, for the default shape. */
-export const STARTERS_COUNT =
-  Object.values(STARTER_SLOTS).reduce((a, b) => a + b, 0) + N_FLEX;
 
 /** A non-negative slot count, or the default when the league did not say. */
 function slotCount(settings, key) {

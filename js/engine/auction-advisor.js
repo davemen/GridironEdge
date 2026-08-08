@@ -40,7 +40,7 @@
  * is the whole point, and a static chart cannot. See BACKTEST.md.
  */
 
-import { STARTER_SLOTS, FLEX_POS, N_FLEX, MAX_AT_POS, openStarterSlots, rosterSize }
+import { FLEX_POS, MAX_AT_POS, openStarterSlots, rosterSize, starterSlots, flexCount }
   from './lineup-rules.js';
 
 const BENCH_WEIGHT = 0.12;       // depth is worth something, but far less than a starter
@@ -96,7 +96,7 @@ export function buildLeagueState(league, parById = null) {
     t.spotsLeft = Math.max(0, size - t.roster.length);
     // Every open slot needs at least $1 held back, so this is the true ceiling.
     t.maxBid = t.spotsLeft > 0 ? Math.max(0, t.budget - (t.spotsLeft - 1)) : 0;
-    t.needs = openStarterSlots(t.counts);
+    t.needs = openStarterSlots(t.counts, league.rosterSettings);
     // Managers who have been overpaying will keep overpaying.
     t.aggression = t.paidVsPar.length
       ? Math.max(0.5, Math.min(2.0, t.paidVsPar.reduce((a, b) => a + b, 0) / t.paidVsPar.length))
@@ -269,13 +269,14 @@ export function forecastPrice(player, par, state, infl) {
  * per-position arrays and splice a trial player in and out. Same arithmetic,
  * same result to the last decimal -- there is a test pinning that.
  */
-function lineupPointsFromGroups(byPos) {
+function lineupPointsFromGroups(byPos, settings) {
+  const slots = starterSlots(settings);
   let total = 0;
   const leftovers = [];
-  for (const pos of STARTER_POSITIONS) {
+  for (const pos of Object.keys(slots)) {
     const list = byPos[pos];
     if (!list || !list.length) continue;
-    const n = STARTER_SLOTS[pos];
+    const n = slots[pos];
     const take = n < list.length ? n : list.length;
     for (let i = 0; i < take; i++) total += list[i];
     if (FLEX_SET.has(pos) && list.length > n) {
@@ -283,10 +284,11 @@ function lineupPointsFromGroups(byPos) {
     }
   }
   leftovers.sort((a, b) => b - a);
-  const flex = N_FLEX < leftovers.length ? N_FLEX : leftovers.length;
+  const nFlex = flexCount(settings);
+  const flex = nFlex < leftovers.length ? nFlex : leftovers.length;
   for (let i = 0; i < flex; i++) total += leftovers[i];
-  for (let i = N_FLEX; i < leftovers.length; i++) {
-    total += leftovers[i] * BENCH_WEIGHT * Math.pow(0.75, i - N_FLEX);
+  for (let i = nFlex; i < leftovers.length; i++) {
+    total += leftovers[i] * BENCH_WEIGHT * Math.pow(0.75, i - nFlex);
   }
   return total;
 }
@@ -302,30 +304,32 @@ function insertDesc(list, value) {
   return lo;
 }
 
-const STARTER_POSITIONS = Object.keys(STARTER_SLOTS);
+const STARTER_POSITIONS = Object.keys(starterSlots());
 const FLEX_SET = new Set(FLEX_POS);
 
 /** Projected points from the lineup a roster can actually field. */
-export function lineupPoints(roster) {
+export function lineupPoints(roster, settings) {
   const byPos = {};
   roster.forEach((p) => {
     (byPos[p.position] = byPos[p.position] || []).push(seasonPoints(p));
   });
   Object.keys(byPos).forEach((k) => byPos[k].sort((a, b) => b - a));
 
+  const slots = starterSlots(settings);
+  const nFlex2 = flexCount(settings);
   let total = 0;
   const leftovers = [];
-  Object.keys(STARTER_SLOTS).forEach((pos) => {
+  Object.keys(slots).forEach((pos) => {
     const list = byPos[pos] || [];
-    const n = STARTER_SLOTS[pos];
+    const n = slots[pos];
     for (let i = 0; i < n && i < list.length; i++) total += list[i];
     if (FLEX_POS.includes(pos)) leftovers.push(...list.slice(n));
   });
   leftovers.sort((a, b) => b - a);
-  for (let i = 0; i < N_FLEX && i < leftovers.length; i++) total += leftovers[i];
+  for (let i = 0; i < nFlex2 && i < leftovers.length; i++) total += leftovers[i];
   // Bench depth pays off through byes and injuries, but with sharply
   // diminishing returns — it must never outbid a starting slot.
-  leftovers.slice(N_FLEX).forEach((v, i) => { total += v * BENCH_WEIGHT * Math.pow(0.75, i); });
+  leftovers.slice(nFlex2).forEach((v, i) => { total += v * BENCH_WEIGHT * Math.pow(0.75, i); });
   return total;
 }
 
@@ -338,7 +342,7 @@ export function lineupPoints(roster) {
  * future players at what they will really cost in THIS room, the resulting bid
  * ceiling tightens when money is tight and loosens when it is not.
  */
-export function planValue(roster, budget, spots, board, extra, detail) {
+export function planValue(roster, budget, spots, board, extra, detail, settings) {
   const have = extra ? roster.concat([extra]) : roster.slice();
   const counts = {};
   have.forEach((p) => { counts[p.position] = (counts[p.position] || 0) + 1; });
@@ -357,7 +361,7 @@ export function planValue(roster, budget, spots, board, extra, detail) {
 
   let cash = budget;
   let slots = spots;
-  let current = lineupPointsFromGroups(byPos);
+  let current = lineupPointsFromGroups(byPos, settings);
 
   while (slots > 0) {
     const afford = cash - (slots - 1);
@@ -376,7 +380,7 @@ export function planValue(roster, budget, spots, board, extra, detail) {
 
       const list = byPos[player.position] || (byPos[player.position] = []);
       const at = insertDesc(list, seasonPoints(player));
-      const gain = lineupPointsFromGroups(byPos) - current;
+      const gain = lineupPointsFromGroups(byPos, settings) - current;
       list.splice(at, 1);
 
       if (gain <= 0) continue;
@@ -415,15 +419,15 @@ export function planValue(roster, budget, spots, board, extra, detail) {
  * for slots you still have to start someone in. A player who fills none of those
  * slots may only bid what is left over.
  */
-export function starterReserve(me, board) {
-  const plan = planValue(me.roster, me.budget, me.spotsLeft, board, null, true);
+export function starterReserve(me, board, settings) {
+  const plan = planValue(me.roster, me.budget, me.spotsLeft, board, null, true, settings);
   const counts = { ...me.counts };
   let reserve = 0;
   let n = 0;
   plan.bought.forEach(({ player, price }) => {
     const pos = player.position;
-    const cap = STARTER_SLOTS[pos] || 0;
-    const flexCap = FLEX_POS.includes(pos) ? N_FLEX : 0;
+    const cap = starterSlots(settings)[pos] || 0;
+    const flexCap = FLEX_POS.includes(pos) ? flexCount(settings) : 0;
     // Counts a flex-eligible buy as filling a starting slot only while the
     // combined starter+flex allowance is unfilled.
     if ((counts[pos] || 0) < cap + flexCap) {
@@ -548,11 +552,12 @@ export function recommendBid(league, player, currentBid = 0, options = {}) {
   const seen = new Set(picked.map((b) => b.player.id));
   const onBoard = {};
   picked.forEach((b) => { onBoard[b.player.position] = (onBoard[b.player.position] || 0) + 1; });
-  Object.keys(STARTER_SLOTS).forEach((pos) => {
+  const lineupSlots = starterSlots(league.rosterSettings);
+  Object.keys(lineupSlots).forEach((pos) => {
     // Only backfill a position the board cannot already staff. Topping up
     // positions that are well represented would change what the planner buys
     // everywhere, which is not the problem being solved here.
-    const want = (STARTER_SLOTS[pos] || 1) + 2;
+    const want = (lineupSlots[pos] || 1) + 2;
     const short = want - (onBoard[pos] || 0);
     if (short <= 0) return;
     ranked.filter((b) => b.player.position === pos && !seen.has(b.player.id))
@@ -568,10 +573,11 @@ export function recommendBid(league, player, currentBid = 0, options = {}) {
   // ceiling to zero: passing would cost nothing.
   const boardMinus = board.filter((b) => b.player.id !== player.id);
 
-  const planMissing = planValue(me.roster, me.budget, me.spotsLeft, boardMinus);
+  const planMissing = planValue(me.roster, me.budget, me.spotsLeft, boardMinus, undefined, undefined, league.rosterSettings);
   const planIfWon = (x) => (x > me.maxBid
     ? -Infinity
-    : planValue(me.roster, me.budget - x, me.spotsLeft - 1, boardMinus, player));
+    : planValue(me.roster, me.budget - x, me.spotsLeft - 1, boardMinus, player,
+      undefined, league.rosterSettings));
 
   // Walk-away price: the most I can pay and still be better off than passing.
   let maxBid = 0;
@@ -606,7 +612,7 @@ export function recommendBid(league, player, currentBid = 0, options = {}) {
   const hasHoles = Object.keys(me.needs).some((pos) => fillable.has(pos));
   let luxuryCap = null;
   if (!fillsSlot && hasHoles) {
-    const { reserve, slots } = starterReserve(me, boardMinus);
+    const { reserve, slots } = starterReserve(me, boardMinus, league.rosterSettings);
     // $1 apiece for the bench slots that remain after this buy and the reserved
     // ones. The reserve carries a margin because a forecast price is not a
     // guaranteed price -- if the room bids the last starting tight end past the
@@ -664,7 +670,7 @@ export function recommendBid(league, player, currentBid = 0, options = {}) {
 
   // What the rest of the roster is forecast to cost if we win at this price.
   const after = planValue(me.roster.concat([player]), budgetAfterWin, spotsAfter,
-                          boardMinus, null, true);
+                          boardMinus, null, true, league.rosterSettings);
   const costToFinish = after.spend;
 
   let reason;
