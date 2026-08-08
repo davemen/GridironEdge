@@ -61,9 +61,7 @@ const INJURY = {
 
 import { playerKey, draftedNameKey } from '../player-database.js';
 import { FLEX_POS, starterSlots, flexCount } from './lineup-rules.js';
-
-const num = (v, d = 0) => (typeof v === 'number' && isFinite(v) ? v : d);
-const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
+import { finite, clamp } from './numbers.js';
 
 // ---------------------------------------------------------------------------
 // Season phase
@@ -79,7 +77,7 @@ const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
  * can start this week rises.
  */
 export function seasonPhase(week) {
-  const w = clamp(num(week, 1), 1, FINAL_WEEK);
+  const w = clamp(finite(week, 1), 1, FINAL_WEEK);
   const remaining = Math.max(0, FINAL_WEEK - w + 1);
   const progress = (w - 1) / (FINAL_WEEK - 1);
   return {
@@ -107,7 +105,7 @@ export function effectivePpg(player) {
   // status change before we start him.
   const ni = player.newsImpact;
   const newsCut = ni && ni.selfImpact < 0 ? clamp(1 + ni.selfImpact * 0.5, 0.15, 1) : 1;
-  return num(player.projectedPoints) * inj.play * newsCut;
+  return finite(player.projectedPoints) * inj.play * newsCut;
 }
 
 /**
@@ -116,23 +114,23 @@ export function effectivePpg(player) {
  */
 export function restOfSeasonPoints(player, phase) {
   const inj = INJURY[player.injuryStatus] || INJURY.Healthy;
-  const bye = num(player.byeWeek, 0);
+  const bye = finite(player.byeWeek, 0);
   let weeks = 0;
   for (let w = phase.week; w <= FINAL_WEEK; w++) {
     if (w === bye) continue;
     if (w < phase.week + inj.weeksOut) continue;
     weeks++;
   }
-  return num(player.projectedPoints) * weeks * (inj.weeksOut > 0 ? 1 : inj.play);
+  return finite(player.projectedPoints) * weeks * (inj.weeksOut > 0 ? 1 : inj.play);
 }
 
 /** Points available in the weeks that decide the title. */
 export function playoffPoints(player, phase) {
-  const bye = num(player.byeWeek, 0);
+  const bye = finite(player.byeWeek, 0);
   const inj = INJURY[player.injuryStatus] || INJURY.Healthy;
   const weeks = PLAYOFF_WEEKS.filter((w) => w >= phase.week && w !== bye).length;
   const backByThen = phase.week + inj.weeksOut <= PLAYOFF_WEEKS[0];
-  return num(player.projectedPoints) * weeks * (backByThen ? 1 : 0.35);
+  return finite(player.projectedPoints) * weeks * (backByThen ? 1 : 0.35);
 }
 
 /**
@@ -159,9 +157,9 @@ export function opportunityTrend(player, recentWeeks = 3, baseWeeks = 6) {
   // Snapshots hold cumulative season totals, so a single week's usage is the
   // difference between consecutive ones. Comparing the totals directly would
   // show every player "trending up" forever.
-  const opp = (m) => num(m?.seasonTargets ?? m?.targets)
-    + num(m?.seasonCarries ?? m?.carries)
-    + 0.5 * num(m?.seasonAttempts ?? m?.attempts);
+  const opp = (m) => finite(m?.seasonTargets ?? m?.targets)
+    + finite(m?.seasonCarries ?? m?.carries)
+    + 0.5 * finite(m?.seasonAttempts ?? m?.attempts);
   const weekly = [];
   for (let i = 1; i < h.length; i++) {
     weekly.push(Math.max(0, opp(h[i]) - opp(h[i - 1])));
@@ -185,11 +183,11 @@ export function opportunityTrend(player, recentWeeks = 3, baseWeeks = 6) {
  */
 export function breakoutProbability(player, phase) {
   const m = player.metrics || {};
-  const snap = num(m.snapShare, 0.5);
-  const target = num(m.targetShare, 0);
-  const carries = num(m.carries, 0);
-  const rz = num(m.redZoneTargets, 0) + num(m.redZoneCarries, 0);
-  const adp = num(player.adp, 200);
+  const snap = finite(m.snapShare, 0.5);
+  const target = finite(m.targetShare, 0);
+  const carries = finite(m.carries, 0);
+  const rz = finite(m.redZoneTargets, 0) + finite(m.redZoneCarries, 0);
+  const adp = finite(player.adp, 200);
 
   let p = 0.05;
   // Real usage already in hand.
@@ -203,7 +201,7 @@ export function breakoutProbability(player, phase) {
   // Cheap in the draft but already being used = the market has not caught up.
   if (adp > 120) p += 0.10; else if (adp > 80) p += 0.05; else if (adp < 40) p -= 0.05;
   // Volatile players have fatter tails in both directions.
-  p += clamp((num(player.volatility, 3) - 3) * 0.015, -0.03, 0.05);
+  p += clamp((finite(player.volatility, 3) - 3) * 0.015, -0.03, 0.05);
   // Rising opportunity, where weekly history is available. This is the one
   // public signal the projections have not already absorbed, so it gets real
   // weight -- but it is bounded, because r = 0.086 is a nudge, not a verdict.
@@ -222,12 +220,12 @@ export function breakoutProbability(player, phase) {
 /** Probability he ends up worth nothing at all. */
 export function bustProbability(player, phase) {
   const m = player.metrics || {};
-  const snap = num(m.snapShare, 0.5);
+  const snap = finite(m.snapShare, 0.5);
   let p = 0.15;
   if (snap < 0.35) p += 0.25; else if (snap < 0.55) p += 0.10;
-  if (num(player.projectedPoints) < 7) p += 0.15;
+  if (finite(player.projectedPoints) < 7) p += 0.15;
   if (['Out', 'IR'].includes(player.injuryStatus)) p += 0.20;
-  if (num(player.adp, 200) < 60) p -= 0.10;
+  if (finite(player.adp, 200) < 60) p -= 0.10;
   return clamp(p, 0.02, 0.92);
 }
 
@@ -315,14 +313,14 @@ export function blockingValue(player, league, db, phase) {
   const rivals = league.teams.filter((t) => t.teamId !== me);
   if (!rivals.length) return { value: 0, claimProbability: 0.05, suitors: [] };
 
-  const records = rivals.map((t) => num(t.record?.wins, 0));
+  const records = rivals.map((t) => finite(t.record?.wins, 0));
   const bestRecord = Math.max(...records, 1);
 
   const suitors = rivals.map((t) => {
     const gain = lineupGain(rosterOf(t, db), player);
     // Contenders hurt more, and so do teams you still have to play.
-    const contention = clamp(num(t.record?.wins, 0) / bestRecord, 0.3, 1.0);
-    const faab = num(t.faabRemaining, 0);
+    const contention = clamp(finite(t.record?.wins, 0) / bestRecord, 0.3, 1.0);
+    const faab = finite(t.faabRemaining, 0);
     const canPay = clamp(faab / 40, 0.1, 1.0);
     return { teamId: t.teamId, teamName: t.teamName, gain, contention, canPay };
   }).filter((s) => s.gain > 0.25).sort((a, b) => b.gain - a.gain);
@@ -336,7 +334,7 @@ export function blockingValue(player, league, db, phase) {
   );
   // If the wider fantasy world is already adding him in volume, that is a
   // measurement rather than an inference, and it should dominate the estimate.
-  const heat = player.newsImpact ? num(player.newsImpact.claimHeat) : 0;
+  const heat = player.newsImpact ? finite(player.newsImpact.claimHeat) : 0;
   if (heat > 0) {
     // Measured demand beats inferred demand, and must be able to exceed a
     // baseline that has already saturated -- otherwise the signal is invisible
@@ -543,7 +541,7 @@ function bestAtPosition(pool, position, roster, phase) {
  */
 function positionalScarcity(pool, position) {
   const at = pool.filter((p) => p.position === position)
-    .map((p) => num(p.projectedPoints)).sort((a, b) => b - a);
+    .map((p) => finite(p.projectedPoints)).sort((a, b) => b - a);
   if (at.length < 2) return 1;
   const best = at[0];
   const depth = at.slice(0, 5).reduce((a, b) => a + b, 0) / Math.min(5, at.length);
@@ -559,10 +557,10 @@ function positionalScarcity(pool, position) {
  */
 export function faabLadder(player, league, phase, acquisitionValue, claimProbability) {
   const me = league.teams.find((t) => t.teamId === league.myTeamId);
-  const budget = num(me?.faabRemaining, 100);
+  const budget = finite(me?.faabRemaining, 100);
   const rivalBudgets = league.teams
     .filter((t) => t.teamId !== league.myTeamId)
-    .map((t) => num(t.faabRemaining, 0)).sort((a, b) => b - a);
+    .map((t) => finite(t.faabRemaining, 0)).sort((a, b) => b - a);
   const richestRival = rivalBudgets[0] || 0;
 
   // Waiver runs left. As this shrinks, holding cash gets steadily more pointless.
@@ -746,11 +744,11 @@ function triggersFor(player, block) {
   if (ni && ni.addsLast24h) {
     out.push(`${ni.addsLast24h.toLocaleString()} managers added him in 24h`);
   }
-  if (num(m.snapShare, 0) < 0.6) out.push('snap share climbing above 60%');
-  if (['WR', 'TE'].includes(player.position) && num(m.targetShare, 0) < 0.2) {
+  if (finite(m.snapShare, 0) < 0.6) out.push('snap share climbing above 60%');
+  if (['WR', 'TE'].includes(player.position) && finite(m.targetShare, 0) < 0.2) {
     out.push('target share climbing above 20%');
   }
-  if (player.position === 'RB' && num(m.carries, 0) < 12) out.push('carries reaching a starter workload');
+  if (player.position === 'RB' && finite(m.carries, 0) < 12) out.push('carries reaching a starter workload');
   if (player.injuryStatus && player.injuryStatus !== 'Healthy') out.push(`injury status clearing (${player.injuryStatus})`);
   if (block.claimProbability > 0.5) out.push('a rival claiming him first');
   return out.slice(0, 3);
@@ -759,13 +757,13 @@ function triggersFor(player, block) {
 // ---------------------------------------------------------------------------
 
 function deriveWeek(league) {
-  const weeks = (league.schedule || []).map((m) => num(m.week, 0));
+  const weeks = (league.schedule || []).map((m) => finite(m.week, 0));
   return weeks.length ? Math.max(...weeks) : 5;
 }
 
 function round(v, dp = 0) {
   const f = Math.pow(10, dp);
-  return Math.round(num(v) * f) / f;
+  return Math.round(finite(v) * f) / f;
 }
 
 export { CATEGORY, ACTION };

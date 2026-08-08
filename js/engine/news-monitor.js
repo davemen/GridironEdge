@@ -72,8 +72,8 @@ const PATTERNS = [
 
 import { playerKey } from '../player-database.js';
 import { NFL_NICKNAMES } from '../nfl-teams.js';
+import { finite } from './numbers.js';
 
-const num = (v, d = 0) => (typeof v === 'number' && isFinite(v) ? v : d);
 
 /**
  * Normalise a name for matching across feeds that punctuate differently.
@@ -238,7 +238,7 @@ export async function fetchTrending(lookbackHours = 24, limit = 50) {
     return p.full_name || [p.first_name, p.last_name].filter(Boolean).join(' ');
   };
   const map = (rows, key) => (rows || []).map((r) => ({
-    name: nameOf(r.player_id), [key]: num(r.count),
+    name: nameOf(r.player_id), [key]: finite(r.count),
   })).filter((r) => r.name);
   return { adds: map(adds, 'adds'), drops: map(drops, 'drops') };
 }
@@ -289,7 +289,7 @@ export function applyNews(league, news, trending, options = {}) {
       if (!impact.backup) return;
       const heirs = players.filter(
         (q) => q.id !== p.id && q.position === p.position && q.team === p.team
-      ).sort((a, b) => num(b.projectedPoints) - num(a.projectedPoints));
+      ).sort((a, b) => finite(b.projectedPoints) - finite(a.projectedPoints));
       if (heirs[0]) {
         bump(heirs[0], impact.backup, `${item.type}_beneficiary`,
              `Inherits work with ${p.name} ${impact.label}`, impact.urgency);
@@ -299,13 +299,13 @@ export function applyNews(league, news, trending, options = {}) {
 
   // Market heat, normalised so the busiest add of the day is 1.0.
   const adds = (trending && trending.adds) || [];
-  const peak = adds.reduce((m, r) => Math.max(m, num(r.adds)), 0) || 1;
+  const peak = adds.reduce((m, r) => Math.max(m, finite(r.adds)), 0) || 1;
   adds.forEach((r) => {
     const p = byName.get(normalizeName(r.name));
     if (!p) return;
     const cur = p.newsImpact || { selfImpact: 0, claimHeat: 0, events: [] };
-    cur.claimHeat = Math.max(cur.claimHeat, num(r.adds) / peak);
-    cur.addsLast24h = num(r.adds);
+    cur.claimHeat = Math.max(cur.claimHeat, finite(r.adds) / peak);
+    cur.addsLast24h = finite(r.adds);
     p.newsImpact = cur;
   });
 

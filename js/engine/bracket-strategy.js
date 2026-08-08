@@ -24,10 +24,11 @@
  * changes three lineups. See BACKTEST.md.
  */
 
+import { finite } from './numbers.js';
+
 const PLAYOFF_WEEKS = [15, 16, 17];
 const FINAL_WEEK = 17;
 
-const num = (v, d = 0) => (typeof v === 'number' && isFinite(v) ? v : d);
 
 /**
  * Estimate whether this team beats that one, from season scoring to date.
@@ -35,14 +36,14 @@ const num = (v, d = 0) => (typeof v === 'number' && isFinite(v) ? v : d);
  * model of a 12-team league's scoring would be false precision.
  */
 export function winProbability(myTeam, opponentTeam) {
-  const mine = num(myTeam?.pointsScored);
-  const theirs = num(opponentTeam?.pointsScored);
+  const mine = finite(myTeam?.pointsScored);
+  const theirs = finite(opponentTeam?.pointsScored);
   // Null, not 0.5. "No games have been played" is not "a coin flip": rendered
   // as a percentage it reads "you are the favourite (50%)", which is a claim
   // about two teams the function has no scoring for at all.
   if (!mine || !theirs) return null;
-  const games = Math.max(1, num(myTeam?.record?.wins) + num(myTeam?.record?.losses)
-    + num(myTeam?.record?.ties));
+  const games = Math.max(1, finite(myTeam?.record?.wins) + finite(myTeam?.record?.losses)
+    + finite(myTeam?.record?.ties));
   const perWeek = (mine - theirs) / games;
   // Weekly scores in a PPR league scatter with a standard deviation near 25,
   // so a margin of one weekly standard deviation is an 84% favourite.
@@ -65,7 +66,7 @@ function erf(x) {
  * protecting a lead, 'ceiling' when chasing one.
  */
 export function recommendLineupStrategy(league, options = {}) {
-  const week = num(options.week, currentWeek(league));
+  const week = finite(options.week, currentWeek(league));
   const isPlayoffs = PLAYOFF_WEEKS.includes(week);
   const myTeam = league.teams?.find((t) => t.teamId === league.myTeamId);
   const opponent = options.opponentTeamId
@@ -130,14 +131,14 @@ export function recommendLineupStrategy(league, options = {}) {
 }
 
 function currentWeek(league) {
-  const weeks = (league?.schedule || []).map((m) => num(m.week));
+  const weeks = (league?.schedule || []).map((m) => finite(m.week));
   return weeks.length ? Math.min(FINAL_WEEK, Math.max(...weeks)) : 1;
 }
 
 function findOpponent(league, week) {
   const me = league?.myTeamId;
   const m = (league?.schedule || []).find(
-    (x) => num(x.week) === week && (x.team1Id === me || x.team2Id === me));
+    (x) => finite(x.week) === week && (x.team1Id === me || x.team2Id === me));
   if (!m) return null;
   const oppId = m.team1Id === me ? m.team2Id : m.team1Id;
   return league.teams?.find((t) => t.teamId === oppId) || null;
@@ -156,10 +157,10 @@ function findOpponent(league, week) {
  * only three weeks that award a trophy.
  */
 export function playoffValue(player, options = {}) {
-  const weight = num(options.weight, 3.0);
-  const mult = num(player.playoffMatchup, 1.0);
-  const season = num(player.projectedPoints) * 17;
-  const playoffPts = num(player.projectedPoints) * 3 * mult;
+  const weight = finite(options.weight, 3.0);
+  const mult = finite(player.playoffMatchup, 1.0);
+  const season = finite(player.projectedPoints) * 17;
+  const playoffPts = finite(player.projectedPoints) * 3 * mult;
   return {
     seasonPoints: season,
     playoffPoints: playoffPts,
@@ -167,6 +168,6 @@ export function playoffValue(player, options = {}) {
     hasScheduleData: typeof player.playoffMatchup === 'number',
     // What the draft board should sort on if you are drafting for a title
     // rather than for a points crown.
-    titleWeightedValue: season + weight * (playoffPts - num(player.projectedPoints) * 3),
+    titleWeightedValue: season + weight * (playoffPts - finite(player.projectedPoints) * 3),
   };
 }

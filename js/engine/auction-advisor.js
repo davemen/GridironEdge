@@ -43,6 +43,7 @@
 import { FLEX_POS, MAX_AT_POS, openStarterSlots, rosterSize, starterSlots, flexCount }
   from './lineup-rules.js';
 import { dbRevision } from '../player-database.js';
+import { finite } from './numbers.js';
 
 const BENCH_WEIGHT = 0.12;       // depth is worth something, but far less than a starter
 const MUST_BUY_POINTS = 10.0;    // lineup points lost by missing him
@@ -51,8 +52,7 @@ const SHORTLIST = 20;           // how many of those the watchlist prices
 const STARTER_MARGIN = 1.25;     // hold 25% over forecast for slots you must fill
 const GAMES = 17;
 
-const num = (v, d = 0) => (typeof v === 'number' && isFinite(v) ? v : d);
-const seasonPoints = (p) => num(p.projectedPoints) * GAMES;
+const seasonPoints = (p) => finite(p.projectedPoints) * GAMES;
 
 // ---------------------------------------------------------------------------
 // League state
@@ -71,7 +71,7 @@ export function buildLeagueState(league, parById = null) {
   const teams = league.teams.map((t) => ({
     teamId: t.teamId,
     teamName: t.teamName,
-    budget: num(t.faabRemaining, 200),
+    budget: finite(t.faabRemaining, 200),
     roster: [],
     counts: {},
     paidVsPar: [],

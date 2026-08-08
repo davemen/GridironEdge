@@ -472,6 +472,52 @@ console.log('\none answer to "will he last until my next pick"');
     nextPickFor(auction, 40) === 52, String(nextPickFor(auction, 40)));
 }
 
+console.log('\none coercion from "whatever the payload held" to a number');
+{
+  // Five engines each declared `const num = (v, d = 0) =>
+  // (typeof v === 'number' && isFinite(v) ? v : d)`, and a SIXTH num() with the
+  // same name and a different contract lives in js/escape.js, where it formats
+  // a figure for markup and returns a string.
+  const { finite, clamp } = await import(join(ROOT, 'js/engine/numbers.js'));
+  const { num } = await import(join(ROOT, 'js/escape.js'));
+  check('the two jobs return two types, so they cannot be swapped',
+    typeof finite('12.4') === 'number' && typeof num(12.4) === 'string',
+    `${typeof finite('12.4')} / ${typeof num(12.4)}`);
+
+  // The typeof test was the substantive bug, not just the duplication. Every
+  // payload this app reads is JSON, and JSON produces "12.4" as readily as
+  // 12.4 -- whereupon the projection became 0, which is not "unknown", it is a
+  // measurement saying the player is worth nothing.
+  check('a numeric string is a number, not a zero', finite('12.4') === 12.4,
+    String(finite('12.4')));
+  check('and it survives into a projection',
+    finite('12.4') * 17 > 200, String(finite('12.4') * 17));
+  check('an unknown value still takes the fallback',
+    finite(null) === 0 && finite(undefined) === 0 && finite('Questionable') === 0
+      && finite(NaN) === 0 && finite(Infinity) === 0);
+  // Number(true) is 1 and Number('') is 0, both finite, and neither is a
+  // projection anybody wrote down.
+  check('a boolean is not a figure', finite(true, -1) === -1 && finite('', -1) === -1,
+    `${finite(true, -1)} / ${finite('', -1)}`);
+  check('the fallback is honoured', finite(undefined, 5) === 5);
+  check('clamp is the same one everywhere',
+    clamp(9, 1, 5) === 5 && clamp(-9, 1, 5) === 1 && clamp(3, 1, 5) === 3);
+
+  // The end-to-end version: a scraped roster whose projections came back as
+  // strings must not price out as a roster of worthless players.
+  const { buildLeagueState } =
+    await import(join(ROOT, 'js/engine/auction-advisor.js'));
+  const asStrings = leagueWith(0);
+  Object.values(asStrings.playerDatabase).forEach((p) => {
+    p.projectedPoints = String(p.projectedPoints);
+  });
+  const asNumbers = leagueWith(0);
+  check('a database of numeric strings values the same as one of numbers',
+    JSON.stringify(buildLeagueState(asStrings).par)
+      === JSON.stringify(buildLeagueState(asNumbers).par),
+    JSON.stringify(buildLeagueState(asStrings).par));
+}
+
 console.log('\nthe trade generator survives a roster it cannot trade from');
 {
   // The reproducible crash: `give` was dereferenced before the guard that

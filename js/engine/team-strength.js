@@ -25,13 +25,13 @@
 
 import { FLEX_POS, REGULAR_WEEKS, rosterSize, starterSlots, flexCount, playoffFieldSize, byeCount }
   from './lineup-rules.js';
+import { finite } from './numbers.js';
 
 // Week-to-week scoring noise for a whole lineup, in points. Fantasy teams are
 // far more volatile than their projections suggest: this is what makes a
 // stronger roster only a favourite rather than a certainty.
 const WEEKLY_SD = 22;
 
-const num = (v, d = 0) => (typeof v === 'number' && isFinite(v) ? v : d);
 
 /**
  * The best legal starting lineup a roster can field, and what it projects.
@@ -44,7 +44,7 @@ export function bestLineup(roster, db, replacement = null, settings = undefined)
     (pool[p.position] = pool[p.position] || []).push(p);
   });
   Object.keys(pool).forEach((k) => {
-    pool[k].sort((a, b) => num(b.projectedPoints) - num(a.projectedPoints));
+    pool[k].sort((a, b) => finite(b.projectedPoints) - finite(a.projectedPoints));
   });
 
   const used = new Set();
@@ -58,21 +58,21 @@ export function bestLineup(roster, db, replacement = null, settings = undefined)
       // the manager will still be able to sign for it. Scoring it zero makes
       // whoever has drafted most so far look unbeatable, which at pick 16 of
       // 128 said a three-man roster wins the title 95% of the time.
-      const fallback = replacement ? num(replacement[pos]) : 0;
+      const fallback = replacement ? finite(replacement[pos]) : 0;
       slots.push({ slot: pos, player: pick || null,
-                   points: pick ? num(pick.projectedPoints) : fallback,
+                   points: pick ? finite(pick.projectedPoints) : fallback,
                    projected: !pick && fallback > 0 });
     }
   });
   for (let i = 0; i < flexCount(settings); i++) {
     const cands = FLEX_POS.flatMap((pos) => (pool[pos] || []).filter((p) => !used.has(p.id)));
-    cands.sort((a, b) => num(b.projectedPoints) - num(a.projectedPoints));
+    cands.sort((a, b) => finite(b.projectedPoints) - finite(a.projectedPoints));
     const pick = cands[0];
     if (pick) used.add(pick.id);
     const flexFallback = replacement
-      ? Math.max(...FLEX_POS.map((pos) => num(replacement[pos]))) : 0;
+      ? Math.max(...FLEX_POS.map((pos) => finite(replacement[pos]))) : 0;
     slots.push({ slot: 'FLEX', player: pick || null,
-                 points: pick ? num(pick.projectedPoints) : flexFallback,
+                 points: pick ? finite(pick.projectedPoints) : flexFallback,
                  projected: !pick && flexFallback > 0 });
   }
 
@@ -102,7 +102,7 @@ export function replacementLevels(league) {
   Object.keys(starterSlots(league.rosterSettings)).forEach((pos) => {
     const avail = Object.values(db)
       .filter((p) => p.position === pos && !taken.has(String(p.id)))
-      .map((p) => num(p.projectedPoints))
+      .map((p) => finite(p.projectedPoints))
       .sort((a, b) => b - a);
     if (!avail.length) { out[pos] = 0; return; }
     out[pos] = avail[Math.min(avail.length - 1, n - 1)];
@@ -135,7 +135,7 @@ export function rankTeams(league, options = {}) {
       teamId: t.teamId,
       teamName: t.teamName,
       isMe: t.teamId === league.myTeamId,
-      budget: num(t.faabRemaining, 0),
+      budget: finite(t.faabRemaining, 0),
       rostered: lineup.rostered,
       points: lineup.points,
       holes: lineup.holes,
@@ -344,7 +344,7 @@ export function highestImpactMoves(league, freeAgents = []) {
   const bestFa = {};
   freeAgents.forEach((p) => {
     const pos = p.position;
-    if (!bestFa[pos] || num(p.projectedPoints) > num(bestFa[pos].projectedPoints)) {
+    if (!bestFa[pos] || finite(p.projectedPoints) > finite(bestFa[pos].projectedPoints)) {
       bestFa[pos] = p;
     }
   });
@@ -356,8 +356,8 @@ export function highestImpactMoves(league, freeAgents = []) {
     const fa = wantPos ? bestFa[wantPos] : FLEX_POS
       .map((p) => bestFa[p])
       .filter(Boolean)
-      .sort((a, b) => num(b.projectedPoints) - num(a.projectedPoints))[0];
-    const upgrade = fa ? num(fa.projectedPoints) - s.points : 0;
+      .sort((a, b) => finite(b.projectedPoints) - finite(a.projectedPoints))[0];
+    const upgrade = fa ? finite(fa.projectedPoints) - s.points : 0;
     return {
       slot: s.slot,
       current: s.player ? s.player.name : null,
