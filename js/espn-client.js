@@ -649,9 +649,14 @@ class ESPNClient {
             week: match.matchupPeriodId,
             matchupId: idx + 1,
             team1Id: match.away?.teamId || 0,
-            team1Proj: match.away?.totalPointsLive || match.away?.totalPoints || 100,
+            // Null, not 100. ESPN publishes fixtures before it publishes any
+            // scores, so `|| 100` gave every unplayed week a projection of
+            // exactly 100 -- which defeated the deliberate "--" guard on the
+            // matchup card AND, because 100 is never more than 100 minus five,
+            // declared every single fixture "Favorite (Reliable Floor)".
+            team1Proj: match.away?.totalPointsLive ?? match.away?.totalPoints ?? null,
             team2Id: match.home?.teamId || 0,
-            team2Proj: match.home?.totalPointsLive || match.home?.totalPoints || 100
+            team2Proj: match.home?.totalPointsLive ?? match.home?.totalPoints ?? null
           });
         }
       });

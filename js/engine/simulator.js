@@ -402,8 +402,10 @@ export function runSeasonSimulation(league, runs = 1000) {
     actionPlan.push({
       type: 'immediate',
       title: 'Maintain current lineup configuration',
-      desc: `All ${starters.length} starters are healthy and none is on a bye `
-        + 'this week.'
+      // What was actually checked, which is the injury flags. The bye half was
+      // a claim about a field this branch never reads -- printed while four
+      // starters were on bye.
+      desc: `All ${starters.length} starters are free of injury flags.`
     });
   } else {
     actionPlan.push({

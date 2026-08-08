@@ -19,7 +19,7 @@ import { refreshNews, fetchLeagueNews, normalizeName, relevanceTo, EVENT_IMPACT 
   from './engine/news-monitor.js';
 import { generateTradeProposals } from './engine/trade-generator.js';
 import { runSeasonSimulation } from './engine/simulator.js';
-import { survivalPct } from './engine/survival.js';
+import { survivalPct, nextPickFor } from './engine/survival.js';
 import { rankTeams, preseasonOutlook, highestImpactMoves } from './engine/team-strength.js';
 
 // Cache DOM elements
@@ -300,7 +300,7 @@ function setupSetupWizard() {
       store.setActiveTab('home');
     } catch (err) {
       hideLoading();
-      alert(`Sync Failed: ${err.message}`);
+      alert(`Sync Failed: ${esc(err.message)}`);
     }
   });
 }
@@ -515,7 +515,7 @@ function setupModals() {
       store.setActiveTab('home');
     } catch (e) {
       hideLoading();
-      alert(`Invalid format: ${e.message}`);
+      alert(`Invalid format: ${esc(e.message)}`);
     }
   });
 }
@@ -1045,7 +1045,7 @@ export function renderHomePage(league = store.getActiveLeague()) {
     itemsHtml += `
       <div class="recommendation-item low-confidence">
         <div class="item-action-title">Configure Backup starter <span class="badge-solid badge-red">Urgent</span></div>
-        <div class="item-details">${esc(activeAlert.name)} is questionable. Wire conditional replacement roster slot in Matchups.</div>
+        <div class="item-details">${esc(activeAlert.name)} is ${esc(String(activeAlert.injuryStatus || 'carrying an injury flag').toLowerCase())}. Wire a conditional replacement in Matchups.</div>
       </div>
     `;
   }
@@ -1077,7 +1077,7 @@ export function renderHomePage(league = store.getActiveLeague()) {
       itemsHtml = `
         <div class="recommendation-item low-confidence">
           <div class="item-action-title">Could not work out your best moves</div>
-          <div class="item-details">${err.message}</div>
+          <div class="item-details">${esc(err.message)}</div>
         </div>` + itemsHtml;
     }
   }
@@ -1139,11 +1139,26 @@ export function renderHomePage(league = store.getActiveLeague()) {
     document.getElementById('match-opp-name').textContent = oppTeam ? oppTeam.teamName : 'Opponent';
     document.getElementById('match-opp-proj').textContent = projText(oppProj);
 
+    // No projections, no verdict. The else branch used to catch every fixture
+    // ESPN had not scored yet -- because both sides defaulted to 100 and 100 is
+    // not less than 95 -- and announced "Favorite (Reliable Floor)" for all of
+    // them. "Routes run" was hardcoded there too, and the engine has never read
+    // routes run.
     const hint = document.getElementById('matchup-strategy-hint');
-    if (myProj < oppProj - 5) {
-      hint.innerHTML = `<strong>Matchup Strategy: Underdog (High Upside Ceiling)</strong><br>Swap high-variance players in FLEX slots to chase maximum scoring curves.`;
+    const haveBoth = typeof myProj === 'number' && typeof oppProj === 'number';
+    if (!haveBoth) {
+      hint.innerHTML = '<strong>No projection for this fixture yet.</strong><br>'
+        + 'ESPN publishes the pairing before the numbers.';
+    } else if (myProj < oppProj - 5) {
+      hint.innerHTML = `<strong>Matchup Strategy: Underdog</strong><br>You project `
+        + `${num(oppProj - myProj)} points behind. Higher-variance starters raise the `
+        + `chance of clearing that gap.`;
+    } else if (myProj > oppProj + 5) {
+      hint.innerHTML = `<strong>Matchup Strategy: Favourite</strong><br>You project `
+        + `${num(myProj - oppProj)} points ahead. Steadier starters protect it.`;
     } else {
-      hint.innerHTML = `<strong>Matchup Strategy: Favorite (Reliable Floor)</strong><br>Favor consistent playmakers and routes run to protect your lead.`;
+      hint.innerHTML = `<strong>Matchup Strategy: Close</strong><br>`
+        + `${num(Math.abs(myProj - oppProj))} points between you.`;
     }
   }
 
@@ -1459,7 +1474,11 @@ export function renderDraftPage(league = store.getActiveLeague()) {
     return av - bv;
   });
 
-  // Recalculate next user pick absolute order to re-run probability math
+  // One next-pick number for the whole page, from the same module that owns
+  // the curve. This was `currentPick + league.leagueSize` -- a linear-draft
+  // assumption on a board that renders for snake drafts.
+  const nextPick = nextPickFor(league, currentPick);
+
   const nextP = rec.willBeAvailable;
 
   const myTeam = store.getMyTeam();
@@ -1499,7 +1518,7 @@ export function renderDraftPage(league = store.getActiveLeague()) {
     // on the same board state they answered 2%, 5% and 9% for the same player.
     // Null when his ADP is unknown: a survival curve fitted to a missing draft
     // position is a percentage about nothing.
-    const avPct = survivalPct(p, currentPick + league.leagueSize);
+    const avPct = survivalPct(p, nextPick);
 
     let avBadge = 'badge-green';
     if (avPct === null) avBadge = 'badge-muted';
@@ -3207,7 +3226,7 @@ async function fetchLiveBreakingNews(rosterNames = [], force = false) {
         <div style="font-size:0.82rem; color:var(--text-secondary);">
           This is a connection failure, not quiet news — an injury from this
           morning would not be reflected in your recommendations.
-          <br><span style="opacity:0.7;">${err.message}</span>
+          <br><span style="opacity:0.7;">${esc(err.message)}</span>
         </div>
         <button id="btn-news-retry-feed" class="btn-secondary"
           style="margin-top:0.6rem; padding:0.25rem 0.7rem; font-size:0.8rem;">Retry</button>
@@ -3277,7 +3296,7 @@ function generateSparkline(matchProjs) {
   const color = values[values.length - 1] >= values[0] ? '#00e676' : '#ff1744';
 
   return `
-    <svg width="${width}" height="${height}" style="vertical-align: middle; margin-left: 0.35rem; display: inline-block;" title="Trend: ${values.join(' ➔ ')}">
+    <svg width="${width}" height="${height}" style="vertical-align: middle; margin-left: 0.35rem; display: inline-block;" title="Trend: ${attr(values.join(' ➔ '))}">
       <polyline fill="none" stroke="${color}" stroke-width="1.5" points="${path}" />
       <circle cx="${points[points.length - 1].split(',')[0]}" cy="${points[points.length - 1].split(',')[1]}" r="1.5" fill="${color}" />
     </svg>

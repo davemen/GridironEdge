@@ -1,7 +1,7 @@
 /**
  * Gridiron Edge Live Draft Recommendation Engine
  */
-import { survivalProbability, survivalPct } from './survival.js';
+import { survivalProbability, survivalPct, nextPickFor } from './survival.js';
 import { openStarterSlots, starterSlots, flexCount, FLEX_POS } from './lineup-rules.js';
 
 export function getDraftRecommendations(league) {
@@ -58,27 +58,11 @@ export function getDraftRecommendations(league) {
   const userOrderIdx = draftOrder.indexOf(league.myTeamId);
   const roundIdx = Math.floor((currentPick - 1) / league.leagueSize);
   
-  // Snake calculation
-  let nextUserPick = currentPick;
-  if (draftState.draftType === 'snake') {
-    // Find next picks for user
-    const picks = [];
-    for (let r = roundIdx; r < rounds; r++) {
-      const isRRoundEven = (r + 1) % 2 === 0;
-      let pickInRound = userOrderIdx;
-      if (isRRoundEven) {
-        pickInRound = league.leagueSize - 1 - userOrderIdx;
-      }
-      const absolutePick = (r * league.leagueSize) + pickInRound + 1;
-      if (absolutePick >= currentPick) {
-        picks.push(absolutePick);
-      }
-    }
-    nextUserPick = picks[1] || (currentPick + league.leagueSize); // user's next pick
-  } else {
-    // Linear draft
-    nextUserPick = currentPick + league.leagueSize;
-  }
+  // One derivation, in survival.js, which also owns the curve it feeds. This
+  // copy took picks[1] -- the pick AFTER next -- whenever the board was not on
+  // your clock, so a manager in seat 4 on pick 25 was told what would survive
+  // to pick 44 rather than 37.
+  const nextUserPick = nextPickFor(league, currentPick) ?? (currentPick + league.leagueSize);
 
   const picksToNext = nextUserPick - currentPick;
 
@@ -321,55 +305,4 @@ export function getDraftRecommendations(league) {
   };
 }
 
-/**
- * Recommends bids for auction drafts based on budgets.
- */
-export function calculateAuctionBid(player, currentBudget, remainingRosterSpots, maxOpponentBid, leagueSize = 10) {
-  // 1. Establish position-specific baseline thresholds
-  let baseline = 8.0;
-  let multiplier = 0.45;
-  
-  if (player.position === 'QB') {
-    baseline = 14.5;
-    multiplier = 0.8;
-  } else if (player.position === 'RB') {
-    baseline = 9.0;
-    multiplier = 0.45;
-  } else if (player.position === 'WR') {
-    baseline = 9.5;
-    multiplier = 0.45;
-  } else if (player.position === 'TE') {
-    baseline = 8.0;
-    multiplier = 0.45;
-  }
 
-  const valueOverBaseline = Math.max(0, player.projectedPoints - baseline);
-  
-  // 2. Adjust base dollar value relative to a standard $200 starting budget
-  // Scale value based on league size (inflation factor)
-  const inflationFactor = Math.max(0.6, leagueSize / 12); 
-  let standardValue = valueOverBaseline * valueOverBaseline * multiplier * inflationFactor;
-  
-  // Cap defense and kicker value at reasonable amounts (usually $1)
-  if (player.position === 'D/ST' || player.position === 'K') {
-    standardValue = Math.min(1.5, standardValue);
-  }
-
-  // 3. Scale the bid down if the user's current remaining budget is lower than starting $200
-  const budgetPercentage = Math.min(1.0, currentBudget / 200);
-  let recommendedBid = Math.round(standardValue * budgetPercentage);
-  
-  // Guarantee we don't exceed the user's maximum possible bid (budget minus $1 per remaining spot)
-  const maxPossibleBid = currentBudget - remainingRosterSpots + 1;
-  recommendedBid = Math.min(maxPossibleBid, Math.max(1, recommendedBid));
-  
-  // 4. Calculate max walk-away limit
-  let maxBid = Math.round(standardValue * 1.15 * budgetPercentage);
-  maxBid = Math.min(maxPossibleBid, Math.max(recommendedBid, Math.min(maxBid, maxOpponentBid + 1)));
-
-  return {
-    recommendedBid,
-    maxBid,
-    reason: `Fair value is $${recommendedBid} based on a $${currentBudget} remaining budget in a ${leagueSize}-team league. Do not exceed $${maxBid} unless it secures your key championship anchor.`
-  };
-}

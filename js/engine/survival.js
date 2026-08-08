@@ -46,6 +46,38 @@ export function survivalProbability(player, pickNumber) {
   return 1 - 0.5 * (1 + erf);
 }
 
+/**
+ * The pick this manager is next on the clock for.
+ *
+ * Consolidating the CURVE was not enough: app.js went on computing
+ * `currentPick + leagueSize`, a linear-draft assumption on a board that renders
+ * for snake drafts, which is the very thing this module's header names as the
+ * reason the app.js copy was wrong. Measured on a 10-team snake from slot 1 on
+ * pick 25, the two answers were 41 and 35 -- and so 43% and 80% for the same
+ * player. One question, one answer, derived in one place.
+ */
+export function nextPickFor(league, currentPick) {
+  const size = Number(league && league.leagueSize) || 0;
+  const draft = (league && league.draftState) || {};
+  if (!size || !Number.isFinite(currentPick)) return null;
+
+  const order = draft.draftOrder || (league.teams || []).map((t) => t.teamId);
+  const seat = order.indexOf(league.myTeamId);
+  // No seat, no snake: a scraped auction room carries no draft order, and the
+  // honest fallback is one full turn of the wheel.
+  if (seat < 0 || draft.draftType !== 'snake') return currentPick + size;
+
+  const round = Math.floor((currentPick - 1) / size);
+  for (let r = round; r < round + 3; r++) {
+    const inRound = (r % 2 === 1) ? (size - 1 - seat) : seat;
+    const absolute = r * size + inRound + 1;
+    // picks[0], not picks[1]. Taking the second upcoming pick answered for the
+    // pick AFTER next whenever the board was not on your clock.
+    if (absolute > currentPick) return absolute;
+  }
+  return currentPick + size;
+}
+
 /** The same answer as a whole percentage for display, or null if unknown. */
 export function survivalPct(player, pickNumber) {
   const p = survivalProbability(player, pickNumber);

@@ -334,6 +334,35 @@ console.log('\none answer to "will he last until my next pick"');
   // certain to last, which is a claim, not an absence.
   check('an unknown ADP has no answer', survivalProbability({ adp: null }, 60) === null
     && survivalPct({}, 60) === null);
+
+  // One curve was not enough: the draft board went on computing the next pick
+  // as currentPick + leagueSize -- a LINEAR assumption on a snake board, which
+  // is the thing this module's header names as the reason the old copy was
+  // wrong. Same player, same board, 43% against 80%.
+  const { nextPickFor } = await import(join(ROOT, 'js/engine/survival.js'));
+  const snake = (seat, size, currentPick) => ({
+    leagueSize: size,
+    myTeamId: seat + 1,
+    teams: Array.from({ length: size }, (_, i) => ({ teamId: i + 1 })),
+    draftState: { draftType: 'snake', draftOrder: Array.from({ length: size }, (_, i) => i + 1) },
+  });
+  // Seat 1 of 10, on pick 25: round 3 is odd-indexed, so the seat picks last.
+  check('a snake board is not a linear one',
+    nextPickFor(snake(0, 10, 25), 25) !== 25 + 10,
+    `${nextPickFor(snake(0, 10, 25), 25)} -- the linear answer is 35`);
+  // Seat 1 of 10 picks 1, then 20 and 21 on the turn, then 40. After pick 25
+  // the next one is 40 -- and 35, the linear answer, is a pick that seat never
+  // has.
+  check('and the answer is a pick this seat actually holds',
+    nextPickFor(snake(0, 10, 25), 25) === 40,
+    String(nextPickFor(snake(0, 10, 25), 25)));
+  check('a seat that is about to pick gets that pick',
+    nextPickFor(snake(3, 10, 3), 3) === 4, String(nextPickFor(snake(3, 10, 3), 3)));
+  // An auction room carries no draft order, and one full turn is the honest
+  // fallback rather than a snake answer invented from a seat we do not have.
+  const auction = { leagueSize: 12, myTeamId: 1, teams: [], draftState: { draftType: 'auction' } };
+  check('an auction falls back to one turn of the wheel',
+    nextPickFor(auction, 40) === 52, String(nextPickFor(auction, 40)));
 }
 
 console.log('\nthe trade generator survives a roster it cannot trade from');
