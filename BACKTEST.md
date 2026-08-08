@@ -373,9 +373,8 @@ history.
 
 The natural question is what following these recommendations does to your odds
 of winning the league. Measured directly: every drafted roster was run through
-40 independent 14-week seasons and 3-round playoff brackets — 24,000 simulated
-seasons per drafter — alongside an **oracle that drafts knowing every player's
-real final points in advance.**
+40 independent 14-week seasons and 3-round playoff brackets, alongside an
+**oracle that drafts knowing every player's real final points in advance.**
 
 | Drafter | Season points | Playoff % | **Title %** | 95% CI |
 |---|---|---|---|---|
@@ -385,6 +384,16 @@ real final points in advance.**
 | Random team | — | 50.0% | 8.3% | — |
 
 *1,440 drafts x 40 simulated seasons = 57,600 seasons per drafter.*
+
+> **The sample size above is the one number in this table I cannot stand
+> behind.** The prose used to open with "24,000 simulated seasons per drafter",
+> which implies 600 drafts, against the caption's 1,440. Both cannot be true and
+> the harness that would settle it lives outside this repo. The caption is kept
+> because it shows its working and the prose figure did not; the contradiction
+> is recorded rather than quietly resolved, because picking one and deleting the
+> other is how a disagreement becomes a fact. Every confidence interval in the
+> table was computed by the harness from its own sample, so they are unaffected
+> by which of the two counts is right.*
 
 This is the most important table in the document, and it says something
 uncomfortable.
@@ -715,7 +724,7 @@ in a league where everyone works the wire, you make claims because your roster
 broke — injuries, busts — not because you found treasure. Waiver activity is a
 distress signal, not a strategy.
 
-It does **not** contradict Part 6. That was a controlled comparison — the same
+It does **not** contradict Part 5. That was a controlled comparison — the same
 roster with and without waivers, worth +7 points of title probability. This is an
 observational correlation across *different* rosters. Both are true.
 
@@ -818,11 +827,27 @@ rankings, and for a single week the median genuinely is the right target for
 ordinal accuracy; my test was season-long. The tension above may simply be an
 artefact of testing the season-long analogue.
 
-Requires a `tdShare` field. The app populates it from ESPN
-(`espn-client.js` `extractTdShare`, and `store.js` `setPriorSeasonScoring`), so
-the adjustment is live on an ESPN-sourced league. It is still a no-op on
-`data/projections-2026.json`, where 0 of 523 players carry the field -- which
-is a no-op rather than a guess, as intended.
+Requires a `tdShare` field, **and nothing in the shipped app supplies one**, so
+this adjustment is a no-op everywhere it runs. Stated plainly here because two
+earlier versions of this paragraph said the opposite and `js/store.js` has
+carried a comment contradicting them since round 6.
+
+Three separate reasons, each sufficient on its own:
+
+- `store.js setPriorSeasonScoring` writes the field and **has no caller**. grep
+  across `js/`, `test/` and `index.html` returns its definition and this
+  paragraph.
+- `espn-client.js extractTdShare` does have a caller, but only inside
+  `mapESPNLeague`'s public-API branch. `mapESPNLeague` delegates to
+  `mapDOMScrapedLeague` whenever `isDOMScraped` is set, and that mapper never
+  writes `tdShare`. CLAUDE.md names the extension port as the only way draft
+  data enters the app, so the branch that populates the field is not the branch
+  the app uses.
+- `data/projections-2026.json` carries the field on 0 of 523 players.
+
+The engine's behaviour without it is correct -- no `tdShare` means no
+adjustment, not an invented one. What was wrong was this document claiming the
+lever was pulled.
 
 ---
 
@@ -950,7 +975,7 @@ across all 17 weeks.
 600 seasons per configuration. Note what does the work: points rise only 41
 (1414 → 1455) while title odds double. Small edges in the right places convert
 far better than raw scoring does — the same lesson the waiver experiment taught
-in Part 6.
+in Part 5.
 
 ### What this number excludes
 

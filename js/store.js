@@ -347,10 +347,14 @@ class Store {
    * directly, or last season's touchdown counts and total points to derive it.
    *
  * DEFINED AND NOT CALLED. grep across js/, test/ and index.html returns this
- * definition and one sentence in BACKTEST.md -- which cites it as evidence the
- * adjustment is live. It is not: nothing invokes this. Wiring it is worth
- * doing; claiming it is wired is the failure recordWeeklyMetrics just below
- * records honestly about itself.
+ * definition and one paragraph in BACKTEST.md. That paragraph used to cite
+ * this method as evidence the adjustment was live; it now says the opposite,
+ * and gives the two further reasons the field never arrives: `extractTdShare`
+ * is called only from mapESPNLeague's public-API branch, which
+ * mapDOMScrapedLeague bypasses on every scraped import, and 0 of 523 players
+ * in data/projections-2026.json carry the field. Wiring it is worth doing;
+ * claiming it is wired was the failure, and for a while the repo held two
+ * documents contradicting each other about one method.
  */
   setPriorSeasonScoring(statsById) {
     const db = this.state.playerDatabase;
