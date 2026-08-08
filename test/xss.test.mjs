@@ -41,43 +41,18 @@ import { join } from 'path';
 
 const ROOT = join(fileURLToPath(new URL('.', import.meta.url)), '..');
 
-const written = new Map();
-const mem = new Map();
-globalThis.localStorage = {
-  getItem: (k) => (mem.has(k) ? mem.get(k) : null),
-  setItem: (k, v) => mem.set(k, String(v)),
-  removeItem: (k) => mem.delete(k),
-};
-const mk = (id) => {
-  const el = {
-    id, style: { cssText: '' },
-    classList: { add() {}, remove() {}, contains() { return false; } },
-    children: [],
-    get innerHTML() { return written.get(id) || ''; },
-    set innerHTML(v) { written.set(id, String(v)); },
-    // textContent is a safe sink by definition; record it separately so a
-    // renderer cannot "pass" by writing markup somewhere we do not look.
-    innerText: '', textContent: '', value: '',
-    addEventListener() {}, removeEventListener() {}, appendChild() {}, remove() {},
-    insertBefore() {}, insertAdjacentHTML() {}, setAttribute() {}, getAttribute() { return null; },
-    querySelector: () => mk(`${id}:c`), querySelectorAll: () => [], closest: () => null, focus() {},
-  };
-  el.parentElement = { parentElement: { appendChild() {} }, appendChild() {} };
-  return el;
-};
-let createdCount = 0;
-const cache = new Map();
-const get = (id) => { if (!cache.has(id)) cache.set(id, mk(id)); return cache.get(id); };
-globalThis.document = {
-  body: mk('body'), documentElement: mk('html'),
-  getElementById: get, querySelector: get, querySelectorAll: () => [],
-  // Every created element gets its own id. They all shared the id 'created',
-  // and `written` is keyed by id -- so each row of a table overwrote the last
-  // and only the FINAL row was ever scanned. A hostile value in any earlier row
-  // was invisible, which is how a raw `${t.record.wins}` in the standings
-  // passed: the hostile team was not the last one rendered.
-  createElement: () => mk(`created:${++createdCount}`), addEventListener() {},
-};
+// The DOM stub, shared with render.test.mjs.
+//
+// This file had its own, and it was the weaker of the two: getAttribute
+// answered null unconditionally, querySelector returned a fresh child every
+// call, textContent and innerHTML were independent fields, and remove() did
+// nothing. The SECURITY suite was running against the stub that had learned
+// least -- so a renderer could write markup into a node this stub could not
+// see, and pass. Everything render.test.mjs taught its copy now applies here.
+import { written, htmlWritten, installLocalStorage, installDocument } from './dom-stub.mjs';
+
+installLocalStorage();
+installDocument();
 globalThis.window = globalThis;
 globalThis.setInterval = () => 0;
 globalThis.setTimeout = (fn) => { try { fn(); } catch (e) { /* reported by the page */ } return 0; };
@@ -215,7 +190,11 @@ for (const name of PAGES) {
 
 console.log('\nnothing hostile survived as markup');
 const injected = [];
-for (const [id, html] of written) {
+// htmlWritten, not written: `el.textContent = '<img src=x ...>'` puts that
+// string on screen AS TEXT and is the correct handling of a hostile name.
+// Scanning both sinks together flagged three renderers -- the matchup names
+// and the settings league name -- that had done exactly the right thing.
+for (const [id, html] of htmlWritten) {
   // Only a real angle bracket is an injection: "&lt;img src=x onerror=" is the
   // escaped form and still contains the substring "onerror=".
   if (html.includes('<img src=x') || html.includes(BREAK)) injected.push(id);
@@ -224,15 +203,15 @@ check('no rendered target contains raw injected markup', injected.length === 0,
   injected.join(', '));
 
 // Without this the check above would pass on an app that rendered nothing.
-const escapedHits = [...written.values()].filter((h) => h.includes('&lt;img src=x')).length;
+const escapedHits = [...htmlWritten.values()].filter((h) => h.includes('&lt;img src=x')).length;
 check('the payload did reach the sinks, escaped', escapedHits > 0,
-  `${escapedHits} escaped occurrences across ${written.size} targets`);
+  `${escapedHits} escaped occurrences across ${htmlWritten.size} targets`);
 
 // Match only a handler in real attribute position, inside an actual tag. The
 // escaped payload still contains the literal text "onerror=", so a naive search
 // flags its own escaping as a failure.
 const INLINE_HANDLER = /<[a-zA-Z][^>]*?\son[a-z]+\s*=/;
-const withHandler = [...written.entries()].filter(([, h]) => INLINE_HANDLER.test(h));
+const withHandler = [...htmlWritten.entries()].filter(([, h]) => INLINE_HANDLER.test(h));
 check('no inline event-handler attribute is generated', withHandler.length === 0,
   withHandler.map(([id]) => id).join(', '));
 
@@ -241,17 +220,17 @@ console.log('\nthe live news feed reaches the page, and is escaped');
   // renderAlertsPage fetches in the background and paints when it resolves, so
   // the assertion has to wait for it. Without this the panel is empty at the
   // moment of the check and a raw headline is invisible.
-  written.clear();
+  htmlWritten.clear();
   app.renderAlertsPage(league);
   for (let i = 0; i < 50; i++) await Promise.resolve();
   await new Promise((r) => process.nextTick(r));
   for (let i = 0; i < 50; i++) await Promise.resolve();
 
-  const all = [...written.values()].join('\n');
+  const all = [...htmlWritten.values()].join('\n');
   check('the feed actually rendered', all.includes('Josh Allen'),
-    `${written.size} targets written, none carrying a headline`);
+    `${htmlWritten.size} targets written, none carrying a headline`);
   check('and its markup did not survive raw', !all.includes('<img src=x'),
-    [...written.entries()].filter(([, h]) => h.includes('<img src=x')).map(([id]) => id).join(', '));
+    [...htmlWritten.entries()].filter(([, h]) => h.includes('<img src=x')).map(([id]) => id).join(', '));
   check('the headline reached the sink, escaped', all.includes('&lt;img src=x'));
 }
 
@@ -262,7 +241,7 @@ console.log('\nthe JSON mapper path is hostile too');
   // attacker-authored teams[], records, budgets and slot counts, none of which
   // pass through the scraper's constraints. Six sinks were proven raw this way
   // while this file was green.
-  written.clear();
+  htmlWritten.clear();
   const apiPayload = {
     id: '667',
     settings: {
@@ -302,12 +281,12 @@ console.log('\nthe JSON mapper path is hostile too');
     try { app[name](apiLeague); } catch (e) { err = e; }
     check(`${name} survives the JSON path`, !err, err && `${err.constructor.name}: ${err.message}`);
   }
-  const raw = [...written.entries()].filter(([, h]) => h.includes('<img src=x') || h.includes(BREAK));
+  const raw = [...htmlWritten.entries()].filter(([, h]) => h.includes('<img src=x') || h.includes(BREAK));
   check('no rendered target contains raw injected markup', raw.length === 0,
     raw.map(([id]) => id).join(', '));
-  const escapedHits = [...written.values()].filter((h) => h.includes('&lt;img src=x')).length;
+  const escapedHits = [...htmlWritten.values()].filter((h) => h.includes('&lt;img src=x')).length;
   check('the payload did reach the sinks, escaped', escapedHits > 0,
-    `${escapedHits} escaped occurrences across ${written.size} targets`);
+    `${escapedHits} escaped occurrences across ${htmlWritten.size} targets`);
 
   // Not reachable from here, and deliberately recorded rather than left
   // looking covered: the trade panel's negotiation lines interpolate player
@@ -318,7 +297,7 @@ console.log('\nthe JSON mapper path is hostile too');
   // Attribute context specifically: a lone quote there ends the attribute and
   // starts a new one, which no between-tags check can see.
   const ATTR_BREAK = /<[a-zA-Z][^>]*=["'][^"']*["'][a-z-]+=/;
-  const broken = [...written.entries()].filter(([, h]) => ATTR_BREAK.test(h));
+  const broken = [...htmlWritten.entries()].filter(([, h]) => ATTR_BREAK.test(h));
   check('no value breaks out of an attribute', broken.length === 0,
     broken.map(([id]) => id).join(', '));
 

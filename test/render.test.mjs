@@ -21,135 +21,15 @@ import { join } from 'path';
 
 const ROOT = join(fileURLToPath(new URL('.', import.meta.url)), '..');
 
-// ---- a DOM stub that remembers what was written to each element ------------
-const written = new Map();
-const mem = new Map();
-globalThis.localStorage = {
-  getItem: (k) => (mem.has(k) ? mem.get(k) : null),
-  setItem: (k, v) => mem.set(k, String(v)),
-  removeItem: (k) => mem.delete(k),
-};
+// The DOM stub lives in test/dom-stub.mjs. It was inlined here and forked into
+// xss.test.mjs and espn-client.test.mjs, and every lesson this copy learned --
+// innerHTML and textContent as one content, getAttribute backed by a map,
+// getElementById able to answer null -- was missing from the other two.
+import { written, elCache, absent, getEl, makeEl, installLocalStorage, installDocument }
+  from './dom-stub.mjs';
 
-function makeEl(id) {
-  const el = {
-    id,
-    style: { cssText: '' },
-    classList: { add() {}, remove() {}, contains() { return false; } },
-    children: [], parentElement: null,
-    // Writing innerHTML or textContent DESTROYS the children, as it does in a
-    // browser. Without that, an element appended and then wiped by the same
-    // render is indistinguishable from one that survived -- which is the exact
-    // bug this file exists to catch, and an earlier version of this stub still
-    // could not see it because these setters left `children` untouched.
-    // innerHTML and textContent are two views of ONE content, as in a browser:
-    // writing either replaces the other and destroys the children. Keeping
-    // them as independent fields made `el.innerHTML = el.innerHTML` -- a write
-    // that wipes an element in any real render -- invisible to an assertion on
-    // textContent, so the very destruction this file exists to catch passed.
-    get innerHTML() { return written.get(id) || ''; },
-    set innerHTML(v) {
-      written.set(id, String(v));
-      this._text = String(v).replace(/<[^>]*>/g, '');
-      this.children.length = 0;
-      // Writing innerHTML REPLACES the elements inside, as it does in a
-      // browser: an input in that markup is a new node with the value the
-      // markup gives it, not the node the user was typing in. Without this the
-      // stub kept handing back the same object with the same `.value`, so
-      // "the typed bid survived the re-render" passed whether or not anything
-      // preserved it -- the exact shape of a test passing for the wrong reason.
-      replaceInputs(String(v));
-    },
-    get textContent() { return this._text || ''; },
-    set textContent(v) {
-      this._text = String(v);
-      written.set(id, String(v));
-      this.children.length = 0;
-    },
-    innerText: '', _text: '', value: '',
-    // A real element has both. Without `dataset` any code doing el.dataset.x
-    // throws here but works in a browser, which is the wrong way round for a
-    // test; without recorded children, an element appended and then discarded
-    // by the same render looks identical to one that was never appended.
-    dataset: {},
-    addEventListener() {}, removeEventListener() {},
-    appendChild(child) { this.children.push(child); return child; },
-    // remove() emptied nothing, so an element the app had deleted still
-    // answered getElementById with its last contents -- and a test asking
-    // "is the banner gone?" read the text of a banner that was gone.
-    remove() { this._text = ''; written.set(this.id, ''); this.children.length = 0; },
-    insertBefore() {}, insertAdjacentHTML() {},
-    // Backed by a map. getAttribute returning null unconditionally meant every
-    // read-back branch took its false side forever.
-    _attrs: {},
-    setAttribute(k, v) { this._attrs[k] = String(v); },
-    getAttribute(k) { return Object.prototype.hasOwnProperty.call(this._attrs, k)
-      ? this._attrs[k] : null; },
-    // One element per selector, cached. Returning a fresh child for every call
-    // collided a tbody and a thead row on one key, so the standings body was
-    // destroyed by the header write and the rows were never seen.
-    _children: {},
-    querySelector(sel) {
-      if (!this._children[sel]) this._children[sel] = makeEl(`${id}:${sel}`);
-      return this._children[sel];
-    },
-    querySelectorAll: () => [],
-    closest: () => null,
-    focus() { globalThis.document.activeElement = this; },
-    setSelectionRange(a, b) { this.selectionStart = a; this.selectionEnd = b; },
-    selectionStart: 0, selectionEnd: 0,
-  };
-  el.parentElement = { parentElement: { appendChild() {} }, appendChild() {} };
-  return el;
-}
-const elCache = new Map();
-
-/**
- * Ids this stub pretends do not exist.
- *
- * getElementById created an element for every id ever asked for, so it never
- * returned null -- and the app has 118 null guards plus several
- * create-if-absent branches (the dashboard caveat, the missing-picks banner)
- * whose false side had therefore never executed in any test. A stub that
- * always says yes cannot see the difference between "handled" and "would have
- * thrown".
- */
-const absent = new Set();
-const getEl = (id) => {
-  if (absent.has(id)) return null;
-  if (!elCache.has(id)) elCache.set(id, makeEl(id));
-  return elCache.get(id);
-};
-
-/**
- * Re-create every element the freshly written markup declares.
- *
- * Only ids that are already known are touched, so this models replacement
- * rather than pretending to be a parser.
- */
-function replaceInputs(html) {
-  const tag = /<(input|select|textarea)\b[^>]*\bid="([^"]+)"[^>]*>/g;
-  let m;
-  while ((m = tag.exec(html)) !== null) {
-    const [whole, , elId] = m;
-    if (!elCache.has(elId)) continue;
-    const fresh = makeEl(elId);
-    const val = /\bvalue="([^"]*)"/.exec(whole);
-    fresh.value = val ? val[1] : '';
-    elCache.set(elId, fresh);
-    if (globalThis.document && globalThis.document.activeElement
-        && globalThis.document.activeElement.id === elId) {
-      // The node it pointed at no longer exists. A browser moves focus to the
-      // body; what matters here is that it is no longer this input.
-      globalThis.document.activeElement = null;
-    }
-  }
-}
-globalThis.document = {
-  body: makeEl('body'), documentElement: makeEl('html'),
-  getElementById: (id) => getEl(id),
-  querySelector: (sel) => getEl(sel), querySelectorAll: () => [],
-  createElement: () => makeEl('created'), addEventListener() {},
-};
+installLocalStorage();
+installDocument();
 globalThis.window = globalThis;
 globalThis.setInterval = () => 0;
 // setTimeout does NOT swallow. It used to catch and drop, so an undeclared

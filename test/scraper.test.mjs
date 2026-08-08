@@ -552,6 +552,44 @@ console.log('\nand the moved sweep still actually sweeps');
   check('and says it stopped early', flat.truncated === true,
     'a sweep that gave up after two teams must not look like a full one');
 
+console.log('\nthe pick walk reads each element\'s innerText once, not twice');
+{
+  // innerText forces layout every time it is touched, and the shape
+  // `el.innerText ? el.innerText.trim() : ''` touches it twice. `readText`
+  // exists to make that one read -- and four sites the function was supposed
+  // to have replaced were still doing it two ways, while the comment above
+  // readText said the consolidation was done. A comment cannot hold this; a
+  // counter can.
+  const NODES = 400;
+  let reads = 0;
+  const counting = Array.from({ length: NODES }, (_, i) => ({
+    get innerText() { reads++; return `Player Name ${i}\nDEN\nRB\nTeam 1\n100\n210.1\n$3`; },
+    children: [], tagName: 'DIV',
+  }));
+  const countingContainer = {
+    get innerText() { reads++; return 'Round 1 PLAYER TEAM PROJ PTS'; },
+    children: counting,
+    querySelectorAll: () => counting,
+  };
+  const savedQsa = globalThis.document.querySelectorAll;
+  const savedQs = globalThis.document.querySelector;
+  const savedBody = globalThis.document.body;
+  globalThis.document.querySelectorAll = () => [countingContainer];
+  globalThis.document.querySelector = () => countingContainer;
+  globalThis.document.body = { innerText: 'PK 10 OF 128' };
+
+  reads = 0;
+  const walked = scrapeDraftDOM() || [];
+  const perNode = reads / NODES;
+  check('the walk parsed the synthetic room', walked.length > 0, `${walked.length} picks`);
+  check('and touched innerText at most once per element',
+    perNode <= 1.2, `${reads} reads over ${NODES} elements (${perNode.toFixed(2)} each)`);
+
+  globalThis.document.querySelectorAll = savedQsa;
+  globalThis.document.querySelector = savedQs;
+  globalThis.document.body = savedBody;
+}
+
   console.log('\nthe sweep never credits a team with somebody else\'s roster');
   {
     // A non-empty panel that does not repaint in time is still showing the

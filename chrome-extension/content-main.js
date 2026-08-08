@@ -170,8 +170,7 @@
             ];
             const seenAmounts = [];
             amountEls.forEach(el => {
-              const t = el && el.innerText ? el.innerText : '';
-              const m = t.match(/\$\s?([\d,]+)/);
+              const m = readText(el).match(/\$\s?([\d,]+)/);
               if (m) seenAmounts.push(parseInt(m[1].replace(/,/g, ''), 10));
             });
             if (seenAmounts.length) bid = Math.max(...seenAmounts);
@@ -179,8 +178,9 @@
             const maxEl = card.querySelector('.manual-bid')
               || document.querySelector('[data-testid="bidding-form"] .manual-bid')
               || document.querySelector('.manual-bid');
-            if (maxEl && maxEl.innerText) {
-              const m = maxEl.innerText.match(/max\s*\$\s?([\d,]+)/i);
+            const maxText = readText(maxEl);
+            if (maxText) {
+              const m = maxText.match(/max\s*\$\s?([\d,]+)/i);
               if (m) maxAffordable = parseInt(m[1].replace(/,/g, ''), 10);
             }
 
@@ -287,9 +287,12 @@
       };
 
       elements.forEach(el => {
-        if (!el || typeof el.innerText !== 'string') return;
-        const text = el.innerText.trim();
-        if (el.children.length > 8 || text.length > 150 || text.length < 10) return;
+        // readText, not two accessor reads. This is the walk the header above
+        // measures: an element whose innerText is not a string reads as '' and
+        // is dropped by the length guard on the next line, which is what the
+        // `typeof` check did.
+        const text = readText(el);
+        if (!el || el.children.length > 8 || text.length > 150 || text.length < 10) return;
         const parts = text.split(/[\s\n]+/);
         // "Broncos D/ST" is a complete row and only two tokens long. Requiring
         // three discarded it, and with it the pick.
