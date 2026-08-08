@@ -272,11 +272,25 @@ export function forecastPrice(player, par, state, infl) {
  * same result to the last decimal. Measured over 5,000 random rosters: max
  * difference 0. Not pinned by a test -- lineupPointsFromGroups is not exported.
  */
-function lineupPointsFromGroups(byPos, settings) {
+/**
+ * The league's lineup shape, computed ONCE per plan.
+ *
+ * starterSlots() allocates an object and walks six positions. Calling it inside
+ * lineupPointsFromGroups put that on the hottest loop in the app -- the file's
+ * own header counts 94,516 calls per targetBoard -- and a CPU profile put 13%
+ * of a cold board in slotCount plus its forEach, with GC behind it. The cold
+ * board went from ~205ms to ~500ms and took the perf suite red.
+ */
+function lineupShape(settings) {
   const slots = starterSlots(settings);
+  return { slots, positions: Object.keys(slots), nFlex: flexCount(settings) };
+}
+
+function lineupPointsFromGroups(byPos, shape) {
+  const { slots, positions } = shape;
   let total = 0;
   const leftovers = [];
-  for (const pos of Object.keys(slots)) {
+  for (const pos of positions) {
     const list = byPos[pos];
     if (!list || !list.length) continue;
     const n = slots[pos];
@@ -287,7 +301,7 @@ function lineupPointsFromGroups(byPos, settings) {
     }
   }
   leftovers.sort((a, b) => b - a);
-  const nFlex = flexCount(settings);
+  const nFlex = shape.nFlex;
   const flex = nFlex < leftovers.length ? nFlex : leftovers.length;
   for (let i = 0; i < flex; i++) total += leftovers[i];
   for (let i = nFlex; i < leftovers.length; i++) {
@@ -318,11 +332,10 @@ export function lineupPoints(roster, settings) {
   });
   Object.keys(byPos).forEach((k) => byPos[k].sort((a, b) => b - a));
 
-  const slots = starterSlots(settings);
-  const nFlex2 = flexCount(settings);
+  const { slots, positions, nFlex: nFlex2 } = lineupShape(settings);
   let total = 0;
   const leftovers = [];
-  Object.keys(slots).forEach((pos) => {
+  positions.forEach((pos) => {
     const list = byPos[pos] || [];
     const n = slots[pos];
     for (let i = 0; i < n && i < list.length; i++) total += list[i];
@@ -346,6 +359,7 @@ export function lineupPoints(roster, settings) {
  * ceiling tightens when money is tight and loosens when it is not.
  */
 export function planValue(roster, budget, spots, board, extra, detail, settings) {
+  const shape = lineupShape(settings);
   const have = extra ? roster.concat([extra]) : roster.slice();
   const counts = {};
   have.forEach((p) => { counts[p.position] = (counts[p.position] || 0) + 1; });
@@ -364,7 +378,7 @@ export function planValue(roster, budget, spots, board, extra, detail, settings)
 
   let cash = budget;
   let slots = spots;
-  let current = lineupPointsFromGroups(byPos, settings);
+  let current = lineupPointsFromGroups(byPos, shape);
 
   while (slots > 0) {
     const afford = cash - (slots - 1);
@@ -383,7 +397,7 @@ export function planValue(roster, budget, spots, board, extra, detail, settings)
 
       const list = byPos[player.position] || (byPos[player.position] = []);
       const at = insertDesc(list, seasonPoints(player));
-      const gain = lineupPointsFromGroups(byPos, settings) - current;
+      const gain = lineupPointsFromGroups(byPos, shape) - current;
       list.splice(at, 1);
 
       if (gain <= 0) continue;

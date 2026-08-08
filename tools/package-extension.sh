@@ -25,13 +25,60 @@ DEST="${1:-$ROOT/../GridironEdge-package}"
 # written on the way out, which also means an existing directory full of
 # somebody else's files is refused rather than emptied.
 MARKER=".gridiron-package"
-case "$DEST" in
-  ""|"/"|"$HOME"|"$HOME/") echo "Refusing to package into '$DEST'." >&2; exit 1 ;;
+
+# RESOLVE the path before judging it, and judge it before creating anything.
+#
+# The previous version compared string LITERALS, so a destination that resolved
+# to $HOME without being spelled "$HOME" walked straight past the blocklist --
+# and the marker was not a backstop, because this script PLANTS it. Proven
+# against a decoy home directory with the real rm, in two steps:
+#
+#   ./package-extension.sh "$HOME/x/.."   (with $HOME/x absent)
+#       nothing to delete, so it created $HOME/.gridiron-package and copied
+#       the extension into the home directory
+#   ./package-extension.sh "$HOME//"
+#       not spelled "$HOME", marker now present -> rm -rf "$HOME//"
+#
+# So: canonicalise first, judge the RESOLVED path, and only then delete.
+# Create it first, THEN resolve, then judge. Resolving a path that does not
+# exist yet cannot collapse a "..", and "$HOME/x/.." with $HOME/x absent is
+# exactly the input that walked past the first version of this guard: it stayed
+# literal, missed the blocklist, and put the marker in $HOME.
+#
+# Creating a directory in a forbidden place is recoverable; deleting one is not,
+# which is why this order and not the other.
+# Did it exist before we touched it? The marker check below turns on this, and
+# creating the directory first would otherwise make every first run look like a
+# pre-existing directory with no marker.
+DEST_EXISTED=0
+[ -e "$DEST" ] && DEST_EXISTED=1
+mkdir -p "$DEST" || { echo "Cannot create '$DEST'." >&2; exit 1; }
+DEST_REAL="$(cd "$DEST" && pwd -P)" || { echo "Cannot resolve '$DEST'." >&2; exit 1; }
+refuse() {
+  echo "Refusing to package into '$DEST_REAL': $1" >&2
+  # Leave nothing behind if we made it. rmdir only removes an EMPTY directory,
+  # so this can never take anything with it. An intermediate directory created
+  # on the way to a refused path (the "x" in "$HOME/x/..") can survive as an
+  # empty directory; that is deliberate, because walking back up to delete more
+  # is the kind of cleverness this guard exists to prevent.
+  rmdir "$DEST" 2>/dev/null || true
+  exit 1
+}
+HOME_REAL="$(cd "$HOME" 2>/dev/null && pwd -P || printf '%s' "$HOME")"
+ROOT_REAL="$(cd "$ROOT" && pwd -P)"
+
+case "$DEST_REAL" in
+  ""|"/") refuse "that is the filesystem root." ;;
 esac
-if [ "$DEST" = "$ROOT" ]; then
-  echo "Refusing to package into the repo itself." >&2; exit 1
-fi
-if [ -e "$DEST" ]; then
+[ "$DEST_REAL" = "$HOME_REAL" ] && refuse "that is your home directory."
+[ "$DEST_REAL" = "$ROOT_REAL" ] && refuse "that is this repo."
+# Never into an ancestor of the repo either -- that would take the repo with it.
+case "$ROOT_REAL/" in
+  "$DEST_REAL"/*) refuse "it contains this repo." ;;
+esac
+DEST="$DEST_REAL"
+
+if [ "$DEST_EXISTED" = 1 ]; then
   if [ ! -f "$DEST/$MARKER" ]; then
     echo "Refusing to delete '$DEST': it is not a package directory this script created." >&2
     echo "Remove it yourself, or pass a path that does not exist." >&2
