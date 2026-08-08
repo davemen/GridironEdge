@@ -186,28 +186,50 @@ console.log('\nthe playoff bracket gives no seed a structural advantage');
     Math.max(...pct) < par * 2,
     `par ${par.toFixed(1)}%, spread ${JSON.stringify(pct)}`);
 
-  // By SEED, which is where the bug actually lived and which the by-team check
-  // above cannot see: with identical teams the seeding is random, so no seat
-  // consistently gets seed 2. Driving the bracket directly with fixed seeds and
-  // equal scoring is what exposes it.
+  // By SEED, and at EVERY field size. The by-team check above cannot see this:
+  // with identical teams the seeding is random, so no seat consistently gets
+  // seed 2. And round 6 fixed only the six-team case -- at four teams the
+  // second seed still took 50.0% against the first seed's 25.3%, because the
+  // bye count was a flat two whatever the field.
   const { playBracket } = await import(join(ROOT, 'js/engine/simulator.js'));
-  const SEEDS = [1, 2, 3, 4, 5, 6];
-  const equal = Object.fromEntries(SEEDS.map((id) => [id, 100]));
-  const titles = Object.fromEntries(SEEDS.map((id) => [id, 0]));
+  const { byeCount } = await import(join(ROOT, 'js/engine/lineup-rules.js'));
   const RUNS = 20000;
-  for (let r = 0; r < RUNS; r++) titles[playBracket(SEEDS, equal)] += 1;
-  const seedPct = SEEDS.map((id) => (titles[id] / RUNS) * 100);
-  // Seeds 1 and 2 hold byes, so they SHOULD win more often -- but a bye is
-  // worth one round, not a walkover. Seed 2 used to take 50.1% against seed
-  // 1's 24.9% while seeds 3-6 shared 6.2% each.
-  check('the two byes are worth the same as each other',
-    Math.abs(seedPct[0] - seedPct[1]) < 4,
-    `seed 1 ${seedPct[0].toFixed(1)}%, seed 2 ${seedPct[1].toFixed(1)}%`);
-  check('and no seed is a structural favourite',
-    Math.max(...seedPct) < 40, JSON.stringify(seedPct.map((p) => Number(p.toFixed(1)))));
-  check('while a bye is still worth something',
-    Math.min(seedPct[0], seedPct[1]) > Math.max(...seedPct.slice(2)),
-    JSON.stringify(seedPct.map((p) => Number(p.toFixed(1)))));
+
+  for (const n of [4, 5, 6, 8]) {
+    const SEEDS = Array.from({ length: n }, (_, i) => i + 1);
+    const equal = Object.fromEntries(SEEDS.map((id) => [id, 100]));
+    const titles = Object.fromEntries(SEEDS.map((id) => [id, 0]));
+    for (let r = 0; r < RUNS; r++) titles[playBracket(SEEDS, equal)] += 1;
+    const pct = SEEDS.map((id) => (titles[id] / RUNS) * 100);
+    const byes = byeCount(n);
+
+    // Within a bye tier, equal teams must be equal. Across tiers, a bye is
+    // worth something -- but one round, not a walkover.
+    const withBye = pct.slice(0, byes);
+    const without = pct.slice(byes);
+    if (withBye.length > 1) {
+      check(`field ${n}: the ${byes} byes are worth the same as each other`,
+        Math.max(...withBye) - Math.min(...withBye) < 3,
+        JSON.stringify(withBye.map((x) => Number(x.toFixed(1)))));
+    }
+    check(`field ${n}: teams without a bye are equal to each other`,
+      Math.max(...without) - Math.min(...without) < 3,
+      JSON.stringify(without.map((x) => Number(x.toFixed(1)))));
+    if (byes > 0) {
+      check(`field ${n}: and a bye is worth something`,
+        Math.min(...withBye) > Math.max(...without),
+        JSON.stringify(pct.map((x) => Number(x.toFixed(1)))));
+    }
+    check(`field ${n}: no seed is a structural favourite`,
+      Math.max(...pct) < (100 / n) * 2.5,
+      JSON.stringify(pct.map((x) => Number(x.toFixed(1)))));
+  }
+
+  // The bye count itself: whatever reaches the next power of two, so the teams
+  // that play in the first round reduce evenly alongside the byes.
+  check('a power-of-two field needs no byes', byeCount(4) === 0 && byeCount(8) === 0);
+  check('and a six-team field needs two', byeCount(6) === 2);
+  check('and a five-team field needs three', byeCount(5) === 3);
 }
 
 console.log('\nthe simulator declines rather than substituting a constant');

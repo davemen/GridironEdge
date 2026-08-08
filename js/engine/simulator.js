@@ -1,5 +1,5 @@
 import { optimizeLineup } from './lineup-optimizer.js';
-import { PLAYOFF_TEAMS, BYE_TEAMS, REGULAR_WEEKS, slotList } from './lineup-rules.js';
+import { REGULAR_WEEKS, slotList, playoffFieldSize, byeCount } from './lineup-rules.js';
 import { getWaiverRecommendations } from './roster-manager.js';
 import { generateTradeProposals } from './trade-generator.js';
 
@@ -54,8 +54,9 @@ export function playBracket(seeds, weekProj) {
     return next.sort(bySeed);
   };
 
-  const byes = seeds.slice(0, BYE_TEAMS);
-  const firstRound = playRound(seeds.slice(BYE_TEAMS));
+  // Sized from THIS field, not a constant. See byeCount.
+  const byes = seeds.slice(0, byeCount(seeds.length));
+  const firstRound = playRound(seeds.slice(byeCount(seeds.length)));
   let alive = byes.concat(firstRound).sort(bySeed);
   while (alive.length > 1) alive = playRound(alive);
   return alive[0];
@@ -316,12 +317,15 @@ export function runSeasonSimulation(league, runs = 1000) {
     // same roster read 0% here and a positive number from the preseason model
     // depending only on which page drew last. lineup-rules.js's own header
     // describes this exact drift in the past tense; it was still shipping.
-    const playoffSize = PLAYOFF_TEAMS;
+    const playoffSize = playoffFieldSize(teams.length);
     const madePlayoffs = myRank <= playoffSize;
 
     if (madePlayoffs) {
       playoffReaches++;
-      if (myRank <= BYE_TEAMS) {
+      // The bye tier of THIS playoff field, the same derivation the bracket
+      // itself uses -- a flat two disagreed with the bracket at every field
+      // size but six, while both wrote the same span on screen.
+      if (myRank <= byeCount(playoffSize)) {
         byeReaches++;
       }
 

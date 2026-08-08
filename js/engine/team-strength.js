@@ -23,7 +23,7 @@
  * never been scheduled between two teams that did not exist.
  */
 
-import { FLEX_POS, REGULAR_WEEKS, PLAYOFF_TEAMS, BYE_TEAMS, rosterSize, starterSlots, flexCount }
+import { FLEX_POS, REGULAR_WEEKS, rosterSize, starterSlots, flexCount, playoffFieldSize, byeCount }
   from './lineup-rules.js';
 
 // Week-to-week scoring noise for a whole lineup, in points. Fantasy teams are
@@ -200,8 +200,11 @@ export function preseasonOutlook(league, runs = 2000, rng = Math.random) {
     };
   }
 
-  const playoffTeams = Math.min(PLAYOFF_TEAMS, Math.max(2, n >= 8 ? PLAYOFF_TEAMS : Math.floor(n / 2)));
-  const byeTeams = Math.min(BYE_TEAMS, Math.max(0, playoffTeams - 2));
+  // One derivation, shared with the in-season simulator -- these two engines
+  // write the same three spans on screen and disagreed on every field size but
+  // six.
+  const playoffTeams = playoffFieldSize(n);
+  const byeTeams = byeCount(playoffTeams);
   const idxOfMe = teams.findIndex((t) => t.isMe);
   if (idxOfMe < 0) return null;
 

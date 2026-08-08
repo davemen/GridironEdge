@@ -77,6 +77,40 @@ export const REGULAR_WEEKS = 14;
 export const PLAYOFF_TEAMS = 6;
 export const BYE_TEAMS = 2;
 
+/**
+ * How many teams make the playoffs in a league of this size.
+ *
+ * PLAYOFF_TEAMS is the standard six, but a six-team playoff in an eight-team
+ * league is most of the league, and in a four-team league it is all of it.
+ */
+export function playoffFieldSize(leagueSize) {
+  const n = Math.max(0, Math.floor(Number(leagueSize) || 0));
+  if (n < 2) return 0;
+  return Math.min(PLAYOFF_TEAMS, Math.max(2, n >= 8 ? PLAYOFF_TEAMS : Math.floor(n / 2)));
+}
+
+/**
+ * How many top seeds sit out the first round.
+ *
+ * Derived from the field, not fixed at two. A bracket is even only when the
+ * teams that DO play in the first round reduce to a power of two alongside the
+ * byes -- so the byes are whatever it takes to reach the next power of two.
+ *
+ * A flat two was the bug: in a FOUR-team field, two byes left two teams to
+ * play, their single winner joined the two byes, and the next round paired the
+ * first and third seeds while the second walked into the final. Over 20,000
+ * brackets of identical teams the second seed took 50.0% against the first
+ * seed's 25.3%. That is not a seeding advantage, it is a structural one -- and
+ * it survived the round-6 fix, which only balanced the six-team case.
+ */
+export function byeCount(fieldSize) {
+  const n = Math.max(0, Math.floor(Number(fieldSize) || 0));
+  if (n < 2) return 0;
+  let pow = 1;
+  while (pow < n) pow *= 2;
+  return pow - n;
+}
+
 /** Where a position sits on the field, for grouping and display. */
 export const OFFENSE = ['QB', 'RB', 'WR', 'TE'];
 
