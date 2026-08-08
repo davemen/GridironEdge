@@ -30,7 +30,7 @@ import { readFileSync } from 'fs';
 import { fileURLToPath } from 'url';
 import { join } from 'path';
 import { toPlayerDatabase, findPlayer, noteChange } from '../js/player-database.js';
-import { recommendBid, targetBoard, planValue, lineupPoints }
+import { recommendBid, targetBoard, planValue, lineupPoints, targetBoardRecomputes as recomputes }
   from '../js/engine/auction-advisor.js';
 
 const ROOT = join(fileURLToPath(new URL('.', import.meta.url)), '..');
@@ -170,8 +170,21 @@ console.log('\nthe hot path stays within budget');
 {
   const l = league(12, 12, 0);
   const player = all.find((x) => !l.draftState.selections.some((s) => s.playerId === x.id));
-  const tb = fastest(() => targetBoard(l, 8));
-  check('targetBoard stays under 250ms', tb < budget(250), `${tb.toFixed(1)}ms`);
+  // A DISTINCT league per run, or this measures the cache.
+  //
+  // It called targetBoard nine times on one league, so runs 2-9 were hits and
+  // the median was the hit -- 0.02ms against a 250ms budget, a dead assertion
+  // with 898x headroom. Moving from min-of-3 to median-of-9 made it strictly
+  // worse: with a cache, both the minimum and the median are hits. The header
+  // above argues that a best-of cannot see a regression; the same is true of a
+  // median taken over a warm cache.
+  let coldN = 0;
+  const tb = fastest(() => {
+    const fresh = league(12, 12, 0);
+    fresh.leagueId = `COLD_${coldN++}`;
+    targetBoard(fresh, 8);
+  });
+  check('a cold targetBoard stays under 400ms', tb < budget(400), `${tb.toFixed(1)}ms`);
   const rb = fastest(() => recommendBid(l, player, 0));
   // 12ms was set against a best-of-three, which is not what a user waits on.
   // The median of the same call on the same machine is 10-11ms with a p90 of
@@ -193,13 +206,18 @@ console.log('\nthe watchlist is not recomputed for a bid that cannot change it')
 
   const first = targetBoard(L, 6);
   L.draftState.currentNominationBid = 27;
-  const t0 = performance.now();
+  const recomputesBefore = recomputes();
   const second = targetBoard(L, 6);
-  const tickMs = performance.now() - t0;
 
   check('a bid tick returns the identical board',
     JSON.stringify(first) === JSON.stringify(second));
-  check('and costs almost nothing', tickMs < 2, `${tickMs.toFixed(3)}ms`);
+  // Counted, not timed. `tickMs < 2` was a single raw sample standing in for
+  // "the cache was used" -- it fails on a slow machine and passes on a fast one
+  // with no cache at all, and it is the assertion that flaked at 42.6ms. The
+  // board is deterministic, so an identical answer proves nothing about
+  // caching either; the recompute count does.
+  check('and did not recompute', recomputes() === recomputesBefore,
+    `${recomputes() - recomputesBefore} recomputes for a bid that cannot change the board`);
 
   // An UNATTRIBUTED pick: off the board, but no budget moves, because the
   // scraper could not tell who bought him -- routine in a live auction room.
@@ -210,11 +228,14 @@ console.log('\nthe watchlist is not recomputed for a bid that cannot change it')
   const sold = Object.values(L.playerDatabase)
     .find((p) => !L.draftState.selections.some((s) => s.playerId === p.id));
   L.draftState.selections.push({ pick: 85, playerId: sold.id, teamId: null, bidAmount: 9 });
-  const t1 = performance.now();
-  targetBoard(L, 6);
-  const saleMs = performance.now() - t1;
+  const beforeSale = recomputes();
+  const sold2 = targetBoard(L, 6);
   check('a sale forces a recompute rather than serving a stale board',
-    saleMs > 2, `${saleMs.toFixed(3)}ms -- suspiciously fast, the cache did not invalidate`);
+    recomputes() > beforeSale,
+    'the cached board was served for a league that had changed');
+  check('and the board it returns reflects the sale',
+    !sold2.some((r) => r.player && r.player.id === sold.id),
+    'the player who just sold is still on the watchlist');
 }
 
 console.log('\nevery input the board reads is in the cache key');

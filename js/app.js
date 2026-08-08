@@ -3089,6 +3089,13 @@ export function renderAlertsPage(league = store.getActiveLeague()) {
  * path as a fresh one -- otherwise the two drift and the cached view quietly
  * becomes a second, worse implementation.
  */
+/** Write the feed's status pill, when the page has one. */
+function setNewsIndicator(indicator, text, background = '') {
+  if (!indicator) return;
+  indicator.innerHTML = text;
+  indicator.style.background = background;
+}
+
 function renderNewsItems(items, newsContainer, indicator) {
   // Roster objects, not just names: relevance also matches on a player's NFL
   // club, because a preseason feed is written about teams rather than
@@ -3112,8 +3119,7 @@ function renderNewsItems(items, newsContainer, indicator) {
           are current.
         </div>
       </div>`;
-    indicator.innerHTML = 'No news';
-    indicator.style.background = '';
+    setNewsIndicator(indicator, 'No news');
     return;
   }
 
@@ -3164,8 +3170,7 @@ function renderNewsItems(items, newsContainer, indicator) {
 
   const actionable = items.filter((i) => i.type).length;
   const mineCount = scored.filter((x) => x.rel).length;
-  indicator.innerHTML = mineCount ? `${mineCount} affect you` : 'Live Feed';
-  indicator.style.background = '';
+  setNewsIndicator(indicator, mineCount ? `${mineCount} affect you` : 'Live Feed');
 
   // Say plainly when a full feed contains nothing that changes a decision --
   // otherwise a wall of camp reports reads as though something is wrong.
@@ -3203,8 +3208,12 @@ async function fetchLiveBreakingNews(rosterNames = [], force = false) {
     return;
   }
 
-  indicator.innerHTML = 'Syncing...';
-  indicator.style.background = 'var(--accent-cyan-glow)';
+  // The container is guarded and the indicator was not, so a missing indicator
+  // threw here -- inside an async function, which made it an unhandled
+  // rejection rather than a visible error, and the news panel then sat empty
+  // with nothing said. The test harness was swallowing those, which is why it
+  // took a stricter harness to find it.
+  setNewsIndicator(indicator, 'Syncing...', 'var(--accent-cyan-glow)');
 
   try {
     // Everything, not just transactional events -- a panel that says
@@ -3233,7 +3242,7 @@ async function fetchLiveBreakingNews(rosterNames = [], force = false) {
       </div>`;
     const retry = document.getElementById('btn-news-retry-feed');
     if (retry) retry.onclick = () => fetchLiveBreakingNews(rosterNames, true);
-    indicator.innerHTML = 'Offline';
+    setNewsIndicator(indicator, 'Offline');
   }
 }
 

@@ -826,6 +826,18 @@ function watchlistKey(league, limit, options) {
 const WATCHLIST_CACHE_MAX = 4;
 const watchlistCache = new Map();
 
+/**
+ * How many times the board has actually been recomputed.
+ *
+ * Exported for the perf suite, which used to stand a wall-clock threshold in
+ * for "the cache was used" -- a proxy that fails on a slow machine, passes on a
+ * fast one with no cache at all, and was measured flaking at 42.6ms against a
+ * 2ms bound. The board is deterministic, so comparing answers proves nothing
+ * about caching either. A counter answers the question directly.
+ */
+let watchlistRecomputes = 0;
+export function targetBoardRecomputes() { return watchlistRecomputes; }
+
 export function targetBoard(league, limit = 8, options = {}) {
   const key = watchlistKey(league, limit, options);
   // A copy, because the board is handed out and callers sort it. Returning the
@@ -833,6 +845,7 @@ export function targetBoard(league, limit = 8, options = {}) {
   // every later hit returned.
   if (watchlistCache.has(key)) return watchlistCache.get(key).slice();
 
+  watchlistRecomputes++;
   const db = league.playerDatabase || {};
   const draftedIds = new Set((league.draftState?.selections || []).map((s) => s.playerId));
   const available = Object.values(db).filter((p) => !draftedIds.has(p.id));

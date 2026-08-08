@@ -78,8 +78,21 @@ function makeEl(id) {
     // "is the banner gone?" read the text of a banner that was gone.
     remove() { this._text = ''; written.set(this.id, ''); this.children.length = 0; },
     insertBefore() {}, insertAdjacentHTML() {},
-    setAttribute() {}, getAttribute() { return null; },
-    querySelector: () => makeEl(id + ':child'), querySelectorAll: () => [],
+    // Backed by a map. getAttribute returning null unconditionally meant every
+    // read-back branch took its false side forever.
+    _attrs: {},
+    setAttribute(k, v) { this._attrs[k] = String(v); },
+    getAttribute(k) { return Object.prototype.hasOwnProperty.call(this._attrs, k)
+      ? this._attrs[k] : null; },
+    // One element per selector, cached. Returning a fresh child for every call
+    // collided a tbody and a thead row on one key, so the standings body was
+    // destroyed by the header write and the rows were never seen.
+    _children: {},
+    querySelector(sel) {
+      if (!this._children[sel]) this._children[sel] = makeEl(`${id}:${sel}`);
+      return this._children[sel];
+    },
+    querySelectorAll: () => [],
     closest: () => null,
     focus() { globalThis.document.activeElement = this; },
     setSelectionRange(a, b) { this.selectionStart = a; this.selectionEnd = b; },
@@ -139,7 +152,11 @@ globalThis.document = {
 };
 globalThis.window = globalThis;
 globalThis.setInterval = () => 0;
-globalThis.setTimeout = (fn) => { try { fn(); } catch (e) { /* surfaced by the caller */ } return 0; };
+// setTimeout does NOT swallow. It used to catch and drop, so an undeclared
+// identifier inside a timer callback -- a ReferenceError at render time, which
+// is the exact bug this file exists to catch and the one its header describes
+// -- exited 0. Proven by injecting one into a copy of the tree.
+globalThis.setTimeout = (fn) => { fn(); return 0; };
 
 const projections = JSON.parse(readFileSync(join(ROOT, 'data/projections-2026.json'), 'utf8'));
 globalThis.fetch = async (url) => {
@@ -149,10 +166,18 @@ globalThis.fetch = async (url) => {
   throw new Error('network disabled in tests');
 };
 
-// The pages fire background fetches (news, sync) that are meant to fail here.
-// Their rejections are handled inside the app; this only keeps the noise out of
-// the test output.
-process.on('unhandledRejection', () => {});
+// The pages fire background fetches (news, sync) that are meant to fail here,
+// and their rejections are handled inside the app. But this handler was
+// unfiltered, so it also swallowed a genuine async ReferenceError -- one
+// injected into fetchLiveBreakingNews exited 0 with no output. Only the
+// expected failure is tolerated; anything else fails the run.
+const EXPECTED_REJECTION = /network disabled in tests/;
+process.on('unhandledRejection', (err) => {
+  const message = (err && err.message) || String(err);
+  if (EXPECTED_REJECTION.test(message)) return;
+  console.log(`  FAIL an unhandled rejection escaped — ${message}`);
+  process.exitCode = 1;
+});
 
 const { default: store } = await import(join(ROOT, 'js/store.js'));
 const { toPlayerDatabase, findPlayer, dbRevision } = await import(join(ROOT, 'js/player-database.js'));
