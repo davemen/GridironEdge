@@ -60,6 +60,10 @@ const loadingText = document.getElementById('loading-text');
 
 let activeDraftFilter = 'all';
 let draftSearchQuery = '';
+// How long the draft search box waits before repainting the board. Exported so
+// a test can drive the real listener rather than asserting the number twice.
+export const DRAFT_SEARCH_DEBOUNCE_MS = 140;
+let draftSearchTimer = null;
 // 'auto' lets the bracket engine decide floor vs ceiling from who you play.
 // The manual buttons override it.
 let weeklyLineupStrategy = 'auto';
@@ -310,8 +314,14 @@ function setupSetupWizard() {
   });
 }
 
-// Setup Live Draft Interaction Handlers
-function setupDraftControls() {
+/**
+ * Setup Live Draft Interaction Handlers.
+ *
+ * Exported so a test can install the REAL search listener and drive it,
+ * rather than re-implementing the debounce in the test and asserting that its
+ * own copy works. DOMContentLoaded is the only caller in the app.
+ */
+export function setupDraftControls() {
   const btnReset = document.getElementById('btn-draft-reset');
   const btnUndo = document.getElementById('btn-draft-undo');
   const searchInput = document.getElementById('draft-player-search');
@@ -337,10 +347,30 @@ function setupDraftControls() {
     });
   });
 
-  // Search input live filtering
+  /* -------------------------------------------------------------------------
+   * Search input, debounced.
+   *
+   * This rendered the whole draft page on every keystroke: 523 rows rebuilt,
+   * the recommendation panel recomputed, the auction board redrawn. Typing a
+   * seven-character name paid that seven times, and the seven-eighths of it
+   * that was never seen still blocked the main thread while the bid clock ran.
+   *
+   * The delay is short enough to feel immediate and long enough that a typed
+   * word is one render, which is the whole of the win: it does not make the
+   * render faster, it stops asking for renders nobody reads.
+   *
+   * An EMPTY box renders at once. Clearing a search is the one case where the
+   * user is waiting for the board to come back rather than narrowing it, and
+   * 140ms of a stale filtered list reads as a stuck page.
+   * --------------------------------------------------------------------- */
   searchInput.addEventListener('input', (e) => {
     draftSearchQuery = e.target.value.toLowerCase().trim();
-    renderDraftPage();
+    if (draftSearchTimer !== null) clearTimeout(draftSearchTimer);
+    if (!draftSearchQuery) { draftSearchTimer = null; renderDraftPage(); return; }
+    draftSearchTimer = setTimeout(() => {
+      draftSearchTimer = null;
+      renderDraftPage();
+    }, DRAFT_SEARCH_DEBOUNCE_MS);
   });
 }
 

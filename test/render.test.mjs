@@ -458,5 +458,76 @@ console.log('\nan auction the app can only partly see');
     document.getElementById('missing-picks-banner').textContent === '');
 }
 
+console.log('\nthe draft search box does not repaint 523 rows per keystroke');
+{
+  // Every keystroke rendered the whole draft page: the board rebuilt, the
+  // recommendation panel recomputed, the auction board redrawn. Typing a
+  // seven-character name paid that seven times and threw six of them away,
+  // blocking the main thread next to a running bid clock.
+  //
+  // This drives the REAL listener, not a copy of the logic, with a clock the
+  // test controls -- the debounce is invisible under this file's usual
+  // run-immediately setTimeout, which is precisely how it could rot.
+  const league = buildLeague({});
+  load(league);
+
+  const pending = [];
+  const realSetTimeout = globalThis.setTimeout;
+  const realClearTimeout = globalThis.clearTimeout;
+  let nextId = 1;
+  globalThis.setTimeout = (fn, ms) => { const id = nextId++; pending.push({ id, fn, ms }); return id; };
+  globalThis.clearTimeout = (id) => {
+    const i = pending.findIndex((t) => t.id === id);
+    if (i > -1) pending.splice(i, 1);
+  };
+  const runClock = () => { const due = pending.splice(0); due.forEach((t) => t.fn()); };
+
+  // Count renders by counting writes to the board's own container.
+  const body = document.getElementById('draft-player-table-body');
+  let renders = 0;
+  const realSet = Object.getOwnPropertyDescriptor(Object.getPrototypeOf(body) || {}, 'innerHTML');
+  let store = '';
+  Object.defineProperty(body, 'innerHTML', {
+    configurable: true,
+    get() { return store; },
+    set(v) { store = String(v); if (v === '') renders++; },
+  });
+
+  // The listener is installed by setupDraftControls on DOMContentLoaded, which
+  // this harness never fires. Find it the way the page would.
+  const input = document.getElementById('draft-player-search');
+  const handlers = [];
+  input.addEventListener = (type, fn) => { if (type === 'input') handlers.push(fn); };
+  app.setupDraftControls();
+  check('the search box has an input listener', handlers.length === 1,
+    `${handlers.length} listeners`);
+
+  const type = (text) => {
+    for (let i = 1; i <= text.length; i++) {
+      input.value = text.slice(0, i);
+      handlers.forEach((fn) => fn({ target: input }));
+    }
+  };
+
+  renders = 0;
+  type('mahomes');
+  check('seven keystrokes render nothing yet', renders === 0, `${renders} renders`);
+  runClock();
+  check('and one render after the pause, not seven', renders === 1, `${renders} renders`);
+
+  // Clearing the box is the case where the user is waiting for the board to
+  // come back rather than narrowing it, so it does not wait.
+  renders = 0;
+  input.value = '';
+  handlers.forEach((fn) => fn({ target: input }));
+  check('clearing the search repaints immediately', renders === 1, `${renders} renders`);
+  check('and leaves no timer behind to repaint again', pending.length === 0,
+    `${pending.length} pending`);
+
+  if (realSet) Object.defineProperty(body, 'innerHTML', realSet);
+  globalThis.setTimeout = realSetTimeout;
+  globalThis.clearTimeout = realClearTimeout;
+}
+
 console.log(`\n${passed} passed, ${failed} failed`);
 if (failed) process.exit(1);

@@ -134,7 +134,7 @@ Rebuild with `./tools/install-safari.sh <TEAM_ID>`, or set `$GRIDIRON_TEAM_ID`.
 
 ## Orientation
 
-`js/app.js` is 3,327 lines with all 10 page renderers in it, and
+`js/app.js` is 3,357 lines with all 10 page renderers in it, and
 round 6 judged the decision not to split it defensible: the routing order
 matches the definition order, so it reads top to bottom. Those two counts are
 asserted by `test/render.test.mjs` against the file itself, because the previous
