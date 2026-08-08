@@ -394,19 +394,47 @@ console.log('\nthe trade generator survives a roster it cannot trade from');
     Array.isArray(out) && out.length === 0, out && `${out.length} proposals`);
 
   // A real league should still be able to produce proposals, or the guard
-  // above would pass by making the engine do nothing at all.
+  // above passes by making the engine do nothing at all.
+  //
+  // `Array.isArray(realOut)` was that guard, and [] is an array: the fixture
+  // produced ZERO proposals, so both assertions below sat inside `if
+  // (realOut.length)` and had never run -- and they are the ones guarding the
+  // fields whose previous versions were the invented "85% Acceptance
+  // Probability" and "+2% Championship Prob". Neither proposal-construction
+  // path in trade-generator.js was executed by anything.
+  //
+  // The fixture needs COMPLEMENTARY surpluses: the engine looks for a position
+  // where I am deep and you are thin, and another where the reverse holds.
   const real = leagueWith(0);
+  const byPos = (pos, n, from) => board.filter((p) => p.position === pos)
+    .slice(from, from + n).map((p) => p.id);
+  real.teams[0].roster = [...byPos('RB', 5, 0), ...byPos('WR', 1, 0),
+                          ...byPos('QB', 1, 0), ...byPos('TE', 1, 0)];
+  real.teams[1].roster = [...byPos('WR', 5, 1), ...byPos('RB', 1, 5),
+                          ...byPos('QB', 1, 1), ...byPos('TE', 1, 1)];
+  real.draftState.selections = real.teams.flatMap((t) =>
+    t.roster.map((id) => ({ playerId: id, teamId: t.teamId })));
+
   let realOut = null;
   try { realOut = generateTradeProposals(real, db); } catch (e) { realOut = e; }
-  check('a full league still yields proposals', Array.isArray(realOut),
-    realOut instanceof Error ? realOut.message : 'not an array');
+  check('a league with complementary surpluses yields proposals',
+    Array.isArray(realOut) && realOut.length > 0,
+    realOut instanceof Error ? realOut.message : `${realOut && realOut.length} proposals`);
   if (Array.isArray(realOut) && realOut.length) {
     check('no proposal reports a percentage it did not compute',
       realOut.every((p) => !/%/.test(String(p.myImpact || ''))),
       String(realOut[0].myImpact));
+    check('and none carries an acceptance probability at all',
+      realOut.every((p) => p.probability === undefined),
+      JSON.stringify(realOut[0].probability));
     check('a proposal never trades a player for himself',
       realOut.every((p) => !p.givePlayer || !p.getPlayer
         || p.givePlayer.id !== p.getPlayer.id));
+    check('the negotiation lines name the actual players',
+      realOut.every((p) => p.negotiation
+        && p.negotiation.open.includes(p.givePlayer.name)
+        && p.negotiation.open.includes(p.getPlayer.name)),
+      realOut[0].negotiation && realOut[0].negotiation.open);
   }
 }
 

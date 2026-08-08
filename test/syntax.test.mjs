@@ -74,19 +74,42 @@ console.log('\nevery extension script parses too');
 {
   // The extension was never parsed by anything in this suite, so every scraper
   // change shipped unchecked -- including one that called .add() on a Map and
-  // silently killed all pick parsing. These are classic scripts, not modules, so
-  // they are checked in place rather than through the module scratch copy.
+  // silently killed all pick parsing.
+  //
+  // These are CLASSIC scripts, and checking them "in place" got that backwards:
+  // the root package.json says "type":"module", so node applied module rules to
+  // them. Proven in a copy -- a file with top-level `await` and `export`
+  // PASSED, and a sloppy-mode `with` statement FAILED. So an import added to
+  // content-main.js, which a browser rejects outright in a classic content
+  // script, sailed through the gate that exists to catch exactly that.
+  //
+  // A scratch copy marked "type":"commonjs" parses them as what they are, the
+  // mirror image of what the module block above does.
   const extFiles = walk(join(ROOT, 'chrome-extension'));
-  check('found the extension scripts', extFiles.length >= 4, `${extFiles.length} found`);
+  check('found the extension scripts', extFiles.length >= 3, `${extFiles.length} found`);
+  const classicTmp = mkdtempSync(join(tmpdir(), 'ge-classic-'));
+  writeFileSync(join(classicTmp, 'package.json'), '{"type":"commonjs"}');
   const broken = [];
   extFiles.forEach((f) => {
+    const dest = join(classicTmp, relative(ROOT, f).replace(/[\\/]/g, '_'));
+    cpSync(f, dest);
     try {
-      execFileSync(process.execPath, ['--check', f], { stdio: 'pipe' });
+      execFileSync(process.execPath, ['--check', dest], { stdio: 'pipe' });
     } catch (e) {
       broken.push(relative(ROOT, f));
     }
   });
   check('no extension script has a syntax error', broken.length === 0, broken.join(', '));
+
+  // And the checker must reject what a classic script cannot contain, or it is
+  // the same silent pass in a new place.
+  const esmProbe = join(classicTmp, '__esm_probe.js');
+  writeFileSync(esmProbe, 'export const x = 1;\n');
+  let rejectedEsm = false;
+  try { execFileSync(process.execPath, ['--check', esmProbe], { stdio: 'pipe' }); }
+  catch (e) { rejectedEsm = true; }
+  check('and an ES module is rejected as a classic script', rejectedEsm,
+    'a content script with `export` would parse, and the browser would refuse it');
 }
 
 console.log('\nthe app boots');

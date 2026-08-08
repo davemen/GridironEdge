@@ -225,5 +225,59 @@ console.log('\nthe counts the docs assert are the counts the data has');
   });
 }
 
+console.log('\nthe club table, which had 100% coverage and killed nothing');
+{
+  // Executed by every import and asserted by nothing: all five mutations
+  // survived, including proTeamAbbrev returning String(proTeamId) -- the exact
+  // bug the module header says it exists to fix, "a player on Kansas City had
+  // the club 12". A wrong club is not cosmetic: it is what separates two
+  // defenses and two running backs who share a surname.
+  const { proTeamAbbrev, PRO_TEAM_BY_ID, NFL_NICKNAMES, NFL_ABBREVS } =
+    await import(join(ROOT, 'js/nfl-teams.js'));
+
+  // ESPN's legacy ordering, where 10 is Tennessee and 12 Kansas City -- not the
+  // alphabetical-by-city order an earlier table assumed.
+  [[1, 'ATL'], [10, 'TEN'], [12, 'KC'], [16, 'MIN'], [17, 'NE'], [22, 'ARI'],
+   [24, 'LAC'], [30, 'JAX'], [33, 'BAL'], [34, 'HOU']].forEach(([id, want]) => {
+    check(`proTeamId ${id} is ${want}`, proTeamAbbrev(id) === want, proTeamAbbrev(id));
+  });
+  check('a string id resolves the same as a number', proTeamAbbrev('12') === 'KC');
+  // Null, never the id. Returning String(id) is what put the club "12" on a
+  // player, and it reads as data.
+  check('an unknown id is null, not the id', proTeamAbbrev(999) === null,
+    String(proTeamAbbrev(999)));
+  check('and so is nothing at all',
+    proTeamAbbrev(undefined) === null && proTeamAbbrev(null) === null
+      && proTeamAbbrev('') === null && proTeamAbbrev('KC') === null);
+
+  check('all 32 clubs, none twice',
+    Object.keys(PRO_TEAM_BY_ID).length === 32
+      && new Set(Object.values(PRO_TEAM_BY_ID)).size === 32);
+  check('the abbreviation list is abbreviations, not ids',
+    NFL_ABBREVS.length === 32 && NFL_ABBREVS.every((a) => /^[A-Z]{2,3}$/.test(a)),
+    NFL_ABBREVS.slice(0, 3).join(','));
+  check('every nickname maps to a real club',
+    Object.keys(NFL_NICKNAMES).length === 32
+      && Object.values(NFL_NICKNAMES).every((a) => NFL_ABBREVS.includes(a)));
+  [['chiefs', 'KC'], ['ravens', 'BAL'], ['49ers', 'SF'], ['texans', 'HOU'],
+   ['commanders', 'WAS']].forEach(([nick, want]) => {
+    check(`the ${nick} are ${want}`, NFL_NICKNAMES[nick] === want, NFL_NICKNAMES[nick]);
+  });
+
+  // The extension keeps its own copy because a content script cannot import.
+  // It must not drift from this one.
+  const ext = readFileSync(join(ROOT, 'chrome-extension/content-main.js'), 'utf8');
+  const extTable = (() => {
+    const at = ext.indexOf('const PRO_TEAM_BY_ID = {');
+    if (at < 0) return null;
+    const body = ext.slice(ext.indexOf('{', at), ext.indexOf('};', at) + 1);
+    try { return new Function(`return ${body}`)(); } catch (e) { return null; }
+  })();
+  check("the extension's copy of the club table exists", Boolean(extTable));
+  check('and agrees with this one exactly',
+    JSON.stringify(extTable) === JSON.stringify(PRO_TEAM_BY_ID),
+    'the two loading contexts disagree about which club an id names');
+}
+
 console.log(`\n${passed} passed, ${failed} failed`);
 if (failed) process.exit(1);

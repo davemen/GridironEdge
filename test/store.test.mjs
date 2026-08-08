@@ -183,5 +183,106 @@ console.log('\nstored state is bounded, and its keys are just keys');
     Object.getPrototypeOf(store.state.leagues) === Object.prototype);
 }
 
+console.log('\nthe draft-mutation API, which no test had ever called');
+{
+  // 176 lines -- recordDraftPick, recordDraftPickAuction, undoLastDraftPick,
+  // resetDraft, rebuildRostersFromDraft, processTransaction -- referenced by no
+  // test. Surviving mutants included `faabRemaining - bidAmount` becoming
+  // `+ bidAmount`, so winning a lot ADDED money; dropping the total-picks
+  // bound; and inverting the snake direction. rebuildRostersFromDraft is the
+  // only thing that writes team.roster from draft state.
+  const mkLeague = () => ({
+    leagueId: 'DRAFT', leagueName: 'D', leagueSize: 4, myTeamId: 1,
+    rosterSettings: { startersCount: 2, benchCount: 1 },
+    teams: [1, 2, 3, 4].map((id) => ({ teamId: id, teamName: `T${id}`, roster: [],
+      faabRemaining: 200, record: { wins: 0, losses: 0, ties: 0 } })),
+    schedule: [],
+    draftState: { draftType: 'snake', selections: [], currentPick: 1,
+                  draftOrder: [1, 2, 3, 4] },
+    playerDatabase: {
+      P1: { id: 'P1', key: 'a one', name: 'A One', position: 'RB', team: 'FA', projectedPoints: 20 },
+      P2: { id: 'P2', key: 'b two', name: 'B Two', position: 'WR', team: 'FA', projectedPoints: 18 },
+      P3: { id: 'P3', key: 'c three', name: 'C Three', position: 'QB', team: 'FA', projectedPoints: 16 },
+    },
+  });
+  const load = () => {
+    const l = mkLeague();
+    store.state.leagues = { DRAFT: l };
+    store.state.currentLeagueId = 'DRAFT';
+    store.state.playerDatabase = { ...l.playerDatabase };
+    return l;
+  };
+
+  // An auction win COSTS money.
+  let l = load();
+  store.recordDraftPickAuction('P1', 2, 57);
+  const buyer = l.teams.find((t) => t.teamId === 2);
+  check('winning a lot deducts the bid', buyer.faabRemaining === 143,
+    String(buyer.faabRemaining));
+  check('and the pick is recorded against the winner',
+    l.draftState.selections.length === 1 && l.draftState.selections[0].teamId === 2);
+  check('and the roster is rebuilt from it', buyer.roster.includes('P1'),
+    JSON.stringify(buyer.roster));
+  check('a budget cannot go negative', (() => {
+    store.recordDraftPickAuction('P2', 2, 999);
+    return l.teams.find((t) => t.teamId === 2).faabRemaining === 0;
+  })());
+
+  // Snake ownership: round 1 runs 1,2,3,4 and round 2 runs 4,3,2,1.
+  l = load();
+  store.recordDraftPick(1, 'P1');
+  store.recordDraftPick(5, 'P2');
+  const owner = (pick) => l.draftState.selections.find((sel) => sel.pick === pick).teamId;
+  check('pick 1 belongs to the first seat', owner(1) === 1, String(owner(1)));
+  check('pick 5 belongs to the LAST seat, because the snake turns',
+    owner(5) === 4, String(owner(5)));
+  // A snake pick must reach the roster too -- rebuildRostersFromDraft is the
+  // only thing that puts it there, and it is called from both record paths.
+  check('and the player lands on that seat\'s roster',
+    l.teams.find((t) => t.teamId === 4).roster.includes('P2'),
+    JSON.stringify(l.teams.map((t) => t.roster)));
+
+  // The bound: 4 teams x 3 slots = 12 picks, and pick 13 does not exist.
+  l = load();
+  store.recordDraftPick(13, 'P1');
+  check('a pick beyond the end of the draft is refused',
+    l.draftState.selections.length === 0, JSON.stringify(l.draftState.selections));
+
+  // Undo restores the board.
+  l = load();
+  store.recordDraftPick(1, 'P1');
+  store.recordDraftPick(2, 'P2');
+  store.undoLastDraftPick();
+  check('undo removes the last pick', l.draftState.selections.length === 1);
+  check('and rewinds the clock', l.draftState.currentPick === 2,
+    String(l.draftState.currentPick));
+  check('and takes the player off the roster',
+    !l.teams.some((t) => t.roster.includes('P2')),
+    JSON.stringify(l.teams.map((t) => t.roster)));
+
+  // Reset clears everything.
+  l = load();
+  store.recordDraftPick(1, 'P1');
+  store.resetDraft();
+  check('reset empties the selections', l.draftState.selections.length === 0);
+  check('and every roster with them', l.teams.every((t) => t.roster.length === 0));
+
+  // rebuildRostersFromDraft is the sole writer of team.roster.
+  l = load();
+  l.draftState.selections = [
+    { pick: 1, playerId: 'P1', teamId: 3 },
+    { pick: 2, playerId: 'P2', teamId: 3 },
+    { pick: 3, playerId: 'P3', teamId: 1 },
+  ];
+  l.teams.forEach((t) => { t.roster = ['STALE']; });
+  store.rebuildRostersFromDraft(l);
+  check('rebuilding rosters follows the selections, not what was there before',
+    JSON.stringify(l.teams.find((t) => t.teamId === 3).roster) === JSON.stringify(['P1', 'P2'])
+      && JSON.stringify(l.teams.find((t) => t.teamId === 1).roster) === JSON.stringify(['P3']),
+    JSON.stringify(l.teams.map((t) => t.roster)));
+  check('and a team with no picks has no roster',
+    l.teams.find((t) => t.teamId === 2).roster.length === 0);
+}
+
 console.log(`\n${passed} passed, ${failed} failed`);
 if (failed) process.exit(1);
