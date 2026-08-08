@@ -16,7 +16,8 @@
  * chrome API, and asserts three things: the payload arrives, it arrives fast,
  * and a sender that is not ESPN is refused.
  */
-const listeners = { storage: [], connect: [], message: [] };
+const listeners = { storage: [], connect: [], message: [], updated: [], removed: [] };
+const injections = [];
 const store = {};
 let ports = [];
 globalThis.chrome = {
@@ -50,9 +51,12 @@ globalThis.chrome = {
   },
   tabs: { query: async () => [], create: async () => {}, update: async () => {},
           // The worker watches draft tabs so it can fall back to isolated-world
-          // injection where MAIN is unsupported (Safari).
-          onUpdated: { addListener: () => {} } },
-  scripting: { executeScript: async () => [] },
+          // injection where MAIN is unsupported (Safari). Both listeners are
+          // captured, because the fallback's once-per-tab guard is the only
+          // thing standing between a tab and two whole scrapers.
+          onUpdated: { addListener: (f) => listeners.updated.push(f) },
+          onRemoved: { addListener: (f) => listeners.removed.push(f) } },
+  scripting: { executeScript: async (opts) => { injections.push(opts); return []; } },
   action: { onClicked: { addListener: () => {} } },
 };
 globalThis.window = globalThis;
@@ -212,6 +216,76 @@ console.log('\nthe worker refuses a payload that is too big to be a draft');
   listeners.message.forEach((f) => f({ action: 'sync', data: ok },
     { origin: 'https://fantasy.espn.com' }, () => {}));
   check('an ordinary draft still stores', JSON.stringify(store) !== beforeOk);
+}
+
+console.log('\nthe fallback scraper is injected once per tab, and only by the worker');
+{
+  // The scraper's own install guard is per-WORLD, and the two worlds cannot see
+  // each other -- so this is the only place that knows whether a second copy
+  // exists. Round 6 tried to do it with a marker on documentElement.dataset,
+  // which the PAGE can write: an inline script at document_start set it first
+  // and both copies returned silently, leaving the page as the app's only
+  // source of draft data.
+  //
+  // Counted PER TAB, not in total: this file evaluates background.js more than
+  // once, so several worker closures are live and each has its own bookkeeping.
+  // An absolute count measures how many copies of the worker the test made.
+  const forTab = (id) => injections.filter((o) => o.target && o.target.tabId === id).length;
+  const timers = [];
+  const realSetTimeout = globalThis.setTimeout;
+  globalThis.setTimeout = (fn, ms) => {
+    if (ms >= 1000) { timers.push(fn); return 0; }
+    return realSetTimeout(fn, ms);
+  };
+  // The FIRST worker closure, deliberately. This file evaluates background.js
+  // again later under a different `chrome` stub, and that copy's message
+  // listeners go into a different array -- so firing every onUpdated drives a
+  // closure whose `reported` set this block cannot reach, and the alive ping
+  // would look ignored when it was simply delivered elsewhere.
+  const onUpdated = listeners.updated[0];
+  const complete = (tabId) => onUpdated(tabId, { status: 'complete' },
+    { url: 'https://fantasy.espn.com/football/draft?leagueId=1' });
+  const settle = async () => { while (timers.length) await timers.shift()(); };
+
+  injections.length = 0;
+  complete(21);
+  await settle();
+  check('a draft tab that never reports gets the fallback', forTab(21) >= 1,
+    `${forTab(21)} injections`);
+  check('and it is the scraper that is injected',
+    injections.every((o) => /content-main\.js/.test(String(o.files))),
+    JSON.stringify(injections[0] && injections[0].files));
+
+  const afterFirst = forTab(21);
+  complete(21);
+  await settle();
+  check('a second completion for the same tab does NOT inject again',
+    forTab(21) === afterFirst, `${forTab(21) - afterFirst} extra`);
+
+  complete(22);
+  await settle();
+  check('but another tab still gets one', forTab(22) >= 1);
+
+  // Closing a tab must not leave its id behind for the worker's lifetime.
+  listeners.removed[0](21);
+  complete(21);
+  await settle();
+  check('a reopened tab is treated as new', forTab(21) > afterFirst,
+    'closing a tab did not clear its bookkeeping');
+
+  // The case that made the fallback fire in the first place: a tab whose
+  // MAIN-world scraper is alive but has sent no data, which is every pre-draft
+  // lobby, because the scraper deliberately stays quiet when nothing changed.
+  // Filling `reported` only from a sync meant a working scraper looked absent
+  // and the tab ran two of them: 291ms over 27 bid ticks against 123ms.
+  complete(23);
+  listeners.message.forEach((f) => f({ action: 'mainAlive' },
+    { origin: 'https://fantasy.espn.com', tab: { id: 23 } }, () => {}));
+  await settle();
+  check('a tab whose scraper says it is alive gets NO second copy',
+    forTab(23) === 0, `${forTab(23)} injected into a tab that already had one`);
+
+  globalThis.setTimeout = realSetTimeout;
 }
 
 console.log('\nthe two shape gates cannot drift apart');

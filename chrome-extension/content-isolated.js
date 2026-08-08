@@ -431,6 +431,17 @@
     if (event.source !== window) return;
     if (event.origin !== TRUSTED_ORIGIN) return;
 
+    // The MAIN-world scraper saying it exists. Relayed so the worker stops
+    // injecting a second copy into a tab that already has a working one.
+    if (event.data && event.data.type === 'GRIDIRON_EDGE_MAIN_ALIVE') {
+      try {
+        if (chrome.runtime && chrome.runtime.id) chrome.runtime.sendMessage({ action: 'mainAlive' });
+      } catch (err) {
+        console.debug('[Gridiron Edge Sync] could not relay the scraper ping:', err.message);
+      }
+      return;
+    }
+
     if (event.data && event.data.type === 'GRIDIRON_EDGE_SYNC') {
       if (!looksLikeAScrape(event.data.data)) {
         console.warn('[Gridiron Edge Sync] Ignored a sync message that is not a league payload.');

@@ -2,32 +2,54 @@
 // Accesses the page's React/Redux store directly and posts updates to the isolated content script
 
 (function() {
-  // One instance per TAB, not per world.
+  // One instance per world, and the WORKER decides whether there is a second.
   //
-  // This file is declared as a content script AND injected by background.js as
-  // a fallback when a tab completes without reporting a sync -- which a
-  // pre-draft lobby always does, because the scraper deliberately sends nothing
-  // when the room is quiet. So the second injection is the normal case, and the
-  // declared copy runs in world MAIN while the injected one runs in the
-  // isolated world.
+  // This file is declared as a content script (world MAIN) and background.js
+  // injects it into the isolated world as a fallback when a tab completes
+  // without reporting a sync -- which a pre-draft lobby always does, because
+  // the scraper deliberately stays quiet when the room is. So a second copy is
+  // the normal case, and the two worlds have separate globals.
   //
-  // The sentinel was on `window`, and the two worlds have separate globals, so
-  // it never saw the other copy. Measured with Page.createIsolatedWorld: both
-  // installed, two full scrapers, two document.body subtree observers, two
-  // three-second intervals, 291ms over 27 bid ticks against 123ms for one --
-  // which more than erased the readText saving in the case this comment calls
-  // normal.
+  // Round 6 put the marker on `document.documentElement.dataset`, the one
+  // thing both worlds share -- and the PAGE shares it too. Content scripts run
+  // at document_idle; an inline script at document_start sets the attribute
+  // first and BOTH copies return silently, with no console output. The
+  // isolated half still forwards GRIDIRON_EDGE_SYNC from the page, so the
+  // attacker stops competing with the real scraper and becomes the app's only
+  // source of draft data. A marker the adversary can write is not a marker.
   //
-  // The DOM is the one thing both worlds share, so the marker lives there.
-  const INSTALL_MARK = 'gridironEdgeMain';
-  try {
-    const root = document.documentElement;
-    if (root.dataset[INSTALL_MARK]) return;
-    root.dataset[INSTALL_MARK] = '1';
-  } catch (e) {
+  // So the guard is per-world again -- `window` here is the page's in MAIN and
+  // the extension's in the isolated world, and neither can see the other --
+  // and the DOUBLE INSTALL is prevented where it is actually decided: the
+  // worker skips the fallback once a tab has reported. That is a decision made
+  // in the extension's own process, which no page can reach.
+  if (window.__GRIDIRON_EDGE_MAIN_INSTALLED__) return;
+  try { window.__GRIDIRON_EDGE_MAIN_INSTALLED__ = true; } catch (e) {
     // A page can refuse the write, and a page that wants to break its own
     // draft room does not need our help to do it.
     console.debug('[Gridiron Edge] sentinel write failed:', e && e.message);
+  }
+
+  // Announce that this world has a working scraper.
+  //
+  // The worker injects a SECOND copy when a tab completes and nothing has
+  // reported -- and it used to learn that only from a sync, which a quiet
+  // pre-draft lobby never sends. So it fell back while MAIN was working
+  // perfectly, and the tab ran two scrapers, two observers and two intervals.
+  // Being alive and having data are different facts.
+  //
+  // MAIN has no chrome.runtime, so this goes out on the window and
+  // content-isolated.js relays it. A page can forge it and suppress the
+  // fallback -- on a page where the fallback's own data would be equally
+  // forged, so it grants nothing new.
+  try {
+    if (!(typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.id)) {
+      window.postMessage({ type: 'GRIDIRON_EDGE_MAIN_ALIVE' }, 'https://fantasy.espn.com');
+    } else {
+      chrome.runtime.sendMessage({ action: 'mainAlive' });
+    }
+  } catch (e) {
+    console.debug('[Gridiron Edge] could not announce the scraper:', e && e.message);
   }
 
   // Version marker: lets a console check confirm whether Chrome is running the

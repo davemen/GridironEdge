@@ -435,11 +435,26 @@ console.log('\nthe sweep runs where the page cannot reach it');
   // background.js injects it, and the two worlds have separate globals -- so a
   // window sentinel never saw the other copy and both installed. Measured at
   // 291ms over 27 bid ticks against 123ms for one.
-  check('the scraper marks its install where both worlds can see it',
-    /documentElement[\s\S]{0,80}dataset/.test(src) && !/window\.__GRIDIRON_EDGE_MAIN_INSTALLED__/.test(src),
-    'a window-scoped sentinel cannot cross a world boundary');
+  // The marker must NOT be somewhere the page can write. Round 6 put it on
+  // documentElement.dataset -- shared by both worlds, and by the page: an
+  // inline script at document_start set it first and BOTH copies returned
+  // silently, leaving the page as the app's only source of draft data.
+  check('the scraper does not take its install marker from the DOM',
+    !/documentElement[\s\S]{0,120}dataset\s*\[/.test(src),
+    'a page can write that, and then neither copy installs');
+  check('it guards its own world instead',
+    /window\.__GRIDIRON_EDGE_MAIN_INSTALLED__/.test(src));
   check('and the isolated half still refuses a second registration',
     /__GRIDIRON_EDGE_ISOLATED_INSTALLED__/.test(iso));
+
+  // The double install is decided in the worker, which no page can reach.
+  const bgSrc = readFileSync(join(ROOT, 'chrome-extension/background.js'), 'utf8');
+  check('the worker refuses to inject the fallback twice for one tab',
+    /injected\.has\(tabId\)[\s\S]{0,40}return/.test(bgSrc)
+      && /injected\.add\(tabId\)/.test(bgSrc),
+    'nothing stops a second copy, and the two worlds cannot see each other');
+  check('and neither bookkeeping set grows for the life of the worker',
+    /onRemoved[\s\S]{0,160}injected\.delete/.test(bgSrc));
 }
 
 console.log('\nand the moved sweep still actually sweeps');

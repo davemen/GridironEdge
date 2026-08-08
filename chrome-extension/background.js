@@ -147,6 +147,8 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
  */
 const FALLBACK_AFTER_MS = 6000;
 const reported = new Set();
+// Tabs the fallback has already been injected into. See the guard below.
+const injected = new Set();
 
 // Same sender check as the listener above. This one only marks a tab as having
 // reported, so a forged message costs nothing worse than a skipped fallback
@@ -154,12 +156,24 @@ const reported = new Set();
 // may speak is how the weaker one becomes the one that matters.
 chrome.runtime.onMessage.addListener((message, sender) => {
   if (!isTrustedSender(sender)) return false;
-  if (message && message.action === 'sync' && sender.tab) {
+  // 'alive' as well as 'sync'. `reported` decides whether to inject a second
+  // scraper, and filling it only on DATA meant a working MAIN-world scraper
+  // looked absent whenever the room was quiet -- which a pre-draft lobby
+  // always is, because the scraper deliberately stays silent when nothing has
+  // changed. So the fallback fired in the normal case, and the tab ran two
+  // whole scrapers: 291ms over 27 bid ticks against 123ms for one.
+  if (message && (message.action === 'sync' || message.action === 'mainAlive') && sender.tab) {
     reported.add(sender.tab.id);
   }
   return false;
 });
 
+
+// Neither set may grow for the life of the service worker.
+chrome.tabs.onRemoved.addListener((tabId) => {
+  reported.delete(tabId);
+  injected.delete(tabId);
+});
 
 chrome.tabs.onUpdated.addListener((tabId, info, tab) => {
   if (info.status !== 'complete') return;
@@ -167,8 +181,20 @@ chrome.tabs.onUpdated.addListener((tabId, info, tab) => {
   if (!/\/draft/.test(tab.url)) return;
 
   reported.delete(tabId);
+  // `injected` is NOT cleared here. A completion is a page load, and the
+  // declared MAIN copy loads with it -- so clearing this would re-inject on
+  // every reload, which is the doubling being prevented. It is cleared when
+  // the tab closes.
   setTimeout(async () => {
     if (reported.has(tabId)) return;   // MAIN world is working; nothing to do
+    // And never twice for one tab. The scraper's own guard is per-world, and
+    // the two worlds cannot see each other -- so this is the only place that
+    // knows whether a second copy already exists, and it is inside the
+    // extension where no page can reach it. The marker that tried to do this
+    // job in the DOM was writable by the page, which could then silence both
+    // copies at once.
+    if (injected.has(tabId)) return;
+    injected.add(tabId);
     try {
       await chrome.scripting.executeScript({
         target: { tabId },
