@@ -59,7 +59,7 @@ console.log('\nabbreviated first names, as ESPN writes a roster panel');
   check('team separates a shared initial and surname',
     hit('J. Taylor', 'RB', 'IND')?.name === 'Jonathan Taylor');
   check('and picks the other one when the team says so',
-    hit('J. Taylor', 'RB', 'JAC')?.name === "J'Mari Taylor");
+    hit('J. Taylor', 'RB', 'JAX')?.name === "J'Mari Taylor");
   check('reports unknown rather than guessing when nothing separates them',
     hit('J. Taylor', 'RB') === null);
 }
@@ -223,6 +223,35 @@ console.log('\nthe counts the docs assert are the counts the data has');
     check(`${name}'s analyst count matches the data`, wrong.length === 0,
       `claims ${wrong.join(', ')} against ${experts}`);
   });
+}
+
+console.log('\nthe projection set uses the club table\'s own abbreviations');
+{
+  // The data had 14 records on "JAC" while js/nfl-teams.js -- and ESPN -- call
+  // Jacksonville "JAX", so a Jaguars D/ST scraped from a live room could not be
+  // separated from any other by club, and findPlayer's whole
+  // shared-surname tiebreak silently lost a team. One abbreviation space, or
+  // the club is not a club.
+  const { NFL_ABBREVS } = await import(join(ROOT, 'js/nfl-teams.js'));
+  const teams = [...new Set(proj.players.map((p) => p.team).filter(Boolean))];
+  const strangers = teams.filter((t) => t !== 'FA' && !NFL_ABBREVS.includes(t));
+  check('every club in the projection set is a club the app knows',
+    strangers.length === 0, strangers.join(', '));
+
+  // Defenses are the case that breaks first, because a D/ST IS its club.
+  const dstClubs = new Set(proj.players.filter((p) => p.position === 'D/ST').map((p) => p.team));
+  const noDefense = NFL_ABBREVS.filter((a) => !dstClubs.has(a));
+  // ARI is a real, known gap in the source data -- not a bug in the app, and
+  // not something to paper over with an invented projection. It is pinned
+  // EXACTLY so a second missing club fails rather than hiding behind a
+  // threshold, and so removing the gap fails too and this comment gets deleted.
+  check('exactly one club has no defense, and it is the one we know about',
+    JSON.stringify(noDefense) === JSON.stringify(['ARI']),
+    `missing: ${noDefense.join(', ') || 'none'}`);
+  // And the app must treat that club honestly rather than inventing a value.
+  const ariDst = findPlayer(db, 'Arizona Cardinals', 'D/ST', 'ARI');
+  check('and an Arizona defense resolves to nothing rather than to a guess',
+    ariDst === null, ariDst && ariDst.name);
 }
 
 console.log('\nthe club table, which had 100% coverage and killed nothing');

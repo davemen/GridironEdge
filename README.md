@@ -67,7 +67,11 @@ converts the consensus into the units the engines need.
 
 Kickers and team defenses are not fantasy rows in the source data, so both are
 rebuilt from their counting stats under ESPN's default scoring by
-[`tools/kickers_defense.py`](tools/kickers_defense.py). That script is the
+[`tools/kickers_defense.py`](tools/kickers_defense.py). **31 of the 32 defenses
+are present — Arizona is missing from the source data.** An Arizona D/ST drafted
+in a live room therefore resolves to nothing and is valued at replacement level,
+which the app says out loud rather than guessing. `test/player-database.test.mjs`
+pins that gap at exactly one club, so a second one fails the build. That script is the
 record of how, not a command to run: it imports from the out-of-repo backtest
 harness BACKTEST.md describes, so a clone cannot execute it.
 
