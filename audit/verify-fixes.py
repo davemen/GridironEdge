@@ -47,7 +47,12 @@ CHECKS = {
  ('security',4): lambda: False,   # XSS sink reach -- NOT done
  ('security',5): lambda: "from '../js/escape.js'" in read('audit/build-report.mjs')
                           and 'replace(/&/g' not in read('audit/build-report.mjs'),
- ('security',6): lambda: 'DWQ9ZN5SGU' not in read('audit/history.json'),
+ # The Apple Team ID. This check used to name it, which put the secret back
+ # into a tracked file in the very line asserting it was gone -- and made this
+ # script the only occurrence of it in the working tree. A pattern cannot leak
+ # what it matches: an Apple Team ID is ten upper-case alphanumerics, and the
+ # word-boundary form is narrow enough not to fire on prose.
+ ('security',6): lambda: not re.search(r'\b[A-Z][A-Z0-9]{9}\b', read('audit/history.json')),
  ('security',7): lambda: '--bind 127.0.0.1' in read('package.json'),
  ('security',8): lambda: 'coveragePartial' in read('js/engine/auction-advisor.js'),
  ('security',9): lambda: "'https://fantasy.espn.com'" in read('chrome-extension/content-isolated.js'),
