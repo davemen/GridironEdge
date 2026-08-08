@@ -1,6 +1,7 @@
 /**
  * Gridiron Edge Realistic Trade Recommendation Engine
  */
+import { starterSlots } from './lineup-rules.js';
 
 export function generateTradeProposals(league) {
   const db = league.playerDatabase;
@@ -20,8 +21,17 @@ export function generateTradeProposals(league) {
   const mySurplusPositions = [];
   const myWeakPositions = [];
   
+  // `league.rosterSettings[pos] || 2` did two wrong things at once. It threw
+  // TypeError on any league without rosterSettings -- which is every scraped
+  // auction room -- and because the whole call is wrapped in a try/catch in
+  // simulator.js, the trade line simply vanished from the action plan with a
+  // console.error nobody was reading. And where it did not throw it invented a
+  // starting limit of 2 for every position, so a one-QB league was told it had
+  // a surplus only at three quarterbacks. `starterSlots` is the one definition
+  // of how many of a position a league starts, defaults included.
+  const slots = starterSlots(league.rosterSettings);
   Object.keys(myPosCounts).forEach(pos => {
-    const limit = league.rosterSettings[pos] || 2;
+    const limit = slots[pos];
     const strongPlayers = myPosCounts[pos].filter(p => p.projectedPoints > 13);
     
     if (strongPlayers.length > limit) {
@@ -48,7 +58,7 @@ export function generateTradeProposals(league) {
     const oppWeakPositions = [];
     
     Object.keys(oppPosCounts).forEach(pos => {
-      const limit = league.rosterSettings[pos] || 2;
+      const limit = slots[pos];
       const strongPlayers = oppPosCounts[pos].filter(p => p.projectedPoints > 13);
       
       if (strongPlayers.length > limit) {

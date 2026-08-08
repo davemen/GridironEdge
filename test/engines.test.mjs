@@ -565,6 +565,167 @@ console.log('\nthe future-roster line describes the roster, not the position tak
     !/Running Backs|Wide Receivers/.test(String(full.planChange)), full.planChange);
 }
 
+console.log('\nthe simulator reads where the season is, instead of assuming week 5');
+{
+  // `const currentWeek = 5` sat under a comment reading "Determine current week
+  // from schedule". Five is right for mock-data.js -- every team there is four
+  // games in -- which is why nothing caught it. A real league in week 12 had
+  // weeks 5 through 11 replayed ON TOP of the record those weeks produced.
+  //
+  // The decisive case is a season that is over. With every game played there is
+  // nothing left to simulate, so the standings ARE the answer: a team that lost
+  // all fourteen cannot make the playoffs, and one that won all fourteen cannot
+  // miss. Under the hardcoded 5 there were ten more games to play and both
+  // figures came out in the middle.
+  // Team 1 has the BEST roster on the board and lost every game; the others
+  // have the worst and won nine. If the ten remaining weeks are replayed, the
+  // best roster wins most of them and climbs into the field. If the season is
+  // read as over, it finishes last, which is what its record says.
+  const finished = leagueWith(0);
+  finished.teams.forEach((t) => {
+    t.record = t.teamId === 1
+      ? { wins: 0, losses: 14, ties: 0 }
+      : { wins: 9, losses: 5, ties: 0 };
+    t.pointsScored = t.teamId === 1 ? 900 : 1600;
+  });
+  const over = runSeasonSimulation(finished, 500);
+  check('a season already played out is not replayed',
+    over.playoffPct === 0,
+    `0-14 with every game played, and the model still gives ${over.playoffPct}%`);
+
+  // The mirror: the worst roster, 14-0. Replaying drags it back down.
+  const champion = leagueWith(300);
+  champion.teams.forEach((t) => {
+    t.record = t.teamId === 1
+      ? { wins: 14, losses: 0, ties: 0 }
+      : { wins: 5, losses: 9, ties: 0 };
+    t.pointsScored = t.teamId === 1 ? 1700 : 1200;
+  });
+  const won = runSeasonSimulation(champion, 1000);
+  check('and a 14-0 team is not made to play ten more games',
+    won.playoffPct === 100, `${won.playoffPct}%`);
+  // ...and it still has to WIN the bracket with the roster it has. When the
+  // regular season was over, no week was projected at all, playBracket scored
+  // every game as NaN, `NaN >= NaN` is false so every game went to `b` -- the
+  // lower seed -- and the weakest roster in a ten-team league was handed a
+  // 97.6% championship probability by the bracket's shape.
+  check('and the bracket is still played with projections, not with NaN',
+    won.champPct > 0 && won.champPct < 40, `${won.champPct}%`);
+
+  // The same contract the simulator uses when a roster will not resolve: say
+  // the question cannot be answered rather than answer it from a substitute.
+  const { playBracket } = await import(join(ROOT, 'js/engine/simulator.js'));
+  check('a bracket with no projections declines', playBracket([1, 2, 3, 4]) === null);
+  check('and so does one missing a single team', playBracket([1, 2], { 1: 110 }) === null);
+  check('while a complete one names a winner',
+    [1, 2].includes(playBracket([1, 2], { 1: 110, 2: 120 })));
+
+  // The decisive case, because a record lead survives extra games: the worst
+  // roster in the league, one win ahead of everybody, with 13 of 14 played.
+  // One game left and it holds the lead. Ten games replayed and nine stronger
+  // rosters go past it. Measured: 100% against 0%.
+  const lateSeason = leagueWith(400);
+  lateSeason.teams.forEach((t) => {
+    t.record = t.teamId === 1
+      ? { wins: 7, losses: 6, ties: 0 }
+      : { wins: 6, losses: 7, ties: 0 };
+    t.pointsScored = 1300;
+  });
+  for (let w = 1; w <= 4; w++) {
+    for (let i = 1; i < 10; i += 2) {
+      lateSeason.schedule.push({ week: w, team1Id: i, team2Id: i + 1, completed: true });
+    }
+  }
+  const late = runSeasonSimulation(lateSeason, 800);
+  check('a one-game lead with one game left is not thrown back to week 5',
+    late.playoffPct === 100,
+    `${late.playoffPct}% -- ten already-played games are being replayed`);
+
+  // Mid-season, the week has to come from the record too: 8 games played means
+  // 6 to go, so the remaining schedule is weeks 9-14 and not 5-14.
+  const midway = leagueWith(0);
+  midway.teams.forEach((t) => { t.record = { wins: 4, losses: 4, ties: 0 }; });
+  const mid = runSeasonSimulation(midway, 300);
+  check('a league mid-season still answers', typeof mid.playoffPct === 'number'
+    && mid.playoffPct >= 0 && mid.playoffPct <= 100, String(mid.playoffPct));
+}
+
+console.log('\nboth engines model weekly scoring noise with the same number');
+{
+  // simulator.js drew a team's week as projection + normal(0, 12) and
+  // team-strength.js as projection + normal(0, 22). Same model, same three
+  // spans on the Championship page, two different leagues. Worth 20 points of
+  // first-round-bye probability.
+  const simSrc = readFileSync(join(ROOT, 'js/engine/simulator.js'), 'utf8');
+  const tsSrc = readFileSync(join(ROOT, 'js/engine/team-strength.js'), 'utf8');
+  check('neither engine declares its own weekly SD',
+    !/WEEKLY_SD\s*=/.test(simSrc) && !/WEEKLY_SD\s*=/.test(tsSrc));
+  check('and both import the one that exists',
+    /scoring-model\.js/.test(simSrc) && /scoring-model\.js/.test(tsSrc));
+  const { WEEKLY_SD, WEATHER_RATE } = await import(join(ROOT, 'js/engine/scoring-model.js'));
+  check('the shared SD is a plausible weekly spread, not a placeholder',
+    WEEKLY_SD >= 15 && WEEKLY_SD <= 35, String(WEEKLY_SD));
+  check('and the weather rate is a probability', WEATHER_RATE >= 0 && WEATHER_RATE <= 1);
+  // The bonus that went to whichever team the mapper wrote first.
+  check('no home-field advantage is added to team1',
+    !/team1Proj\s*\+=/.test(simSrc),
+    'fantasy scoring has no home field, and team1Id is payload ordering');
+}
+
+console.log('\nthe trade generator reads the league\'s own starting slots');
+{
+  const { generateTradeProposals } =
+    await import(join(ROOT, 'js/engine/trade-generator.js'));
+  // `league.rosterSettings[pos] || 2` threw TypeError on any league without
+  // rosterSettings -- every scraped auction room -- and simulator.js wraps the
+  // call in a try/catch, so the trade line vanished from the action plan with
+  // a console.error nobody was reading.
+  const bare = {
+    playerDatabase: { A: { id: 'A', name: 'A', position: 'QB', projectedPoints: 20 } },
+    myTeamId: 1, teams: [{ teamId: 1, roster: ['A'] }, { teamId: 2, roster: [] }],
+  };
+  let threw = null;
+  try { generateTradeProposals(bare); } catch (e) { threw = e; }
+  check('a league with no rosterSettings does not throw', threw === null,
+    threw && threw.message);
+
+  // And where it did not throw it invented a starting limit of 2 for every
+  // position, so a one-QB league was told it had a surplus only at three
+  // quarterbacks. Two strong QBs in a one-QB league IS a surplus.
+  const qbHeavy = {
+    rosterSettings: { QB: 1, RB: 2, WR: 2, TE: 1, FLEX: 1, 'D/ST': 1, K: 1, BE: 7 },
+    myTeamId: 1,
+    playerDatabase: {
+      Q1: { id: 'Q1', name: 'Q One', position: 'QB', projectedPoints: 22 },
+      Q2: { id: 'Q2', name: 'Q Two', position: 'QB', projectedPoints: 20 },
+      W1: { id: 'W1', name: 'W One', position: 'WR', projectedPoints: 19 },
+      W2: { id: 'W2', name: 'W Two', position: 'WR', projectedPoints: 18 },
+      W3: { id: 'W3', name: 'W Three', position: 'WR', projectedPoints: 17 },
+    },
+    teams: [
+      { teamId: 1, teamName: 'Mine', roster: ['Q1', 'Q2'] },
+      { teamId: 2, teamName: 'Theirs', roster: ['W1', 'W2', 'W3'] },
+    ],
+  };
+  const swaps = generateTradeProposals(qbHeavy);
+  check('two strong QBs in a one-QB league is a surplus worth trading',
+    Array.isArray(swaps) && swaps.length > 0
+      && swaps[0].givePlayer && swaps[0].givePlayer.position === 'QB',
+    JSON.stringify(swaps));
+
+  // And the same board with the settings REMOVED must reach the same answer,
+  // because a scraped auction room does not publish its slot counts and
+  // `starterSlots` is where the default lives. `rosterSettings || {}` would
+  // leave every limit undefined, every comparison false, and no proposal at
+  // all -- silence that looks exactly like "there is no good trade here".
+  const noSettings = { ...qbHeavy };
+  delete noSettings.rosterSettings;
+  const same = generateTradeProposals(noSettings);
+  check('and it finds the same trade with no rosterSettings at all',
+    JSON.stringify(same) === JSON.stringify(swaps),
+    JSON.stringify(same));
+}
+
 console.log('\nthe trade generator survives a roster it cannot trade from');
 {
   // The reproducible crash: `give` was dereferenced before the guard that

@@ -30,7 +30,12 @@ import { finite } from './numbers.js';
 // Week-to-week scoring noise for a whole lineup, in points. Fantasy teams are
 // far more volatile than their projections suggest: this is what makes a
 // stronger roster only a favourite rather than a certainty.
-const WEEKLY_SD = 22;
+//
+// Imported, not declared. simulator.js modelled the same quantity at 12 while
+// this file used 22, and both write to the same three spans on the
+// Championship page. See scoring-model.js for the sensitivity that gap was
+// worth and for the admission that neither number is measured.
+import { WEEKLY_SD } from './scoring-model.js';
 
 
 /**

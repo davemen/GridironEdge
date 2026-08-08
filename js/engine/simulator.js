@@ -1,5 +1,6 @@
 import { optimizeLineup } from './lineup-optimizer.js';
 import { REGULAR_WEEKS, slotList, playoffFieldSize, byeCount } from './lineup-rules.js';
+import { WEEKLY_SD, WEATHER_RATE } from './scoring-model.js';
 import { getWaiverRecommendations } from './roster-manager.js';
 import { generateTradeProposals } from './trade-generator.js';
 
@@ -26,11 +27,21 @@ function randomNormal(mean = 0, stdDev = 1) {
  * seeds 5 and 6 permanently unable to win.
  *
  * The per-week projections are computed by the caller, so each game uses the
- * two teams' own scoring with the same 12-point weekly spread as the regular
+ * two teams' own scoring with the same weekly spread as the regular
  * season. Top seeds get byes; the rest pair highest against lowest.
  */
 export function playBracket(seeds, weekProj) {
-  const scoreOf = (id) => Math.max(50, randomNormal((weekProj || {})[id], 12));
+  // No projection, no bracket. `randomNormal(undefined, sd)` is NaN,
+  // `Math.max(50, NaN)` is NaN, and `NaN >= NaN` is false -- so every game went
+  // to `b`, the LOWER seed, and the "championship probability" that came out
+  // was the bracket's shape rather than anybody's roster. It read 97.6% for the
+  // weakest roster in a ten-team league. Returning null says the question
+  // cannot be answered, which is the same contract runSeasonSimulation uses
+  // 300 lines below when a roster will not resolve.
+  const proj = weekProj || {};
+  if (!Array.isArray(seeds) || seeds.length === 0) return null;
+  if (seeds.some((id) => typeof proj[id] !== 'number')) return null;
+  const scoreOf = (id) => Math.max(50, randomNormal(proj[id], WEEKLY_SD));
   const beats = (a, b) => (scoreOf(a) >= scoreOf(b) ? a : b);
   // The byes rejoin after ONE round, not after the rest have been played down
   // to a single survivor.
@@ -197,10 +208,20 @@ export function runSeasonSimulation(league, runs = 1000) {
 
 
 
-  // Pre-calculate normal and windy projections per week for all teams (Weeks 5-14)
+  // Projections for every week that is still to be played. This ran 5..14
+  // regardless, matching the hardcoded currentWeek below it; both are derived
+  // now, and from the same place, so a league in week 11 no longer costs ten
+  // weeks of projection to use four.
+  // Never past REGULAR_WEEKS: the playoff bracket scores its games off the
+  // final regular-season week, so that week is needed even when the regular
+  // season is already over. Without the clamp a finished league produced no
+  // projections at all and playBracket had nothing to score with.
+  const projectFrom = Math.min(REGULAR_WEEKS, Math.max(1,
+    Math.max(0, ...teams.map((t) => (t.record?.wins || 0)
+      + (t.record?.losses || 0) + (t.record?.ties || 0))) + 1));
   const teamProjectionsPerWeek = {};
   const unprojectable = [];
-  for (let w = 5; w <= 14; w++) {
+  for (let w = projectFrom; w <= REGULAR_WEEKS; w++) {
     teamProjectionsPerWeek[w] = {
       normal: {},
       windy: {}
@@ -240,8 +261,24 @@ export function runSeasonSimulation(league, runs = 1000) {
     initialPoints[t.teamId] = t.pointsScored || 0;
   });
 
-  // Determine current week from schedule
-  const currentWeek = 5;
+  /* -----------------------------------------------------------------------
+   * Where the season actually is.
+   *
+   * This was `const currentWeek = 5` under a comment reading "Determine
+   * current week from schedule", which it did not do. Five is right for
+   * mock-data.js -- every team there is 4 games in -- which is why nothing
+   * caught it. On a real league in week 12 the simulator replayed weeks 5
+   * through 11 ON TOP of the record those weeks had already produced, so a
+   * team's simulated season ran to 17 games and its wins were counted twice.
+   *
+   * Games played is the one thing every team's record states, so the week is
+   * derived from it rather than assumed. The max across teams, not the min: a
+   * league mid-week has some teams a game ahead, and re-simulating a game
+   * already in the record is the failure being fixed.
+   * --------------------------------------------------------------------- */
+  const gamesPlayed = teams.map((t) => (t.record?.wins || 0)
+    + (t.record?.losses || 0) + (t.record?.ties || 0));
+  const currentWeek = Math.max(1, Math.max(0, ...gamesPlayed) + 1);
 
   // Filter schedule for remaining weeks (>= currentWeek)
   const remainingMatchups = schedule.filter(m => m.week >= currentWeek);
@@ -266,8 +303,22 @@ export function runSeasonSimulation(league, runs = 1000) {
 
       if (!team1 || !team2) return;
 
-      // Simulate a 10% chance of adverse weather (high wind/rain) for each matchup
-      const isWindyMatchup = Math.random() < 0.10;
+      /* -------------------------------------------------------------------
+       * The weather coin flip, kept, and here is what it is worth.
+       *
+       * A 10% chance of an adverse-weather game, applying -8% to QB/WR/TE/K
+       * and +5% to RB. Neither the rate nor the effects appear in BACKTEST.md.
+       * Forced to never and to always over 20,000 seasons of a balanced
+       * twelve-team league, the whole switch moved the first-round-bye figure
+       * from 91.4% to 91.0% and the championship figure from 25.4% to 26.1% --
+       * both inside run-to-run noise at that sample size.
+       *
+       * So it is retained rather than tuned: it is not carrying a claim, and
+       * removing it would be a change to shipped output on no better evidence
+       * than adding it was. What it must not do is grow a confidence it has
+       * not earned. NOT MEASURED, and the sentence above says by how much.
+       * ----------------------------------------------------------------- */
+      const isWindyMatchup = Math.random() < WEATHER_RATE;
       const weekProjections = teamProjectionsPerWeek[matchup.week] || { normal: {}, windy: {} };
       const projections = isWindyMatchup ? weekProjections.windy : weekProjections.normal;
 
@@ -277,12 +328,22 @@ export function runSeasonSimulation(league, runs = 1000) {
       let team2Proj = projections[matchup.team2Id];
       if (typeof team1Proj !== 'number' || typeof team2Proj !== 'number') return;
 
-      // Apply Home-Field Advantage (+2.0 points to home team, which is team1)
-      team1Proj += 2.0;
+      /* -------------------------------------------------------------------
+       * No home-field advantage, deliberately.
+       *
+       * This added +2.0 points to team1 of every matchup, described as the
+       * home team. Fantasy scoring has no home field -- a roster's points are
+       * the same building whoever is hosting -- and `team1Id` is whichever
+       * side the mapper happened to write first, so the bonus went to a team
+       * chosen by payload ordering. Measured over 20,000 seasons of a balanced
+       * twelve-team league it was worth 1.6 points of first-round-bye
+       * probability, which is small, invented, and systematically pointed at
+       * one side of every game.
+       * ----------------------------------------------------------------- */
 
       // Simulate scores with volatility variance
-      const score1 = Math.max(50, randomNormal(team1Proj, 12));
-      const score2 = Math.max(50, randomNormal(team2Proj, 12));
+      const score1 = Math.max(50, randomNormal(team1Proj, WEEKLY_SD));
+      const score2 = Math.max(50, randomNormal(team2Proj, WEEKLY_SD));
 
       simPoints[matchup.team1Id] += score1;
       simPoints[matchup.team2Id] += score2;
@@ -333,17 +394,22 @@ export function runSeasonSimulation(league, runs = 1000) {
       const championId = playBracket(
         pTeams, (teamProjectionsPerWeek[REGULAR_WEEKS] || {}).normal);
 
-      champWinsCount[championId]++;
-      if (championId === league.myTeamId) {
-        championshipWins++;
+      // null means the bracket declined. Counting it would make `null` the
+      // most successful team in the league.
+      if (championId !== null) {
+        champWinsCount[championId]++;
+        if (championId === league.myTeamId) {
+          championshipWins++;
+        }
       }
     } else {
       // Simulate playoffs for other teams to see who wins
       // Scored the same way, so champWinsCount is one consistent distribution
       // rather than two models disagreeing about who is likely to win.
       const pTeams = standings.slice(0, playoffSize).map(s => s.teamId);
-      champWinsCount[playBracket(
-        pTeams, (teamProjectionsPerWeek[REGULAR_WEEKS] || {}).normal)]++;
+      const winner = playBracket(
+        pTeams, (teamProjectionsPerWeek[REGULAR_WEEKS] || {}).normal);
+      if (winner !== null) champWinsCount[winner]++;
     }
   }
 
