@@ -291,14 +291,25 @@ class Store {
    * COULD, not can. Two things stop this working on a real league, and both are
    * recorded here rather than left for the next reader to rediscover:
    *
-   *   - the only caller repo-wide is loadMockLeague. A live sync goes
-   *     importScrapedPayload -> saveLeague and never comes through here, so no
-   *     history accumulates and opportunityTrend's `h.length >= 10` can never
-   *     fire outside the sandbox.
+   *   - it runs, but over records that have no `.metrics`. The only caller is
+   *     `updatePlayerDatabase`, reached twice: from `realDbReady` at module
+   *     init with the 523-player projections database, and from
+   *     `loadMockLeague` with the 31 mock players. `toPlayerDatabase` builds
+   *     fourteen fields and `metrics` is not one of them, so every one of the
+   *     523 hits the `!p.metrics` guard below and is skipped. All 31 mock
+   *     players carry metrics, which is why this looks wired in the sandbox.
+   *     (An earlier version of this comment said the only caller repo-wide was
+   *     loadMockLeague. It was not; the live path does reach here, it just has
+   *     nothing to record. The conclusion held for the wrong reason, which is
+   *     the kind of comment that survives a reading and fails a grep.)
+   *   - and a live SYNC still never comes through here at all:
+   *     importScrapedPayload -> saveLeague is its own path, so no history
+   *     accumulates between refreshes and opportunityTrend's `h.length >= 10`
+   *     cannot fire outside the sandbox.
    *   - the deduplication below is inert. `week` falls back to
-   *     `this.state.currentScoringPeriod`, which is not in defaultState and is
-   *     not written anywhere in the repo, so `week` is always null and the
-   *     guard that needs `week !== null` never runs.
+   *     `this.state.currentScoringPeriod`, which is not in defaultState (see
+   *     line 79) and is not written anywhere in the repo, so `week` is always
+   *     null and the guard that needs `week !== null` never runs.
    *
    * BACKTEST.md Part 9 identifies this as the one unpriced signal it found, so
    * wiring it up is worth doing -- but saying it works when it does not is how

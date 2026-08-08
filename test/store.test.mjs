@@ -22,6 +22,13 @@ const ROOT = join(fileURLToPath(new URL('.', import.meta.url)), '..');
 const KEY = 'gridiron_edge_state';
 
 // store.js publishes itself on window for the console; give it one.
+//
+// That publication used to be how four of these blocks got their `store`: they
+// referenced a bare, undeclared identifier that resolved to `globalThis.store`,
+// left there by whichever freshStore() call ran last. So the blocks shared one
+// instance, in an order nothing stated, and removing the window publication
+// from store.js would have thrown ReferenceError rather than failed a check.
+// Every block declares its own now.
 globalThis.window = globalThis;
 
 let passed = 0, failed = 0;
@@ -107,6 +114,7 @@ console.log('\nrepeated saves collapse into one render');
 
 console.log('\ndrafting in one league does not touch another');
 {
+  const store = await freshStore('{"leagues":{},"currentLeagueId":null}');
   // The shared player database means every league holds the SAME record
   // objects. store.js used to write `drafted`, `draftedAtPick`, `draftedCost`
   // and `ownerId` onto them, so a pick in one league marked the player drafted
@@ -171,6 +179,7 @@ console.log('\ndrafting in one league does not touch another');
 
 console.log('\nthe player database is stored once, not once per league');
 {
+  const store = await freshStore('{"leagues":{},"currentLeagueId":null}');
   // Each league carried its own copy of the same 523 records: about 128KB
   // serialised, 2.7MB at twenty-one leagues, against a 5-10MB quota.
   store.state.leagues = {};
@@ -216,6 +225,7 @@ console.log('\nthe player database is stored once, not once per league');
 
 console.log('\nstored state is bounded, and its keys are just keys');
 {
+  const store = await freshStore('{"leagues":{},"currentLeagueId":null}');
   // Nothing capped state.leagues, and each league carries its own copy of the
   // 523-player database -- 21 leagues measured 2.7MB against a 5-10MB quota.
   // Once save() starts failing, the app runs on state that is never persisted.
@@ -249,6 +259,7 @@ console.log('\nstored state is bounded, and its keys are just keys');
 
 console.log('\nthe draft-mutation API, which no test had ever called');
 {
+  const store = await freshStore('{"leagues":{},"currentLeagueId":null}');
   // 176 lines -- recordDraftPick, recordDraftPickAuction, undoLastDraftPick,
   // resetDraft, rebuildRostersFromDraft, processTransaction -- referenced by no
   // test. Surviving mutants included `faabRemaining - bidAmount` becoming

@@ -299,6 +299,61 @@ export function getDraftRecommendations(league) {
   const adv = `Provides +${Math.round(ranked[0].replacementVal * 10) / 10} points of advantage relative to next available baseline.`;
   const risk = topPick.injuryStatus !== 'Healthy' ? 'High due to injury concern' : (topPick.volatility > 4.5 ? 'Medium (high volatility player)' : 'Low');
 
+  /* -----------------------------------------------------------------------
+   * What is still open after taking him.
+   *
+   * This read: "Secures anchoring <POS> slot. Plan to target <Running Backs if
+   * he is a WR, else Wide Receivers> in rounds N+2 and N+3." Every clause was
+   * invented. It named RB or WR by flipping on the recommended player's
+   * position, whether or not either slot was open -- so a manager with a full
+   * backfield taking a receiver was told to draft running backs, and the two
+   * round numbers were arithmetic on the current round with nothing behind
+   * them. It is a hardcoded string that reads like analysis, which CLAUDE.md
+   * treats as the same offence as a hardcoded number, and it went on screen
+   * under the heading "Future Roster Plan".
+   *
+   * `open` is already computed above, from this league's own slot counts, and
+   * `fallbackAt` already holds what the best survivor at each position is worth
+   * at the next pick. That is enough to say something true: which starting
+   * slots remain after this pick, ordered by how much value is still on the
+   * board there. When nothing remains open it says so, and when the board is
+   * too thin to rank anything it returns null rather than a sentence -- app.js
+   * omits the line entirely in that case.
+   * --------------------------------------------------------------------- */
+  const afterPick = { ...posCounts };
+  afterPick[topPick.position] = (afterPick[topPick.position] || 0) + 1;
+  const slots = starterSlots(limits);
+  // The FIXED openings, counted per position. `openStarterSlots` folds the
+  // shared flex into every flex-eligible position, which is right for asking
+  // "may I still start one of these" and wrong for a list a reader will add
+  // up: it reported 2x TE and 3x WR on a lineup with one flex between them.
+  // The flex is named once, separately, which is what it is.
+  const fixedOpen = Object.keys(slots)
+    .map((pos) => ({ pos, n: slots[pos] - (afterPick[pos] || 0), worth: fallbackAt[pos] ?? null }))
+    .filter((o) => o.n > 0)
+    .sort((a, b) => (b.worth ?? -Infinity) - (a.worth ?? -Infinity));
+  const flexStillOpen = flexCount(limits)
+    - FLEX_POS.reduce((a, pos) => a + Math.max(0, (afterPick[pos] || 0) - slots[pos]), 0);
+
+  let planChange = null;
+  if (fixedOpen.length === 0 && flexStillOpen <= 0) {
+    planChange = 'Every starting slot is filled after this pick. What is left is bench.';
+  } else if (fixedOpen.some((o) => o.worth !== null) || flexStillOpen > 0) {
+    // `fallbackAt` is expected value ADDED TO THE STARTING LINEUP over the
+    // season by the best player at that position likely to survive to the next
+    // pick -- so the label says that rather than printing a bare figure.
+    const named = fixedOpen.slice(0, 3).map((o) => {
+      const label = o.n > 1 ? `${o.n}\u00d7 ${o.pos}` : o.pos;
+      return o.worth === null ? label : `${label} (+${o.worth.toFixed(0)} pts)`;
+    });
+    if (flexStillOpen > 0) {
+      named.push(flexStillOpen > 1 ? `${flexStillOpen} flex slots` : 'the flex');
+    }
+    planChange = `Still open after this pick: ${named.join(', ')}`
+      + `. Figures are the season lineup points the best likely survivor at `
+      + `pick ${nextUserPick} would add.`;
+  }
+
   return {
     primaryPick: topPick,
     whyBest,
@@ -306,7 +361,7 @@ export function getDraftRecommendations(league) {
     riskLevel: risk,
     alternatives: bestAlternatives,
     willBeAvailable: nextPickAvailable,
-    planChange: `Secures anchoring ${topPick.position} slot. Plan to target ${topPick.position === 'WR' ? 'Running Backs' : 'Wide Receivers'} in rounds ${roundIdx + 2} and ${roundIdx + 3}.`,
+    planChange,
     tierWarning
   };
 }

@@ -518,6 +518,53 @@ console.log('\none coercion from "whatever the payload held" to a number');
     JSON.stringify(buildLeagueState(asStrings).par));
 }
 
+console.log('\nthe future-roster line describes the roster, not the position taken');
+{
+  // It read: "Secures anchoring <POS> slot. Plan to target <Running Backs if he
+  // is a WR, else Wide Receivers> in rounds N+2 and N+3." Every clause was
+  // invented -- it flipped on the recommended player's position whether or not
+  // either slot was open, and the two round numbers were arithmetic on the
+  // current round with nothing behind them. A hardcoded string that reads like
+  // analysis, printed under the heading "Future Roster Plan".
+  const { getDraftRecommendations } =
+    await import(join(ROOT, 'js/engine/draft-assistant.js'));
+  const { mockLeague, mockPlayers } = await import(join(ROOT, 'js/mock-data.js'));
+
+  const board = (picks) => {
+    const l = JSON.parse(JSON.stringify(mockLeague));
+    l.playerDatabase = JSON.parse(JSON.stringify(mockPlayers));
+    const byPos = {};
+    Object.values(l.playerDatabase).forEach((p) => {
+      (byPos[p.position] = byPos[p.position] || []).push(p);
+    });
+    const mine = picks.map(([pos, i]) => byPos[pos][i]).filter(Boolean);
+    l.draftState = { ...l.draftState, draftType: 'snake', currentPick: mine.length + 1,
+      selections: mine.map((p, i) => ({ teamId: l.myTeamId, playerId: p.id, pickNumber: i + 1 })) };
+    const avail = Object.values(l.playerDatabase).filter((p) => !mine.includes(p));
+    return getDraftRecommendations(l, avail);
+  };
+
+  const empty = board([]);
+  check('an empty roster is told which starting slots are open',
+    /Still open after this pick:/.test(empty.planChange), empty.planChange);
+  check('and the flex is named once, not folded into every position',
+    (empty.planChange.match(/WR/g) || []).length <= 1
+      && /flex/.test(empty.planChange), empty.planChange);
+  // The old line printed a bare figure. This one says what the figure measures.
+  check('and every figure it prints says what it measures',
+    !/\+\d/.test(empty.planChange) || /season lineup points/.test(empty.planChange),
+    empty.planChange);
+
+  const full = board([['QB', 0], ['RB', 0], ['RB', 1], ['WR', 0], ['WR', 1],
+                      ['TE', 0], ['D/ST', 0], ['K', 0], ['WR', 2]]);
+  check('a full starting lineup is told that, not told to target a position',
+    /Every starting slot is filled/.test(full.planChange), full.planChange);
+  // The precise old failure: it named RB whenever the pick was a WR, so a
+  // manager with no room for another back was told to draft one.
+  check('and it never recommends a position with no slot open',
+    !/Running Backs|Wide Receivers/.test(String(full.planChange)), full.planChange);
+}
+
 console.log('\nthe trade generator survives a roster it cannot trade from');
 {
   // The reproducible crash: `give` was dereferenced before the guard that

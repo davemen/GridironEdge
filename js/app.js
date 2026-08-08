@@ -1411,7 +1411,7 @@ export function renderDraftPage(league = store.getActiveLeague()) {
         <p><strong>Rationale:</strong> ${esc(rec.whyBest)}</p>
         <p><strong>Expected Advantage:</strong> ${rec.advantage}</p>
         <p><strong>Risk Level:</strong> ${rec.riskLevel}</p>
-        <p><strong>Future Roster Plan:</strong> ${esc(rec.planChange)}</p>
+        ${rec.planChange ? `<p><strong>Future Roster Plan:</strong> ${esc(rec.planChange)}</p>` : ''}
       </div>
       
       <div style="border-top:1px solid var(--border-color); padding-top:0.75rem;">
