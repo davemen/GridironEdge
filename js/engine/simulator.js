@@ -298,10 +298,18 @@ export function runSeasonSimulation(league, runs = 1000) {
 
     // 1. Simulate remaining regular season weeks (e.g. Weeks 5-14)
     remainingMatchups.forEach(matchup => {
-      const team1 = teams.find(t => t.teamId === matchup.team1Id);
-      const team2 = teams.find(t => t.teamId === matchup.team2Id);
-
-      if (!team1 || !team2) return;
+      // No `teams.find` here. Two of them stood at the top of this loop, and
+      // their results were used for one thing: `if (!team1 || !team2) return;`.
+      // That guard is entirely subsumed by the projection check below --
+      // `teamProjectionsPerWeek[w].normal` is keyed by teamId and populated
+      // only for teams that exist, so a matchup naming a team the league does
+      // not have has no projection either and returns there.
+      //
+      // Round 8 mutated both lookups to `!==` and neither mutant could be
+      // killed, which is what an EQUIVALENT mutant looks like: the code had no
+      // observable effect to break. Two O(teams) scans per matchup per run --
+      // 400 runs x 60 matchups x 2 scans x 12 teams -- for a guard that never
+      // decided anything.
 
       /* -------------------------------------------------------------------
        * The weather coin flip, kept, and here is what it is worth.

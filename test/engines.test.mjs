@@ -954,6 +954,27 @@ console.log('\nthe simulator is checked on its shape, not only its ordering');
     fed.playoffPct > 70,
     `${fed.playoffPct}% -- ten games against the worst roster should not be a coin flip`);
 
+  // The decisive form, because the one above still passes with the lookup
+  // inverted. `teams.find(t => t.teamId === id)` returns UNDEFINED for an id
+  // that is not in the league, and the guard below it skips that matchup.
+  // Inverted to `!==`, the same call returns the first team that is not the
+  // opponent -- never undefined -- so a matchup naming a team that does not
+  // exist gets played anyway, by whoever the search happened to land on.
+  const withGhost = leagueWith(0, 4);
+  withGhost.teams.forEach((t) => { t.record = { wins: 0, losses: 0, ties: 0 }; });
+  withGhost.schedule = [];
+  for (let w = 5; w <= 14; w++) {
+    withGhost.schedule.push({ week: w, team1Id: 1, team2Id: 999 });   // no such team
+    withGhost.schedule.push({ week: w, team1Id: 2, team2Id: 3 });
+  }
+  const ghost = runSeasonSimulation(withGhost, RUNS);
+  const noGhost = JSON.parse(JSON.stringify(withGhost));
+  noGhost.schedule = noGhost.schedule.filter((m) => m.team2Id !== 999);
+  const without = runSeasonSimulation(noGhost, RUNS);
+  check('a matchup against a team that does not exist is not played',
+    Math.abs(ghost.playoffPct - without.playoffPct) < 8,
+    `${ghost.playoffPct}% with the ghost fixture, ${without.playoffPct}% without it`);
+
   /* -------------------------------------------------------------------------
    * The weekly draw is normal with the SD scoring-model.js publishes, and that
    * is checkable to a fraction of a point rather than by a loose band.
