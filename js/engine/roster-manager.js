@@ -439,7 +439,20 @@ function classify({ player, startProb, breakout, bust, block, holdValue,
   if (startProb > 0.85 && ros > replacementRos * 1.15) return CATEGORY.CORE;
   if (breakout >= 0.28 && phase.upsideWeight > 0.5) return CATEGORY.STASH;
   if (startProb >= 0.25 && startProb <= 0.6 && ros >= replacementRos) return CATEGORY.HANDCUFF;
-  if (block.value > 0 && block.value >= holdValue * 0.5 && block.claimProbability > 0.4) {
+  // `block.value >= holdValue * 0.5` is trivially true when holdValue is
+  // NEGATIVE -- any positive blocking value clears half of a negative number --
+  // so every worthless player a rival might want became a "Defensive Hold",
+  // and the DROP branch below was unreachable for exactly the players it
+  // exists for. Measured on a four-man bench: hold values 22, 16, -12 and -30,
+  // and the last two were both labelled Defensive Hold. The app was telling a
+  // manager to keep a player costing him a roster spot.
+  //
+  // Blocking has to outweigh what holding costs, which is what
+  // `block.value + holdValue > 0` says. For a positive holdValue the old
+  // half-of-value bar still applies, because that was never the broken case.
+  if (block.value > 0 && block.claimProbability > 0.4
+      && block.value + holdValue > 0
+      && (holdValue <= 0 || block.value >= holdValue * 0.5)) {
     return CATEGORY.DEFENSIVE;
   }
   if (scarcity > 0.6 && ros > replacementRos) return CATEGORY.MATCHUP;

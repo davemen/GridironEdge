@@ -45,7 +45,38 @@ export const mockPlayers = {
   
   // Kickers
   "K_01": { id: "K_01", name: "Justin Tucker", position: "K", team: "BAL", projectedPoints: 8.8, volatility: 2.1, injuryStatus: "Healthy", byeWeek: 14, adp: 125.0, matchProjs: { w1: 8.0, w2: 9.5, w3: 8.5, w4: 8.2, w5: 9.8 }, opponent: "CLE", metrics: { snapShare: 1.0 } },
-  "K_02": { id: "K_02", name: "Harrison Butker", position: "K", team: "KC", projectedPoints: 8.4, volatility: 1.9, injuryStatus: "Healthy", byeWeek: 6, adp: 130.0, matchProjs: { w1: 7.8, w2: 9.0, w3: 8.2, w4: 7.5, w5: 9.5 }, opponent: "LV", metrics: { snapShare: 1.0 } }
+  "K_02": { id: "K_02", name: "Harrison Butker", position: "K", team: "KC", projectedPoints: 8.4, volatility: 1.9, injuryStatus: "Healthy", byeWeek: 6, adp: 130.0, matchProjs: { w1: 7.8, w2: 9.0, w3: 8.2, w4: 7.5, w5: 9.5 }, opponent: "LV", metrics: { snapShare: 1.0 } },
+
+  /* --------------------------------------------------------------------------
+   * Depth, added because the tests could not see past its absence.
+   *
+   * A mutation run found thirteen assertions that could not fail, and the cause
+   * was this file rather than the tests: team 1 held ten players against nine
+   * starting slots, so `bench` had exactly ONE entry and every
+   * `bench.every(...)` check passed over a one-element array. Deleting the sort
+   * those checks exist to verify survived the whole suite. The free-agent pool
+   * had one member, so the waiver-target ordering was vacuous the same way.
+   *
+   * These fifteen are ordinary mid-range players with SEPARATED projections --
+   * that is the point, since an ordering assertion over equal values is only
+   * marginally better than one over a single value. Three of them go to team 1
+   * as bench, the rest stay unowned.
+   * ------------------------------------------------------------------------ */
+  "RB_10": { id: "RB_10", name: "Tyjae Spears", position: "RB", team: "TEN", projectedPoints: 12.4, volatility: 4.2, injuryStatus: "Healthy", byeWeek: 5, adp: 88.0, matchProjs: { w1: 11.4, w2: 13.4, w3: 12.0, w4: 13.0, w5: 12.3 }, opponent: "JAX", metrics: { snapShare: 0.48, targetShare: 0.1, redZoneTargets: 1, carries: 9, redZoneCarries: 1 } },
+  "RB_11": { id: "RB_11", name: "Zach Charbonnet", position: "RB", team: "SEA", projectedPoints: 9.8, volatility: 4.9, injuryStatus: "Healthy", byeWeek: 10, adp: 112.5, matchProjs: { w1: 9.0, w2: 10.6, w3: 9.5, w4: 10.3, w5: 9.7 }, opponent: "ARI", metrics: { snapShare: 0.35, targetShare: 0.07, redZoneTargets: 0, carries: 7, redZoneCarries: 1 } },
+  "RB_12": { id: "RB_12", name: "Ty Chandler", position: "RB", team: "MIN", projectedPoints: 7.1, volatility: 5.2, injuryStatus: "Healthy", byeWeek: 6, adp: 168.0, matchProjs: { w1: 6.5, w2: 7.7, w3: 6.9, w4: 7.5, w5: 7.0 }, opponent: "GB", metrics: { snapShare: 0.28, targetShare: 0.05, redZoneTargets: 0, carries: 5, redZoneCarries: 0 } },
+  "WR_11": { id: "WR_11", name: "Jerry Jeudy", position: "WR", team: "CLE", projectedPoints: 13.1, volatility: 4.4, injuryStatus: "Healthy", byeWeek: 10, adp: 79.5, matchProjs: { w1: 12.1, w2: 14.1, w3: 12.7, w4: 13.8, w5: 13.0 }, opponent: "PIT", metrics: { snapShare: 0.86, targetShare: 0.21, redZoneTargets: 1, carries: 0, redZoneCarries: 0 } },
+  "WR_12": { id: "WR_12", name: "Rome Odunze", position: "WR", team: "CHI", projectedPoints: 11.6, volatility: 5.6, injuryStatus: "Healthy", byeWeek: 7, adp: 96.2, matchProjs: { w1: 10.7, w2: 12.5, w3: 11.3, w4: 12.2, w5: 11.5 }, opponent: "DET", metrics: { snapShare: 0.74, targetShare: 0.18, redZoneTargets: 2, carries: 0, redZoneCarries: 0 } },
+  "WR_13": { id: "WR_13", name: "Khalil Shakir", position: "WR", team: "BUF", projectedPoints: 10.2, volatility: 3.9, injuryStatus: "Healthy", byeWeek: 12, adp: 124.8, matchProjs: { w1: 9.4, w2: 11.0, w3: 9.9, w4: 10.7, w5: 10.1 }, opponent: "MIA", metrics: { snapShare: 0.68, targetShare: 0.16, redZoneTargets: 1, carries: 0, redZoneCarries: 0 } },
+  "WR_14": { id: "WR_14", name: "Wan'Dale Robinson", position: "WR", team: "NYG", projectedPoints: 8.4, volatility: 4.1, injuryStatus: "Healthy", byeWeek: 11, adp: 155.3, matchProjs: { w1: 7.7, w2: 9.1, w3: 8.1, w4: 8.8, w5: 8.3 }, opponent: "PHI", metrics: { snapShare: 0.61, targetShare: 0.14, redZoneTargets: 0, carries: 0, redZoneCarries: 0 } },
+  "WR_15": { id: "WR_15", name: "Adonai Mitchell", position: "WR", team: "IND", projectedPoints: 6.9, volatility: 6.1, injuryStatus: "Healthy", byeWeek: 11, adp: 192.7, matchProjs: { w1: 6.3, w2: 7.5, w3: 6.7, w4: 7.2, w5: 6.8 }, opponent: "HOU", metrics: { snapShare: 0.42, targetShare: 0.09, redZoneTargets: 0, carries: 0, redZoneCarries: 0 } },
+  "TE_04": { id: "TE_04", name: "Cole Kmet", position: "TE", team: "CHI", projectedPoints: 9.6, volatility: 3.4, injuryStatus: "Healthy", byeWeek: 7, adp: 118.4, matchProjs: { w1: 8.8, w2: 10.4, w3: 9.3, w4: 10.1, w5: 9.5 }, opponent: "DET", metrics: { snapShare: 0.79, targetShare: 0.15, redZoneTargets: 2, carries: 0, redZoneCarries: 0 } },
+  "TE_05": { id: "TE_05", name: "Hunter Henry", position: "TE", team: "NE", projectedPoints: 7.8, volatility: 3.1, injuryStatus: "Healthy", byeWeek: 14, adp: 164.9, matchProjs: { w1: 7.2, w2: 8.4, w3: 7.6, w4: 8.2, w5: 7.7 }, opponent: "NYJ", metrics: { snapShare: 0.71, targetShare: 0.13, redZoneTargets: 1, carries: 0, redZoneCarries: 0 } },
+  "TE_06": { id: "TE_06", name: "Tucker Kraft", position: "TE", team: "GB", projectedPoints: 6.2, volatility: 4.7, injuryStatus: "Questionable", byeWeek: 10, adp: 201.5, matchProjs: { w1: 5.7, w2: 6.7, w3: 6.0, w4: 6.5, w5: 6.1 }, opponent: "MIN", metrics: { snapShare: 0.55, targetShare: 0.11, redZoneTargets: 1, carries: 0, redZoneCarries: 0 } },
+  "QB_06": { id: "QB_06", name: "Baker Mayfield", position: "QB", team: "TB", projectedPoints: 16.9, volatility: 4.0, injuryStatus: "Healthy", byeWeek: 11, adp: 105.6, matchProjs: { w1: 15.5, w2: 18.3, w3: 16.4, w4: 17.7, w5: 16.7 }, opponent: "NO", metrics: { snapShare: 1.0, targetShare: 0, redZoneTargets: 0, carries: 3, redZoneCarries: 1 } },
+  "QB_07": { id: "QB_07", name: "Bo Nix", position: "QB", team: "DEN", projectedPoints: 14.7, volatility: 5.4, injuryStatus: "Healthy", byeWeek: 14, adp: 148.2, matchProjs: { w1: 13.5, w2: 15.9, w3: 14.3, w4: 15.4, w5: 14.6 }, opponent: "LV", metrics: { snapShare: 1.0, targetShare: 0, redZoneTargets: 0, carries: 6, redZoneCarries: 2 } },
+  "K_03": { id: "K_03", name: "Chris Boswell", position: "K", team: "PIT", projectedPoints: 8.9, volatility: 2.4, injuryStatus: "Healthy", byeWeek: 9, adp: 178.0, matchProjs: { w1: 8.2, w2: 9.6, w3: 8.6, w4: 9.3, w5: 8.8 }, opponent: "CLE", metrics: { snapShare: 1.0, targetShare: 0, redZoneTargets: 0, carries: 0, redZoneCarries: 0 } },
+  "DF_03": { id: "DF_03", name: "Baltimore Ravens", position: "D/ST", team: "BAL", projectedPoints: 7.6, volatility: 3.0, injuryStatus: "Healthy", byeWeek: 14, adp: 171.4, matchProjs: { w1: 7.0, w2: 8.2, w3: 7.4, w4: 8.0, w5: 7.5 }, opponent: "CLE", metrics: { snapShare: 1.0, targetShare: 0, redZoneTargets: 0, carries: 0, redZoneCarries: 0 } },
 };
 
 export const mockLeague = {
@@ -73,7 +104,7 @@ export const mockLeague = {
     waiverType: "FAAB"
   },
   teams: [
-    { teamId: 1, teamName: "Championship Bound", managerName: "Mac", faabRemaining: 100, roster: ["QB_01", "RB_01", "RB_08", "WR_03", "WR_10", "TE_02", "DF_01", "K_01", "RB_09", "WR_09"], record: { wins: 3, losses: 1, ties: 0 }, pointsScored: 452.8, pointsAllowed: 412.3 },
+    { teamId: 1, teamName: "Championship Bound", managerName: "Mac", faabRemaining: 100, roster: ["QB_01", "RB_01", "RB_08", "WR_03", "WR_10", "TE_02", "DF_01", "K_01", "RB_09", "WR_09", "RB_10", "WR_11", "TE_04"], record: { wins: 3, losses: 1, ties: 0 }, pointsScored: 452.8, pointsAllowed: 412.3 },
     { teamId: 2, teamName: "Fumble Recovery", managerName: "Sarah", faabRemaining: 92, roster: ["QB_02", "RB_02", "RB_05", "WR_02", "WR_07", "TE_03", "DF_02", "K_02"], record: { wins: 2, losses: 2, ties: 0 }, pointsScored: 432.1, pointsAllowed: 440.5 },
     { teamId: 3, teamName: "Red Zone Threat", managerName: "Michael", faabRemaining: 100, roster: ["QB_03", "RB_03", "RB_04", "WR_01", "WR_04", "TE_01"], record: { wins: 4, losses: 0, ties: 0 }, pointsScored: 489.2, pointsAllowed: 395.1 },
     { teamId: 4, teamName: "Hail Marys", managerName: "Emily", faabRemaining: 85, roster: ["QB_04", "RB_06", "RB_07", "WR_05", "WR_06", "WR_08"], record: { wins: 1, losses: 3, ties: 0 }, pointsScored: 390.4, pointsAllowed: 420.2 },

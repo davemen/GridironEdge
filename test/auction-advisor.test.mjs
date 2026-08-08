@@ -170,7 +170,7 @@ console.log('\nfull-size player pool');
   // held 31 for some time. Everyone in it is scarce. Real imports are deep, so
   // build a realistic pool to test the parts that depend on having options.
   check('the mock database is smaller than one league\'s rosters',
-    Object.keys(mockPlayers).length === 31 && rosterSize(mockLeague) * 12 === 192,
+    Object.keys(mockPlayers).length === 46 && rosterSize(mockLeague) * 12 === 192,
     `${Object.keys(mockPlayers).length} players for ${rosterSize(mockLeague) * 12} spots`);
 
   const deep = freshLeague();

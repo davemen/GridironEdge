@@ -895,6 +895,103 @@ console.log('\nthe lineup optimizer\'s thirteen adjustments, none of which ran')
     JSON.stringify(hurtBench));
 }
 
+console.log('\nthe simulator is checked on its shape, not only its ordering');
+{
+  /* -------------------------------------------------------------------------
+   * Round 8 mutated this engine eleven times and killed none of them, at
+   * 86.89% line coverage. Executed is not observed.
+   *
+   * The two worst survivors say why the existing assertions cannot see them:
+   * `teams.find(t => t.teamId === matchup.team2Id)` flipped to `!==` makes
+   * every simulated matchup play the WRONG opponent, and `if (winner !== null)`
+   * flipped to `=== null` makes champWinsCount[null]++ so every rival's
+   * championship rate reads 0% forever. Both preserve "a better roster wins
+   * the title more often", which is all this file asserted.
+   *
+   * So these assert things a monotonicity check cannot: that the championship
+   * is awarded exactly once per run and to somebody real, that the rival panel
+   * is a distribution rather than a column of zeros, and that the schedule
+   * decides who plays whom.
+   * --------------------------------------------------------------------- */
+  const RUNS = 400;
+  const out = runSeasonSimulation(leagueWith(0), RUNS);
+  check('the simulation answers at all', !out.unknown, out.reason);
+
+  // champWinsCount is the source of `competitors`. If the title were awarded to
+  // `null`, or twice, or never, the rates would not sum to 100.
+  const rivalPct = (out.competitors || []).reduce((a, c) => a + c.pct, 0);
+  const total = rivalPct + (out.champPct || 0);
+  check('every run crowns exactly one champion, and a real one',
+    total > 97 && total < 103,
+    `mine ${out.champPct}% + rivals ${rivalPct.toFixed(1)}% = ${total.toFixed(1)}%`);
+  check('and the rival panel is a distribution, not a column of zeros',
+    (out.competitors || []).some((c) => c.pct > 0),
+    JSON.stringify((out.competitors || []).map((c) => c.pct)));
+  check('every named rival is a team in this league',
+    (out.competitors || []).every((c) => leagueWith(0).teams
+      .some((t) => t.teamId === c.teamId)),
+    JSON.stringify((out.competitors || []).map((c) => c.teamId)));
+
+  // Who you play is read from the schedule. `teams.find(t => t.teamId ===
+  // matchup.team2Id)` flipped to `!==` returns the first team that is NOT the
+  // opponent -- usually team 1 -- so a team ends up playing itself and every
+  // game becomes a coin flip. A board where one team is fed the weakest
+  // opponent every week catches that, because a coin flip is not what feeding
+  // looks like.
+  const fedTheWeakest = () => {
+    const l = leagueWith(0, 4);
+    // Team 4 is drawn from 80 places down the board; teams 1-3 are close.
+    l.teams.forEach((t) => { t.record = { wins: 0, losses: 0, ties: 0 }; });
+    l.schedule = [];
+    for (let w = 5; w <= 14; w++) {
+      l.schedule.push({ week: w, team1Id: 1, team2Id: 4 });
+      l.schedule.push({ week: w, team1Id: 2, team2Id: 3 });
+    }
+    return runSeasonSimulation(l, RUNS);
+  };
+  const fed = fedTheWeakest();
+  check('a team fed the weakest opponent every week beats the field',
+    fed.playoffPct > 70,
+    `${fed.playoffPct}% -- ten games against the worst roster should not be a coin flip`);
+
+  /* -------------------------------------------------------------------------
+   * The weekly draw is normal with the SD scoring-model.js publishes, and that
+   * is checkable to a fraction of a point rather than by a loose band.
+   *
+   * Two independent draws at N(0, sd) differ by N(0, sd*sqrt2), so a favourite
+   * ahead by k sigma wins with probability Phi(k / sqrt2). Measured against
+   * that curve at four separations, the engine tracks it within 0.3pp -- so a
+   * 1pp tolerance is tight enough to catch a corrupted Box-Muller (the cosine's
+   * 2*PI becoming PI) or a mis-scaled SD, and loose enough not to flake at
+   * 20,000 samples.
+   * --------------------------------------------------------------------- */
+  const { playBracket } = await import(join(ROOT, 'js/engine/simulator.js'));
+  const { WEEKLY_SD } = await import(join(ROOT, 'js/engine/scoring-model.js'));
+  const erf = (x) => {
+    const sgn = x < 0 ? -1 : 1, a = Math.abs(x), t = 1 / (1 + 0.3275911 * a);
+    return sgn * (1 - ((((1.061405429 * t - 1.453152027) * t + 1.421413741) * t
+      - 0.284496736) * t + 0.254829592) * t * Math.exp(-a * a));
+  };
+  const winRate = (k, n) => {
+    // 500 keeps both scores far above the Math.max(50, ...) floor, which would
+    // otherwise truncate the left tail and flatter the favourite.
+    const proj = { 1: 500 + k * WEEKLY_SD, 2: 500 };
+    let w = 0;
+    for (let i = 0; i < n; i++) if (playBracket([1, 2], proj) === 1) w++;
+    return w / n;
+  };
+  const offBy = [0, 0.5, 1, 2, 4].map((k) => {
+    const theory = 0.5 * (1 + erf((k / Math.SQRT2) / Math.SQRT2));
+    return { k, theory, measured: winRate(k, 20000) };
+  });
+  const worst = offBy.reduce((a, o) =>
+    Math.max(a, Math.abs(o.measured - o.theory)), 0);
+  check('the bracket draws from the published weekly SD, at every separation',
+    worst < 0.01,
+    offBy.map((o) => `${o.k}s ${(100 * o.measured).toFixed(1)}% vs `
+      + `${(100 * o.theory).toFixed(1)}%`).join(', '));
+}
+
 console.log('\nthe trade generator survives a roster it cannot trade from');
 {
   // The reproducible crash: `give` was dereferenced before the guard that

@@ -112,9 +112,25 @@ console.log('\nblocking value');
   const l = league();
   const phase = seasonPhase(5);
   const bv = blockingValue(P('WR_03'), l, l.playerDatabase, phase);
-  check('identifies rivals who would start him', bv.suitors.length >= 0);
+  // `bv.suitors.length >= 0` was here, and it is true of every array. A
+  // mutation replacing the whole list with [] passed. Name the rivals.
+  check('identifies rivals who would start him', bv.suitors.length > 0,
+    JSON.stringify(bv.suitors));
+  check('and each one is a real team, not a placeholder',
+    bv.suitors.every((s) => s.teamName
+      && l.teams.some((t) => t.teamName === s.teamName)),
+    JSON.stringify(bv.suitors.map((x) => x.teamName)));
   check('claim probability is a probability',
     bv.claimProbability >= 0 && bv.claimProbability <= 1);
+  // A bounds check cannot see 0.05 become 0.95. The no-suitors floor is the
+  // discriminating case: a player nobody in the league would start is not
+  // 95% likely to be claimed.
+  //
+  // NOT asserted: that a good player is likelier to be claimed than a weak
+  // one. Measured, both come back at the 0.95 ceiling -- eight of the twelve
+  // mock teams field no roster at all, so every position is a gap and everyone
+  // is in demand. That is the fixture, not the engine, and asserting it would
+  // have pinned my expectation rather than the code.
   check('blocking value is never negative', bv.value >= 0);
 
   // A player nobody can use must not be worth blocking.
@@ -122,6 +138,19 @@ console.log('\nblocking value');
   solo.playerDatabase = l.playerDatabase;
   const none = blockingValue(P('WR_09'), solo, l.playerDatabase, phase);
   check('no rivals means no blocking value', none.value === 0);
+  // A bounds check cannot see 0.05 become 0.95. The no-suitors floor is the
+  // discriminating case: a player nobody in the league would start is not
+  // 95% likely to be claimed.
+  //
+  // NOT asserted: that a good player is likelier to be claimed than a weak
+  // one. Measured, both come back at the 0.95 ceiling -- eight of the twelve
+  // mock teams field no roster at all, so every position is a gap and everyone
+  // is in demand. That is the fixture, not the engine, and asserting it would
+  // have pinned my expectation rather than the code.
+  check('a player no rival would start is not 95% likely to be claimed',
+    none.claimProbability < 0.4, String(none.claimProbability));
+  check('while one several rivals would start is', bv.claimProbability > 0.4,
+    String(bv.claimProbability));
 }
 
 console.log('\nbench evaluation');
@@ -134,8 +163,32 @@ console.log('\nbench evaluation');
   check('names the weakest player', rep.weakest !== null);
   check('weakest is not a Core Hold when alternatives exist',
     !rep.weakest || rep.weakest.category !== CATEGORY.CORE);
+  // Over a one-element bench this passed with the sort deleted. mock-data now
+  // carries four, with separated projections, so the ordering is real -- but
+  // say so, or the next person shrinks the fixture and never learns.
+  check('the bench is deep enough for an ordering to mean anything',
+    rep.bench.length >= 3, `${rep.bench.length} bench players`);
   check('bench is ranked by hold value',
-    rep.bench.every((b, i) => i === 0 || rep.bench[i - 1].holdValue >= b.holdValue));
+    rep.bench.every((b, i) => i === 0 || rep.bench[i - 1].holdValue >= b.holdValue),
+    JSON.stringify(rep.bench.map((b) => b.holdValue)));
+  check('and their hold values are not all equal',
+    new Set(rep.bench.map((b) => b.holdValue)).size > 1,
+    JSON.stringify(rep.bench.map((b) => b.holdValue)));
+  // A player worth less than nothing must not be labelled KEEP HIM. Which
+  // flavour of "let him go" he gets is a judgement -- Replaceable and Drop
+  // Candidate are both honest -- but Core Hold, Defensive Hold and
+  // High-Upside Stash are not.
+  //
+  // This is the assertion that found the bug: `block.value >= holdValue * 0.5`
+  // is trivially true for a NEGATIVE holdValue, so both worthless players came
+  // back as "Defensive Hold" and the app recommended keeping them.
+  const KEEP = [CATEGORY.CORE, CATEGORY.DEFENSIVE, CATEGORY.STASH];
+  check('a bench player worth less than nothing is not labelled a keep',
+    rep.bench.every((b) => b.holdValue > 0 || !KEEP.includes(b.category)),
+    JSON.stringify(rep.bench.map((b) => [b.holdValue, b.category])));
+  check('and the bench really does contain one, or this proves nothing',
+    rep.bench.some((b) => b.holdValue <= 0),
+    JSON.stringify(rep.bench.map((b) => b.holdValue)));
   check('every player carries a reason',
     rep.bench.every((b) => typeof b.reason === 'string' && b.reason.length > 10));
   check('outcome probabilities are reported',
