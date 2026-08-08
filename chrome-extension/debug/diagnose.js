@@ -8,7 +8,7 @@
  * reading it. This reports exactly what each part of the scraper can and cannot
  * see, so the selectors can be aimed at the real page instead of an assumed one.
  *
- * It only reads. Nothing is clicked, submitted or sent anywhere.
+ * It only reads the page -- nothing is clicked, submitted or sent anywhere. It does copy its own output to the clipboard.
  */
 (function gridironDiagnose() {
   const out = { url: location.href, title: document.title, when: new Date().toISOString() };

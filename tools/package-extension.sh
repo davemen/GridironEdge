@@ -42,7 +42,8 @@ fi
 mkdir -p "$DEST"
 printf 'Created by tools/package-extension.sh. Safe to delete.\n' > "$DEST/$MARKER"
 
-# Everything the manifest references, and nothing else.
+# Everything the extension needs at runtime: what the manifest names, plus the
+# app page it opens through chrome.runtime.getURL.
 cp "$ROOT/manifest.json" "$DEST/"
 cp "$ROOT/index.html"    "$DEST/"
 cp -R "$ROOT/css"        "$DEST/"
@@ -65,7 +66,12 @@ echo
 echo "Load unpacked (Chrome):  select $DEST"
 echo "Safari (first time only -- see SAFARI.md):"
 echo "  xcrun safari-web-extension-converter \"$DEST\" \\"
-echo "    --app-name GridironEdge --bundle-identifier com.gridironedge --macos-only"
+echo "    --app-name GridironEdge --bundle-identifier com.gridironedge --macos-only \\"
+# --project-location, or the project lands beside the staged files and every
+# other path in this repo -- SAFARI.md's rebuild step, install-safari.sh and
+# make-icons.py -- looks for it under ../GridironEdge-Safari. SAFARI.md records
+# that omission as the bug; this copy of the command still had it.
+echo "    --project-location ../GridironEdge-Safari"
 echo
 echo "  Use exactly that app name. Converting again under a different name"
 echo "  builds a second app with a second bundle ID, and Safari then lists"

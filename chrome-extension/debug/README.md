@@ -12,7 +12,7 @@ clicked, submitted or sent anywhere.
 
 Before reaching for these, check `window.__GRIDIRON_EDGE_VERSION__` in the page
 console. If it is not the version you just edited, Chrome is running a cached
-content script and the answer is to reload the extension.
+content script and the answer is to reload the extension AND reopen the draft-room tab: content scripts are injected at page load, so reloading the extension alone leaves the open tab on the old ones.
 
 `__GRIDIRON_EDGE_DEBUG__()` is usually faster than any of these — it prints what
 the scraper parsed, who it attributed each pick to, and every row it dropped with

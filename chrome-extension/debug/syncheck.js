@@ -4,12 +4,19 @@
  *
  *   page scraper  ->  isolated script  ->  service worker  ->  chrome.storage
  *
- * Every hop below is really checked. An earlier version reported "server
- * reachable: YES" from a hardcoded string, and when that was removed the fetch
- * went with it while the code reading its response stayed -- `res.json()` on a
- * `res` that was never declared, inside an empty catch. It threw on every run
- * and said nothing, which is the same failure in a quieter form: a diagnostic
- * that cannot fail tells you nothing when it passes.
+ * WHICH CONSOLE. Hops 1, 2, 5 and 6 read the page, so run this in the ESPN
+ * tab's own console. Hops 3 and 4 read chrome.storage, which the page cannot
+ * see -- in that console they report "not visible from here", which is the
+ * honest answer rather than a failure. To answer those, run it from the
+ * extension's inspector instead. The header used to say "every hop below is
+ * really checked", which its own body contradicts thirty lines down.
+ *
+ * An earlier version reported "server reachable: YES" from a hardcoded string,
+ * and when that was removed the fetch went with it while the code reading its
+ * response stayed -- `res.json()` on a `res` that was never declared, inside an
+ * empty catch. It threw on every run and said nothing, which is the same
+ * failure in a quieter form: a diagnostic that cannot fail tells you nothing
+ * when it passes.
  */
 (async () => {
   const r = {};
@@ -17,7 +24,14 @@
   // Hop 1: is the current content script running in this tab? Content scripts
   // are injected at page load, so a tab opened before an update keeps the old
   // ones -- and keeps scraping, so nothing looks wrong.
-  r['1_page_scraper'] = window.__GRIDIRON_EDGE_VERSION__ || 'NOT LOADED (old or absent)';
+  // The MAIN-world script sets the version; the isolated one sets only its own
+  // install flag. In the isolated console the version is legitimately absent,
+  // so report which world answered rather than calling a current build "NOT
+  // LOADED".
+  r['1_page_scraper'] = window.__GRIDIRON_EDGE_VERSION__
+    || (window.__GRIDIRON_EDGE_ISOLATED_INSTALLED__
+      ? 'isolated half is installed (run this in the page console for the build string)'
+      : 'NOT LOADED (old or absent)');
 
   // Hop 2: did the scraper actually parse anything this tab?
   const last = window.__GRIDIRON_EDGE_LAST__;

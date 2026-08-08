@@ -1,6 +1,6 @@
 # The draft-room scraper
 
-Reads your live ESPN draft room and hands it to the app. Four files:
+Reads your live ESPN draft room and hands it to the app. Three files:
 
 | File | Runs in | Does |
 |---|---|---|

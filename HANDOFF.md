@@ -82,13 +82,13 @@ Numbered as they were when round 5 closed; item 1 has since been done.
    **The sweep half IS closed**: it moved to the isolated world, so a forged
    message can no longer drive the draft room's dropdown.
 
-3. **`js/app.js` is 3,117 lines** with all eleven page renderers in it. The dead
+3. **`js/app.js` is 3,327 lines** with all 10 page renderers in it. The dead
    assignments and orphaned docblocks are gone; the file is not split.
 
 4. **Two performance costs are deliberate, and say so in the code**: both shape
    gates stringify the payload to measure it (trusting a size from the sender is
    worse than paying twice, and textual identity is what stops the two gates
-   drifting apart *again*), and a cold `targetBoard` blocks 36–101ms in the task
+   drifting apart *again*), and a cold `targetBoard` blocks 20–205ms in the task
    that carries a sale (an idle callback would paint a board still listing the
    player who just sold).
 

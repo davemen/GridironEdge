@@ -1,6 +1,6 @@
 # Backtesting Gridiron Edge against 2021–2025
 
-*Last checked against the code on 2026-08-07. Every claim below about what the
+*Last checked against the code on 2026-08-07, at commit `6d8a9ea`. A date alone does not tie this file to a version -- every commit in this repo carries the same one. Every claim below about what the
 app does or does not ship was verified at that date; three had gone stale and
 are marked inline. This file is the record of measurement, so it needs to be
 tied to a version of the code -- an audit could not check any of it without

@@ -78,6 +78,10 @@ rules. Before copying a block, put it in a module:
 - `js/engine/lineup-rules.js` — starting slots, flex, playoff shape
 - `js/player-database.js` — `playerKey` is the **only** name normalizer
 - `js/engine/roster-manager.js` — `freeAgentPool` is the only free-agent pool
+- `js/nfl-teams.js` — the 32 clubs. The extension keeps one copy of its own,
+  because a content script cannot import; a test asserts the two agree
+- `js/engine/survival.js` — the only "will he last to my next pick", curve and
+  next-pick number both
 - `js/bridge.js` — the only way draft data enters the app from the extension.
   (The bookmarklet path calls `importScrapedPayload` directly, from
   `js/app.js`; there is no third.)

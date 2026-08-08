@@ -289,6 +289,30 @@ for (const scenario of [
   check('Championship Outlook has a figure', /\d/.test(champ), `got "${champ}"`);
 }
 
+console.log('\nthe numbers the docs assert about this file are the real ones');
+{
+  // HANDOFF.md said "js/app.js is 3,117 lines with all eleven page renderers in
+  // it". It was 3,248 and 10, and both were already false at the commit that
+  // wrote the sentence -- in the file the standing instruction tells the next
+  // round to read second, breaking the repo's first rule in a sentence about
+  // the repo's largest file. CLAUDE.md forbids asserting a count no test checks.
+  const appSrc = readFileSync(join(ROOT, 'js/app.js'), 'utf8');
+  const lines = appSrc.split('\n').length - 1;
+  const renderers = (appSrc.match(/^export function render[A-Za-z]*Page\b/gm) || []).length;
+  check('every page renderer is in the smoke list',
+    renderers === PAGES.length, `${renderers} exported, ${PAGES.length} listed`);
+
+  const handoff = readFileSync(join(ROOT, 'HANDOFF.md'), 'utf8');
+  const claimedLines = /`js\/app\.js` is ([\d,]+) lines/.exec(handoff);
+  check('HANDOFF states the real line count',
+    claimedLines && Number(claimedLines[1].replace(/,/g, '')) === lines,
+    `claims ${claimedLines && claimedLines[1]}, file has ${lines}`);
+  const claimedRenderers = /with all (\d+) page renderers/.exec(handoff);
+  check('and the real renderer count',
+    claimedRenderers && Number(claimedRenderers[1]) === renderers,
+    `claims ${claimedRenderers && claimedRenderers[1]}, file has ${renderers}`);
+}
+
 console.log('\nthe boot refresh tells the database it changed');
 {
   // At boot the app renders from stored state, then the real projections

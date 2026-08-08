@@ -218,8 +218,13 @@ export function getDraftRecommendations(league) {
    * the roster is built on, and a round-1 bust cannot be recovered from in a
    * 15-round draft. Later picks are lottery tickets you can afford to lose.
    *
-   *   2018-2020 tuning   +2.9 points of title probability, 95% CI [+0.8, +5.0]
-   *   2021-2025 held out +1.5 points, 95% CI [-1.1, +4.2]
+   * NOT MEASURED. These two lines used to carry effect sizes and confidence
+   * intervals -- +2.9 [+0.8, +5.0] tuned, +1.5 [-1.1, +4.2] held out -- and not
+   * one of those four figures appears anywhere in BACKTEST.md. Its only risk
+   * sweep tests a CONSTANT tilt with no intervals, and the round-dependent pair
+   * shipped here was never measured. Every other backtest citation in this file
+   * reproduces exactly, which is what makes an invented one worth deleting
+   * rather than softening.
    *
    * Same sign both times but modest, so it is applied at a deliberately light
    * weight. `ecrStd` is how much the published experts disagreed about a

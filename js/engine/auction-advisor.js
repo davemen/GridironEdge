@@ -269,7 +269,8 @@ export function forecastPrice(player, par, state, infl) {
  *
  * This takes the grouping as given, so the planner can keep one set of sorted
  * per-position arrays and splice a trial player in and out. Same arithmetic,
- * same result to the last decimal -- there is a test pinning that.
+ * same result to the last decimal. Measured over 5,000 random rosters: max
+ * difference 0. Not pinned by a test -- lineupPointsFromGroups is not exported.
  */
 function lineupPointsFromGroups(byPos, settings) {
   const slots = starterSlots(settings);
@@ -750,11 +751,6 @@ export function recommendBid(league, player, currentBid = 0, options = {}) {
 }
 
 /**
- * Rank every available player by how badly this roster needs him right now.
- * Drives the Must Buy watchlist so the user can see what is coming before it is
- * nominated.
- */
-/**
  * What the watchlist actually depends on.
  *
  * Not the live bid. targetBoard's answer is bit-identical at $1 and at $27 --
@@ -811,8 +807,13 @@ function watchlistKey(league, limit, options) {
   ]);
 }
 
-// A cold recompute still blocks the render thread for 36-101ms depending on
-// draft progress, and that lands in the same task as the sale that caused it.
+// A cold recompute still blocks the render thread -- 20ms late in a draft
+// rising to about 205ms at the start of one, measured across nine
+// draft-progress points in node; in Chrome the same call is 76ms at 0 picks
+// falling to 0.1ms at 192. The figure this comment used to give, 36-101ms, was
+// neither range: the early-auction case, which is the state the board matters
+// most in, is double its stated ceiling. That lands in the same task as the
+// sale that caused it.
 // Moving it to an idle callback was considered and NOT done: it would mean
 // painting the previous board -- the one still listing the player who just sold
 // -- for a frame or two, marked as recomputing. On a page whose purpose is
@@ -839,6 +840,11 @@ const watchlistCache = new Map();
 let watchlistRecomputes = 0;
 export function targetBoardRecomputes() { return watchlistRecomputes; }
 
+/**
+ * Rank every available player by how badly this roster needs him right now.
+ * Drives the Must Buy watchlist so the user can see what is coming before it is
+ * nominated.
+ */
 export function targetBoard(league, limit = 8, options = {}) {
   const key = watchlistKey(league, limit, options);
   // A copy, because the board is handed out and callers sort it. Returning the

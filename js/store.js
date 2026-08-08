@@ -334,7 +334,13 @@ class Store {
    * +2 to +6 points of championship probability but is a no-op without this
    * number. Accepts whatever a stats feed can supply -- either the share
    * directly, or last season's touchdown counts and total points to derive it.
-   */
+   *
+ * DEFINED AND NOT CALLED. grep across js/, test/ and index.html returns this
+ * definition and one sentence in BACKTEST.md -- which cites it as evidence the
+ * adjustment is live. It is not: nothing invokes this. Wiring it is worth
+ * doing; claiming it is wired is the failure recordWeeklyMetrics just below
+ * records honestly about itself.
+ */
   setPriorSeasonScoring(statsById) {
     const db = this.state.playerDatabase;
     Object.keys(statsById || {}).forEach((id) => {

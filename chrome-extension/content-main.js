@@ -953,8 +953,11 @@
           // pick rows, which only cover teams that already own somebody.
           ...scrapedForNames.map(b => b.teamName),
           ...lastSeenPicks.map(p => p.drafterTeamName),
-          // An auction renders no pick rows at all, so neither of the above
-          // finds anything there. The roster dropdown lists the whole league.
+          // An auction USUALLY renders no pick rows, so neither of the above
+          // tends to find anything there. Usually, not never: this repo has
+          // twice concluded "never" from a partial DOM dump and been wrong, and
+          // findDraftSummaryContainer accepts an auction results table when one
+          // exists. The roster dropdown lists the whole league.
           ...findLeagueTeamNames(),
         ].filter(Boolean)));
         // No invented league. Eight teams called "Team 1".."Team 8" used to be
@@ -1048,8 +1051,9 @@
 
         const resolvedTeamId = resolveMyTeamId(teams);
 
-        // An auction room renders no results table, so finalPicks is empty
-        // there however well it is parsed. The roster panel is the one place
+        // An auction room usually renders no results table, so finalPicks is
+        // often empty there however well it is parsed. The guard below exists
+        // precisely because it CAN be non-empty. The roster panel is the one place
         // picks actually appear -- for the team the dropdown has selected. Fold
         // those in, attributed to that team and to no other.
         //
