@@ -257,6 +257,58 @@ console.log('\nthe preseason engine declines on a league it can only half see');
   check('and blames the rosters, not the projections',
     /resolved to projected players/i.test(dr.reason || ''), dr.reason);
 
+  // The case the two guards above still let through, and the reason this whole
+  // block had to be rewritten a second time.
+  //
+  // Projections loaded fine. The scrape produced ten teams whose rosters
+  // resolved to nothing. A scraped auction room carries no `selections`, so
+  // picksMade is 0 and projectionsMissing is false -- and the old guard
+  // required one of those to be true. Measured before the fix: titlePct 11.8,
+  // playoffPct 60.6, byePct 21.4, under the note "Yours projects 0 points a
+  // week against a league best of 0". That sentence tells a manager with no
+  // readable roster that he is ABOVE AVERAGE.
+  const scrapedBlind = buildLeague(10, 14);
+  scrapedBlind.teams.forEach((t) => { t.roster = []; });
+  scrapedBlind.draftState.selections = [];
+  scrapedBlind.coverage = { kind: 'own-roster-only' };
+  const sb = preseasonOutlook(scrapedBlind, 300);
+  check('a scrape that read no roster at all declines', sb.unknown === true,
+    `titlePct ${sb.titlePct}`);
+  check('and every figure it would have printed is null',
+    sb.titlePct === null && sb.playoffPct === null && sb.byePct === null,
+    JSON.stringify([sb.titlePct, sb.playoffPct, sb.byePct]));
+
+  // The room said 40 picks were made and none of them reached us. That is the
+  // clearest possible evidence the board is unread rather than empty, and it
+  // was not consulted at all.
+  const reported = buildLeague(10, 14);
+  reported.teams.forEach((t) => { t.roster = []; });
+  reported.draftState.selections = [];
+  reported.picksMadeOnEspn = 40;
+  check('a room reporting picks we cannot see declines',
+    preseasonOutlook(reported, 300).unknown === true);
+
+  // A scraper that claims it saw the WHOLE board and delivered no roster is the
+  // sharpest version of the same thing: the claim and the content disagree, and
+  // the content is what we have. `partialBoard` cannot catch this one -- the
+  // coverage kind is 'full-board', so that clause is false by construction.
+  const claimedFull = buildLeague(10, 14);
+  claimedFull.teams.forEach((t) => { t.roster = []; });
+  claimedFull.draftState.selections = [];
+  claimedFull.coverage = { kind: 'full-board' };
+  check('a full-board claim that carried no roster still declines',
+    preseasonOutlook(claimedFull, 300).unknown === true,
+    `titlePct ${preseasonOutlook(claimedFull, 300).titlePct}`);
+
+  // And a board sitting on pick 61 with no selections recorded: the draft is
+  // demonstrably under way and the picks did not reach us.
+  const midway = buildLeague(10, 14);
+  midway.teams.forEach((t) => { t.roster = []; });
+  midway.draftState.selections = [];
+  midway.draftState.currentPick = 61;
+  check('a draft under way with no picks recorded declines',
+    preseasonOutlook(midway, 300).unknown === true);
+
   // But the cases that ARE answerable must still answer, or the fix is a
   // different kind of wrong.
   const whole = buildLeague(10, 14);
@@ -266,6 +318,11 @@ console.log('\nthe preseason engine declines on a league it can only half see');
   predraft.teams.forEach((t) => { t.roster = []; });
   predraft.draftState.selections = [];
   const pd = preseasonOutlook(predraft, 300);
+  // Ten identical empty rosters before anyone picks IS all-equal, so 1/10 is
+  // the true answer rather than an invented one. The guard defaults to
+  // declining and needs positive evidence to speak: a draft state, no picks
+  // recorded, none reported, currentPick at 1, no coverage claim, projections
+  // present.
   check('and so does a league where nobody has drafted yet',
     typeof pd.titlePct === 'number',
     'everyone equally empty is "no edge yet", which is a true answer');

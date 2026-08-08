@@ -201,9 +201,43 @@ export function preseasonOutlook(league, runs = 2000, rng = Math.random) {
   // championship, 60.3% playoff, and a note saying "Yours projects 0 points a
   // week against a league best of 0". projectionsMissing was true throughout
   // and never mentioned.
-  const picksMade = ((league.draftState || {}).selections || []).length;
-  const nothingToReadAtAll = unreadable.length === n
-    && (picksMade > 0 || league.projectionsMissing);
+  /* -------------------------------------------------------------------------
+   * All unreadable: narrowed once, and the narrow version still shipped a
+   * number.
+   *
+   * The previous form required `picksMade > 0 || projectionsMissing`. Neither
+   * holds in the case that actually occurs -- projections loaded fine, the
+   * scrape produced teams whose rosters resolved to nothing, and a scraped
+   * auction room carries no `selections`. Measured on ten such teams: titlePct
+   * 11.8, playoffPct 60.6, byePct 21.4, under the note "Yours projects 0
+   * points a week against a league best of 0". That sentence tells a manager
+   * with no readable roster that he is above average, and it is verbatim the
+   * failure the comment above says was fixed.
+   *
+   * The distinction is not "has anyone picked". It is whether an empty board
+   * is a FACT or an ABSENCE, and only positive evidence can make it a fact:
+   *
+   *   - a draft that has not started (currentPick <= 1, no selections, and the
+   *     room reporting no picks) is genuinely all-equal, and "nobody has an
+   *     edge yet" is a true answer;
+   *   - anything else -- picks recorded, picks reported by the room, a
+   *     coverage claim, or simply no draft state at all -- means rosters were
+   *     expected and did not arrive.
+   *
+   * Defaulting to decline is the point. The previous version defaulted to
+   * answering and needed a reason to stop; this one needs a reason to speak.
+   * --------------------------------------------------------------------- */
+  const draft = league.draftState || null;
+  const picksMade = ((draft || {}).selections || []).length;
+  const roomReportedPicks = typeof league.picksMadeOnEspn === 'number'
+    ? league.picksMadeOnEspn : 0;
+  const draftHasNotStarted = Boolean(draft)
+    && picksMade === 0
+    && roomReportedPicks === 0
+    && (typeof draft.currentPick !== 'number' || draft.currentPick <= 1)
+    && !league.coverage
+    && !league.projectionsMissing;
+  const nothingToReadAtAll = unreadable.length === n && !draftHasNotStarted;
   if ((unreadable.length > 0 && unreadable.length < n)
       || (partialBoard && unreadable.length)
       || nothingToReadAtAll) {
