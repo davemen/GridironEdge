@@ -490,7 +490,7 @@ console.log('\nand the moved sweep still actually sweeps');
   const ii = iso.indexOf('(function');
   const jj = iso.lastIndexOf('})();');
   const isoBody = iso.slice(iso.indexOf('\n', ii) + 1, jj);
-  const isoFns = new Function(`${isoBody}\nreturn { sweepAllRosters, scrapeRosterPanel, findTeamSelectEl };`)();
+  const isoFns = new Function(`${isoBody}\nreturn { sweepAllRosters, scrapeRosterPanel, findTeamSelectEl, runSweep, looksLikeAScrape };`)();
 
   check('the isolated half exposes a working dropdown finder',
     isoFns.findTeamSelectEl(names.map((teamName) => ({ teamName }))) === select);
@@ -571,7 +571,103 @@ console.log('\nand the moved sweep still actually sweeps');
       (stuck.byTeam || []).some((t) => t.teamName === 'A'),
       'the initially selected panel is trustworthy without a repaint');
   }
+
+  console.log('\nthe sweep guards itself: one at a time, once a minute, one origin');
+  {
+    // A mutation run killed 3 of 13 mutants in this file. Surviving: the
+    // postMessage target origin becoming '*', which broadcasts every team's
+    // roster to any listener; the sixty-second floor; and the in-flight lock --
+    // the exact race the file header says produced two sweeps fighting over the
+    // dropdown. runSweep was invoked by no test at all, and the MutationObserver
+    // path added this round never executed, because MutationObserver is not a
+    // Node global and nothing defined one.
+    const iso = readFileSync(join(ROOT, 'chrome-extension/content-isolated.js'), 'utf8');
+
+    const posted = [];
+    const observers = [];
+    globalThis.MutationObserver = class {
+      constructor(cb) { this.cb = cb; observers.push(this); }
+      observe() { this.observing = true; }
+      disconnect() { this.observing = false; }
+    };
+    globalThis.setTimeout = (fn) => { fn(); return 0; };
+    globalThis.window.postMessage = (msg, origin) => { posted.push({ msg, origin }); };
+    globalThis.postMessage = globalThis.window.postMessage;
+
+    // Five names, because findLeagueTeamNames needs at least four options before
+  // it will believe a <select> is the league rather than a filter.
+  const ROST = {
+    Anvils: [['QB', 'Josh Allen', '$19']],
+    Bandits: [['WR', 'Chase', '$44'], ['RB', 'Bijan', '$49']],
+    Comets: [['TE', 'McBride', '$21']],
+    Drifters: [['K', 'Fairbairn', '$1'], ['D/ST', 'Texans', '$2']],
+    Embers: [['RB', 'Gibbs', '$40']],
+  };
+    const nm = Object.keys(ROST);
+    let sel3 = 0;
+    const c = (t) => ({ innerText: t });
+    const tbl = { get rows() {
+      const body = ROST[nm[sel3]] || [];
+      return [{ cells: [c('POS'), c('PLAYER'), c('$')] }]
+        .concat(body.map((r) => ({ cells: r.map(c) })))
+        .concat([{ cells: [c('BE'), c('Empty'), c('')] }]);
+    } };
+    const drop = {
+      options: nm.map((n, i) => ({ text: n, value: String(i) })),
+      selectedIndex: 0, dispatchEvent() { return true; },
+    };
+    Object.defineProperty(globalThis.HTMLSelectElement.prototype, 'value', {
+      configurable: true,
+      set(v) { sel3 = Number(v); this.selectedIndex = sel3; },
+      get() { return String(sel3); },
+    });
+    globalThis.document.querySelectorAll = (q) =>
+      (q === 'select' ? [drop] : q === 'table' ? [tbl] : []);
+    globalThis.document.body = globalThis.document.body || { };
+
+    await isoFns.runSweep();
+    const result = posted.find((x) => x.msg && x.msg.type === 'GRIDIRON_EDGE_SWEEP_RESULT');
+    check('a sweep posts its result', Boolean(result), JSON.stringify(posted.slice(0, 1)));
+    // '*' would hand every team's roster to any script listening on the window.
+    check('and never to a wildcard origin',
+      result && result.origin === 'https://fantasy.espn.com', result && result.origin);
+    check('the observer path actually ran', observers.length > 0,
+      'MutationObserver was never constructed, so the settle path is untested');
+    check('and every observer it made was disconnected',
+      observers.every((o) => o.observing === false));
+
+    // The throttle. A second sweep inside the minute must produce nothing.
+    const before = posted.length;
+    await isoFns.runSweep();
+    check('a second sweep within the minute is refused', posted.length === before,
+      `${posted.length - before} extra results`);
+
+    // The in-flight lock, which the throttle above hides: two sweeps started
+    // before either finishes is the race the file header describes, both
+    // fighting to restore the dropdown. Started concurrently, both must
+    // complete and neither may corrupt the other's answer.
+    const both = await Promise.all([
+      isoFns.sweepAllRosters(nm.map((teamName) => ({ teamName }))),
+      isoFns.sweepAllRosters(nm.map((teamName) => ({ teamName }))),
+    ]);
+    // Exactly one runs. Both completing is the WRONG answer: two walks over one
+    // dropdown each restore a selectedIndex the other has already moved, and
+    // driven that way they returned different rosters for the same league.
+    check('exactly one of two concurrent sweeps runs',
+      both.filter((r) => r && r.ok).length === 1,
+      JSON.stringify(both.map((r) => r && (r.ok ? 'ran' : r.reason))));
+    check('and the other says why it did not',
+      both.some((r) => r && r.reason === 'sweep-already-running'),
+      JSON.stringify(both.map((r) => r && r.reason)));
+
+    // The bounds, driven rather than grepped.
+    check('a payload over the team cap is refused',
+      isoFns.looksLikeAScrape({ leagueId: '1', teams: new Array(33).fill({}) }) === false);
+    check('and one within it is accepted',
+      isoFns.looksLikeAScrape({ leagueId: '1', teams: new Array(12).fill({}) }) === true);
+  }
 }
+
 
 
 console.log(`\n${passed} passed, ${failed} failed`);

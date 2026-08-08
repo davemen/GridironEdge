@@ -266,6 +266,22 @@
   const MAX_SWEEP_ROWS = 2000;
 
   async function sweepAllRosters(teams) {
+    // The lock lives HERE, on the function that writes to the page, not only on
+    // its caller. runSweep held it, so anything else reaching this function --
+    // or two runSweeps whose throttle had lapsed -- put two walks on one
+    // dropdown, each restoring a selectedIndex the other had already moved.
+    // Driven concurrently, the two returned DIFFERENT rosters for the same
+    // league, which is the race the header at the top of this file describes.
+    if (sweepInFlight) return { ok: false, reason: 'sweep-already-running' };
+    sweepInFlight = true;
+    try {
+      return await sweepOnce(teams);
+    } finally {
+      sweepInFlight = false;
+    }
+  }
+
+  async function sweepOnce(teams) {
     const sel = findTeamSelectEl(teams);
     if (!sel) return { ok: false, reason: 'no-team-dropdown' };
 
@@ -374,7 +390,6 @@
   async function runSweep() {
     if (sweepInFlight) return;
     if (Date.now() - sweepLastAt < SWEEP_MIN_GAP_MS) return;
-    sweepInFlight = true;
     // Stamped BEFORE the await, not after. Setting it on the way out meant a
     // throw skipped it entirely, so the once-a-minute floor did not apply to a
     // sweep that failed: 25 sweeps in 0ms against a 60s minimum, into a live
@@ -400,8 +415,6 @@
       }, TRUSTED_ORIGIN);
     } catch (e) {
       console.warn('[Gridiron Edge Sync] Sweep failed:', e && e.message);
-    } finally {
-      sweepInFlight = false;
     }
   }
 
