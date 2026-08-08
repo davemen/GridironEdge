@@ -210,8 +210,13 @@ console.log('\nthe boot refresh tells the database it changed');
   const before = dbRevision(league.playerDatabase);
   store.state.leagues = { [league.leagueId]: league };
   app.refreshStoredDatabase(real);
-  check('a replace-in-place bumps the revision',
-    dbRevision(league.playerDatabase) > before,
+  // `!==`, not `>`. A revision is an IDENTITY, not a clock: the tagged form
+  // derives it from the previous revision and what was written, so that an
+  // identical write reproduces an identical revision -- which is what stops
+  // the auction cache missing on every sync tick. Ordering was an artifact of
+  // the counter it used to be, and nothing ever needed it.
+  check('a replace-in-place changes the revision',
+    dbRevision(league.playerDatabase) !== before,
     `${before} -> ${dbRevision(league.playerDatabase)}`);
   check('and the new projection is what is stored',
     league.playerDatabase[Object.keys(real)[0]].projectedPoints
@@ -230,7 +235,7 @@ console.log('\nthe boot refresh tells the database it changed');
   const rev = dbRevision(withStub.playerDatabase);
   app.refreshStoredDatabase({ [target.id]: target });
   check('healing a stub removes it', !withStub.playerDatabase[stubId]);
-  check('and bumps the revision too', dbRevision(withStub.playerDatabase) > rev,
+  check('and changes the revision too', dbRevision(withStub.playerDatabase) !== rev,
     `${rev} -> ${dbRevision(withStub.playerDatabase)}`);
 }
 

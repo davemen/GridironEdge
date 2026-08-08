@@ -222,15 +222,54 @@ const INSERTS = Symbol.for('gridironEdge.inserts');
  */
 let revisionCounter = 0;
 
-export function noteChange(db) {
+/**
+ * Fold a tag into a revision, deterministically. FNV-1a, 32-bit.
+ *
+ * The same base plus the same tag is always the same answer, which is the
+ * whole point: it lets a write that reproduces an earlier write reproduce its
+ * revision too.
+ */
+function foldTag(base, tag) {
+  let h = 2166136261;
+  const s = `${base}\u0000${tag}`;
+  for (let i = 0; i < s.length; i++) {
+    h ^= s.charCodeAt(i);
+    h = Math.imul(h, 16777619);
+  }
+  return (h >>> 0).toString(36);
+}
+
+/**
+ * Note a write, optionally saying WHAT was written.
+ *
+ * A revision is an IDENTITY, not a clock. It used to be a bare global counter,
+ * and that made an identical write produce a different answer every time --
+ * which is exactly what the live path does. `mapDOMScrapedLeague` builds a
+ * fresh `cloneDatabase(realDb)` on every sync tick and re-inserts the same
+ * unresolvable stubs into it, so the CONTENT was byte-identical tick to tick
+ * and the revision was not: measured, revisions 2,3,4,5,6,7 over a database
+ * holding 524 records throughout.
+ *
+ * The auction watchlist is keyed on that revision, so a single unresolvable
+ * player on the board took the cache hit rate to zero: 343ms and 1 recompute
+ * over a 27-tick nomination when the revision is stable, against 3,055ms and
+ * 27 recomputes when it churns. At the scraper's 8 ticks a second that is most
+ * of a second of blocked main thread per second of wall clock -- and it
+ * silently undid the previous round's fix, which had only made the revision
+ * survive the clone.
+ *
+ * So: pass a `tag` naming the change and the new revision is derived from the
+ * old one and the tag, deterministically. Omit it and you get the global
+ * counter, which is still right for a change nobody can characterise -- two
+ * databases each written once are not the same database, and a per-object
+ * count gave them the same revision.
+ */
+export function noteChange(db, tag) {
   if (!db || typeof db !== 'object') return;
   try {
-    // A GLOBAL counter, not a per-object one. Two databases that have each
-    // been written to once are not the same database, and a per-object count
-    // gave them the same revision -- which is a cache key collision between
-    // two different sets of projections.
+    const base = db[INSERTS] || '0';
     Object.defineProperty(db, INSERTS, {
-      value: ++revisionCounter,
+      value: tag === undefined ? `n${++revisionCounter}` : `h${foldTag(base, tag)}`,
       enumerable: false, configurable: true, writable: true,
     });
   } catch (e) {
@@ -414,5 +453,5 @@ export function describe(projections) {
  * Cheap: a symbol read, against the O(n) Object.keys it replaces.
  */
 export function dbRevision(db) {
-  return (db && db[INSERTS]) || 0;
+  return (db && db[INSERTS]) || '0';
 }

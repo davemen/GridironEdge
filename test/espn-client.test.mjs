@@ -305,12 +305,88 @@ console.log('\nthe pool a sync builds is not a database nobody has written to');
   const b = await espnClient.importScrapedPayload(
     payload([pick(1, 'Josh Allen', 'QB', 'BUF', 1, 19)], { leagueId: 'REV2' }));
   check('an imported league carries a real revision, not zero',
-    dbRevision(a.playerDatabase) > 0, String(dbRevision(a.playerDatabase)));
+    dbRevision(a.playerDatabase) !== '0', String(dbRevision(a.playerDatabase)));
   check('and two imports of the same projections agree on it',
     dbRevision(a.playerDatabase) === dbRevision(b.playerDatabase),
     `${dbRevision(a.playerDatabase)} against ${dbRevision(b.playerDatabase)}`);
   check('while the pools really are separate objects',
     a.playerDatabase !== b.playerDatabase);
+
+  /* -------------------------------------------------------------------------
+   * The case the perf suite could not see, because it tested dbRevision in
+   * isolation and never drove the mapper that produces the revisions.
+   *
+   * An UNRESOLVABLE player is inserted as a stub on every tick, into a fresh
+   * clone of the real database. The content is byte-identical tick to tick;
+   * the revision was not, because noteChange took a global counter. Measured
+   * before the fix: revisions 2,3,4,5,6,7 over a database holding 524 records
+   * throughout, which took the auction watchlist cache to a 0% hit rate and a
+   * 27-tick nomination from 343ms to 3,055ms.
+   *
+   * Both insert sites matter: a pick nobody can place, and a NOMINATION nobody
+   * can place -- the routine case for a deep-bench player, and enough on its
+   * own.
+   * --------------------------------------------------------------------- */
+  const withStub = (leagueId) => payload(
+    [pick(1, 'Zzz Nobodyatall', 'RB', 'FA', 1, 3)],
+    { leagueId, currentNomination: { name: 'Qqq Alsonobody',
+      position: 'WR', team: 'FA' } });
+  const ticks = [];
+  for (let i = 0; i < 6; i++) {
+    const l = await espnClient.importScrapedPayload(withStub('STUB'));
+    ticks.push({ rev: dbRevision(l.playerDatabase),
+                 size: Object.keys(l.playerDatabase).length });
+  }
+  check('an unresolvable player does not move the revision every tick',
+    ticks.every((t) => t.rev === ticks[0].rev),
+    ticks.map((t) => t.rev).join(' '));
+  check('and the content really was identical throughout',
+    ticks.every((t) => t.size === ticks[0].size), ticks.map((t) => t.size).join(','));
+
+  // ...but a DIFFERENT unresolvable player must still move it, or the fix has
+  // simply stopped the revision working.
+  const other = await espnClient.importScrapedPayload(
+    payload([pick(1, 'Yyy Someoneelse', 'RB', 'FA', 1, 3)], { leagueId: 'STUB2' }));
+  check('while a different unresolvable player does move it',
+    dbRevision(other.playerDatabase) !== ticks[0].rev,
+    `${dbRevision(other.playerDatabase)} against ${ticks[0].rev}`);
+
+  // The NOMINATION insert is its own site and its own tick-by-tick churn: a
+  // deep-bench player put up for bid is the routine unresolvable case, and it
+  // moved the key on its own with no unplaceable pick anywhere on the board.
+  const nomTicks = [];
+  for (let i = 0; i < 4; i++) {
+    const l = await espnClient.importScrapedPayload(payload([], {
+      leagueId: 'NOM',
+      currentNomination: { name: 'Www Nobodyhere', position: 'TE', team: 'FA' },
+    }));
+    nomTicks.push(dbRevision(l.playerDatabase));
+  }
+  check('an unresolvable nomination does not move it either',
+    nomTicks.every((r) => r === nomTicks[0]), nomTicks.join(' '));
+  const nomOther = await espnClient.importScrapedPayload(payload([], {
+    leagueId: 'NOM2',
+    currentNomination: { name: 'Vvv Anothernobody', position: 'TE', team: 'FA' },
+  }));
+  check('and a different nomination does',
+    dbRevision(nomOther.playerDatabase) !== nomTicks[0],
+    `${dbRevision(nomOther.playerDatabase)} against ${nomTicks[0]}`);
+
+  // The revision must fold in what the database ALREADY was, not only what was
+  // written to it. Two different starting pools that receive the same stub are
+  // two different pools, and a fold that ignored the base gave them one key --
+  // which is the collision the global counter existed to prevent.
+  const { toPlayerDatabase, noteChange, dbRevision: rev } =
+    await import(join(ROOT, 'js/player-database.js'));
+  const poolA = toPlayerDatabase(projections);
+  const poolB = toPlayerDatabase(projections);
+  noteChange(poolB, 'SOMETHING_ELSE');            // give B a different history
+  const beforeA = rev(poolA), beforeB = rev(poolB);
+  noteChange(poolA, 'MOCK_same_stub');
+  noteChange(poolB, 'MOCK_same_stub');
+  check('two pools with different histories stay distinct after the same write',
+    rev(poolA) !== rev(poolB),
+    `${beforeA} -> ${rev(poolA)} against ${beforeB} -> ${rev(poolB)}`);
 }
 
 console.log('\na failed projection load is reported, not papered over with the sandbox');

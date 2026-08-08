@@ -376,7 +376,11 @@ class ESPNClient {
           // know nothing about, which then flowed into every ceiling and every
           // roster ranking as though it were measured.
           match = unresolvedPlayer(p.playerName, p.playerPosition, p.playerTeam);
-          if (isSafeKey(match.id)) { db[match.id] = match; noteChange(db); }
+          // Tagged with the id, so re-inserting the SAME stub into a fresh
+          // clone next tick reproduces the same revision. Untagged, this used
+          // the global counter and moved the watchlist cache key on every
+          // tick -- a 0% hit rate for the price of one unresolvable player.
+          if (isSafeKey(match.id)) { db[match.id] = match; noteChange(db, match.id); }
         }
 
         if (match) {
@@ -428,7 +432,10 @@ class ESPNClient {
       const match = resolveNomination(db, espnData.currentNomination);
       if (match && match.isUnknownPlayer && isSafeKey(match.id)) {
         db[match.id] = match;
-        noteChange(db);
+        // Tagged, for the same reason as the pick path above: an unresolvable
+        // NOMINATION is the routine case for a deep-bench player, and it alone
+        // was enough to move the key every tick.
+        noteChange(db, match.id);
       }
       currentNomination = match ? match.name : null;
       currentNominationId = match ? String(match.id) : null;
