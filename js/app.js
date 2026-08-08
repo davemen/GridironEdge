@@ -5,7 +5,7 @@
 import store from './store.js';
 import { listenForDrafts, describeSource, readLatest, requestRosterSweep } from './bridge.js';
 import { esc, attr, num, int } from './escape.js';
-import { findPlayer, playerKey, draftedNameKey } from './player-database.js';
+import { findPlayer, playerKey, draftedNameKey, noteChange } from './player-database.js';
 import espnClient, { realDbReady } from './espn-client.js';
 import { getDraftRecommendations } from './engine/draft-assistant.js';
 import { recommendBid, targetBoard, buildLeagueState } from './engine/auction-advisor.js';
@@ -188,7 +188,7 @@ document.addEventListener('DOMContentLoaded', () => {
  * players are added. Roster ids already point at these keys, so a pick that was
  * previously stored as an unresolvable stub resolves on the next render.
  */
-function refreshStoredDatabase(realDb) {
+export function refreshStoredDatabase(realDb) {
   if (!realDb || !Object.keys(realDb).length) return;
   let changed = 0;
   Object.values(store.state.leagues || {}).forEach((league) => {
@@ -223,6 +223,19 @@ function refreshStoredDatabase(realDb) {
       if (remap.has(sel.playerId)) sel.playerId = remap.get(sel.playerId);
     });
     remap.forEach((_, stubId) => { delete league.playerDatabase[stubId]; });
+  });
+
+  // One note per league, after BOTH passes.
+  //
+  // This function inserts records, replaces them in place, and deletes stubs it
+  // has healed. All three leave a stale index and a stale auction board unless
+  // the database says it changed -- and neither a replace nor a heal alters the
+  // key count, so nothing downstream can notice by counting. That is not
+  // hypothetical: keying the auction cache on the key count meant this very
+  // function, which runs at every boot, left the previous board on screen with
+  // a different player at the top and a different ceiling.
+  Object.values(store.state.leagues || {}).forEach((league) => {
+    if (league && league.playerDatabase) noteChange(league.playerDatabase);
   });
 
   if (changed || healed) {

@@ -155,7 +155,7 @@ globalThis.fetch = async (url) => {
 process.on('unhandledRejection', () => {});
 
 const { default: store } = await import(join(ROOT, 'js/store.js'));
-const { toPlayerDatabase, findPlayer } = await import(join(ROOT, 'js/player-database.js'));
+const { toPlayerDatabase, findPlayer, dbRevision } = await import(join(ROOT, 'js/player-database.js'));
 const app = await import(join(ROOT, 'js/app.js'));
 
 let passed = 0, failed = 0;
@@ -262,6 +262,47 @@ for (const scenario of [
     `got ${moves.length} chars`);
   const champ = written.get('dashboard-champ-prob') || '';
   check('Championship Outlook has a figure', /\d/.test(champ), `got "${champ}"`);
+}
+
+console.log('\nthe boot refresh tells the database it changed');
+{
+  // At boot the app renders from stored state, then the real projections
+  // resolve and refreshStoredDatabase rewrites every stored record IN PLACE,
+  // inserts the missing ones and deletes resolved stubs. All three leave a
+  // stale index and a stale auction board unless the database says so -- and a
+  // replace does not change the key count, so nothing downstream can notice by
+  // counting.
+  const league = buildLeague({ picks: 3 });
+  const db = league.playerDatabase;
+  const real = {};
+  Object.keys(db).slice(0, 30).forEach((id) => {
+    real[id] = { ...db[id], projectedPoints: db[id].projectedPoints + 100 };
+  });
+  const before = dbRevision(league.playerDatabase);
+  store.state.leagues = { [league.leagueId]: league };
+  app.refreshStoredDatabase(real);
+  check('a replace-in-place bumps the revision',
+    dbRevision(league.playerDatabase) > before,
+    `${before} -> ${dbRevision(league.playerDatabase)}`);
+  check('and the new projection is what is stored',
+    league.playerDatabase[Object.keys(real)[0]].projectedPoints
+      === real[Object.keys(real)[0]].projectedPoints);
+
+  // A stub healed into a real player is a DELETE, which also cannot be seen by
+  // counting -- the count goes down as another goes up.
+  const withStub = buildLeague({ picks: 3 });
+  const target = Object.values(withStub.playerDatabase)
+    .find((p) => p.position === 'RB' && p.name);
+  const stubId = `MOCK_${target.name.toLowerCase().replace(/\s+/g, '_')}`;
+  withStub.playerDatabase[stubId] = { id: stubId, name: target.name,
+    position: target.position, team: target.team, projectedPoints: 4.5 };
+  withStub.teams[0].roster.push(stubId);
+  store.state.leagues = { [withStub.leagueId]: withStub };
+  const rev = dbRevision(withStub.playerDatabase);
+  app.refreshStoredDatabase({ [target.id]: target });
+  check('healing a stub removes it', !withStub.playerDatabase[stubId]);
+  check('and bumps the revision too', dbRevision(withStub.playerDatabase) > rev,
+    `${rev} -> ${dbRevision(withStub.playerDatabase)}`);
 }
 
 console.log("\nthe roster panel counts the league's OWN starting slots");

@@ -30,8 +30,14 @@ export function isSafeKey(key) {
  *
  * Measured at about 128KB per league serialised: twenty-one leagues came to
  * 2.7MB against a 5-10MB localStorage quota, and once save() starts failing
- * the app runs on state that is never persisted. The cap in pruneLeagues
- * bounds that; this removes most of the reason for the cap.
+ * the app runs on state that is never persisted.
+ *
+ * This saved nothing at all until the projections were published as the shared
+ * copy. `state.playerDatabase` was written only by loadMockLeague, so on a real
+ * league `shared` was empty, `own` became the entire database, and each league
+ * stored all 523 records inside an extra wrapper -- zero bytes saved for
+ * +1.5ms of blocked main thread per sync tick. espn-client publishes them now,
+ * which is what makes the paragraph above true rather than aspirational.
  *
  * The shared records are written once, at state.playerDatabase. A league
  * stores only what it holds that the shared copy does not -- the stubs the
@@ -48,7 +54,13 @@ function shareDatabase() {
     if (this === undefined || !this.leagueId) return value;   // the shared copy
     const shared = store.state.playerDatabase || {};
     const own = {};
-    Object.keys(value).forEach((id) => { if (!shared[id]) own[id] = value[id]; });
+    // hasOwnProperty, not `!shared[id]`: a record keyed toString or constructor
+    // resolves through the prototype, so it looked already-shared, was dropped,
+    // and came back on restore as an inherited function -- which anything
+    // reading .name then rendered as the player "Object".
+    Object.keys(value).forEach((id) => {
+      if (!Object.prototype.hasOwnProperty.call(shared, id)) own[id] = value[id];
+    });
     return { [SHARED_DB]: true, own };
   };
 }
@@ -90,6 +102,16 @@ class Store {
       this.state = { ...defaultState, ...(parsed && typeof parsed === 'object' ? parsed : {}) };
       restoreSharedDatabase(this.state);
       if (!this.state.leagues || typeof this.state.leagues !== 'object') this.state.leagues = {};
+      // A stored league that is not an object is not a league. Keeping one made
+      // pruneLeagues throw on its lastUpdated, and every subsequent saveLeague
+      // threw with it, so persistence stopped without saying anything.
+      Object.keys(this.state.leagues).forEach((id) => {
+        const l = this.state.leagues[id];
+        if (!l || typeof l !== 'object' || Array.isArray(l)) {
+          console.warn('[Gridiron Edge] Dropped a stored entry that is not a league:', id);
+          delete this.state.leagues[id];
+        }
+      });
       if (!this.state.playerDatabase || typeof this.state.playerDatabase !== 'object') {
         this.state.playerDatabase = {};
       }
@@ -233,9 +255,16 @@ class Store {
 
   // Set standard list of players in the player database
   updatePlayerDatabase(playersMap) {
+    // Same key gate as saveLeague. These are PLAYER ids, which is the vector
+    // the comment on isSafeKey names -- and this was the one attacker-keyed
+    // write with no gate at all.
     const existing = this.state.playerDatabase;
     const merged = {};
     Object.keys(playersMap).forEach((id) => {
+      if (!isSafeKey(id)) {
+        console.warn('[Gridiron Edge] Refused a player id that is not a plain key:', id);
+        return;
+      }
       const incoming = playersMap[id];
       const prior = existing[id];
       merged[id] = prior

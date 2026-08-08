@@ -42,6 +42,7 @@
 
 import { FLEX_POS, MAX_AT_POS, openStarterSlots, rosterSize, starterSlots, flexCount }
   from './lineup-rules.js';
+import { dbRevision } from '../player-database.js';
 
 const BENCH_WEIGHT = 0.12;       // depth is worth something, but far less than a starter
 const MUST_BUY_POINTS = 10.0;    // lineup points lost by missing him
@@ -796,10 +797,13 @@ function watchlistKey(league, limit, options) {
     league.rosterSettings?.startersCount ?? null,
     league.rosterSettings?.benchCount ?? null,
     (league.coverage && league.coverage.kind) || 'full-board',
-    // The pool the board is drawn from. leagueId alone is not enough -- the
-    // database grows as unresolved picks are inserted during a live draft.
+    // The pool the board is drawn from. A COUNT is not enough: at boot the app
+    // rewrites every stored projection with the real one, which leaves the key
+    // count identical -- so the cached board survived and named a different
+    // player at the top with a different ceiling. A revision changes on any
+    // write, and reading it is a symbol lookup rather than an O(n) key walk.
     league.leagueId ?? null,
-    Object.keys(league.playerDatabase || {}).length,
+    dbRevision(league.playerDatabase),
     limit,
     options.startingBudget || 200,
     options.mustBuyPoints ?? null,

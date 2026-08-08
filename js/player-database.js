@@ -189,8 +189,8 @@ const INDEX = Symbol.for('gridironEdge.index');
  * A counter is enough, and it is cheaper than what it replaces. The two ways
  * the index goes stale are both writes: a caller spreads the database
  * ({ ...db, EXTRA }), which drops the non-enumerable index entirely and is
- * therefore self-announcing, or a mapper inserts a record afterwards, which
- * `noteInsert` records. Neither needs the key list walked to be noticed.
+ * therefore self-announcing, or the database is written to, which `noteChange`
+ * records. Neither needs the key list walked to be noticed.
  */
 function indexOf(db) {
   const cached = db[INDEX];
@@ -202,14 +202,20 @@ function indexOf(db) {
 const INSERTS = Symbol.for('gridironEdge.inserts');
 
 /**
- * Tell the index a record was added after it was built.
+ * Tell the index the database changed after it was built.
  *
- * Call this beside any `db[id] = ...` on a database that findPlayer will later
- * be asked about. Forgetting it means a lookup can miss a record that is
- * present -- which is why the mappers call it at every insertion site rather
- * than relying on a size check to notice for them.
+ * Call this beside ANY write -- insert, in-place replace, or delete. The
+ * comment here used to say "the two ways the index goes stale are both writes"
+ * and list only two; measured, a delete with no note still returned the deleted
+ * record, and an in-place replace still returned the old projection (23.05
+ * where 999 had been written). refreshStoredDatabase does all three.
+ *
+ * The counter is also what keeps the auction cache honest: keying the player
+ * pool on Object.keys(db).length meant rewriting every projection at the same
+ * count served the previous board -- a different player at the top, with a
+ * different ceiling -- and that happens at boot, every boot.
  */
-export function noteInsert(db) {
+export function noteChange(db) {
   if (!db || typeof db !== 'object') return;
   try {
     Object.defineProperty(db, INSERTS, {
@@ -347,4 +353,14 @@ export function describe(projections) {
     label: `${projections.players.length} players · ${projections.season} consensus of `
       + `${projections.experts} analysts`,
   };
+}
+
+/**
+ * A number that changes whenever this database does.
+ *
+ * For cache keys that must notice a CONTENT change, not just a size change.
+ * Cheap: a symbol read, against the O(n) Object.keys it replaces.
+ */
+export function dbRevision(db) {
+  return (db && db[INSERTS]) || 0;
 }

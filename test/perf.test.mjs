@@ -29,7 +29,7 @@
 import { readFileSync } from 'fs';
 import { fileURLToPath } from 'url';
 import { join } from 'path';
-import { toPlayerDatabase, findPlayer } from '../js/player-database.js';
+import { toPlayerDatabase, findPlayer, noteChange } from '../js/player-database.js';
 import { recommendBid, targetBoard, planValue, lineupPoints }
   from '../js/engine/auction-advisor.js';
 
@@ -264,6 +264,29 @@ console.log('\nevery input the board reads is in the cache key');
   targetBoard(A, 6); targetBoard(B, 6);
   const alt = fastest(() => { for (let i = 0; i < 20; i++) { targetBoard(A, 6); targetBoard(B, 6); } });
   check('two rooms alternating still hit the cache', alt < budget(20), `${alt.toFixed(1)}ms for 40 calls`);
+
+  // A rewrite of every projection at the SAME key count must move the board.
+  //
+  // This is the boot sequence: the app renders from stored state, then the real
+  // projections resolve and refreshStoredDatabase replaces every record in
+  // place. The count does not change, so a key built on Object.keys(db).length
+  // served the previous board -- a different player at the top, with a
+  // different ceiling, on the page whose whole job is the ceiling.
+  {
+    const L = league(12, 12, 84);
+    L.playerDatabase = { ...db };
+    const before = JSON.stringify(targetBoard(L, 6));
+    Object.keys(L.playerDatabase).forEach((id) => {
+      const p = L.playerDatabase[id];
+      L.playerDatabase[id] = { ...p, projectedPoints: p.projectedPoints * (1 + (Number(id.length % 7) / 10)) };
+    });
+    noteChange(L.playerDatabase);
+    check('rewriting every projection at the same count moves the board',
+      JSON.stringify(targetBoard(L, 6)) !== before,
+      'the cached board survived a database it no longer describes');
+    check('and the pool size really was unchanged',
+      Object.keys(L.playerDatabase).length === Object.keys(db).length);
+  }
 
   // The board is handed to renderers that sort it. Returning the cached array
   // itself let one caller rewrite what every later caller received.

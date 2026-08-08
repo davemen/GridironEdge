@@ -5,7 +5,7 @@
 
 import store from './store.js';
 import { mockPlayers, mockLeague } from './mock-data.js';
-import { loadProjections, toPlayerDatabase, findPlayer, playerKey, noteInsert }
+import { loadProjections, toPlayerDatabase, findPlayer, playerKey, noteChange }
   from './player-database.js';
 import { proTeamAbbrev } from './nfl-teams.js';
 import { isSafeKey } from './store.js';
@@ -29,7 +29,16 @@ export const realDbReady = loadProjections().then((proj) => {
   realDb = toPlayerDatabase(proj);
   const n = Object.keys(realDb).length;
   console.log(n ? `[Gridiron Edge] Loaded ${n} real player projections.`
-                : '[Gridiron Edge] No real projections - running on mock data.');
+                : '[Gridiron Edge] No projections loaded.');
+  // Publish them as the SHARED database.
+  //
+  // store.js stores one copy of the player database and gives each league only
+  // the records the shared copy does not have. That was written against
+  // state.playerDatabase -- which only loadMockLeague ever populated, so on a
+  // real league `shared` was empty, every league stored all 523 records inside
+  // an extra wrapper, and the measured saving was zero bytes for +1.5ms of
+  // blocked main thread per sync tick.
+  if (n) store.updatePlayerDatabase(realDb);
   return realDb;
 });
 
@@ -364,7 +373,7 @@ class ESPNClient {
           // know nothing about, which then flowed into every ceiling and every
           // roster ranking as though it were measured.
           match = unresolvedPlayer(p.playerName, p.playerPosition, p.playerTeam);
-          if (isSafeKey(match.id)) { db[match.id] = match; noteInsert(db); }
+          if (isSafeKey(match.id)) { db[match.id] = match; noteChange(db); }
         }
 
         if (match) {
@@ -416,7 +425,7 @@ class ESPNClient {
       const match = resolveNomination(db, espnData.currentNomination);
       if (match && match.isUnknownPlayer && isSafeKey(match.id)) {
         db[match.id] = match;
-        noteInsert(db);
+        noteChange(db);
       }
       currentNomination = match ? match.name : null;
       currentNominationId = match ? String(match.id) : null;

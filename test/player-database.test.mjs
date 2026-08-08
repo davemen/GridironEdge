@@ -12,7 +12,7 @@
 import { readFileSync } from 'fs';
 import { fileURLToPath } from 'url';
 import { join } from 'path';
-import { toPlayerDatabase, findPlayer, playerKey, noteInsert } from '../js/player-database.js';
+import { toPlayerDatabase, findPlayer, playerKey, noteChange } from '../js/player-database.js';
 
 const ROOT = join(fileURLToPath(new URL('.', import.meta.url)), '..');
 const proj = JSON.parse(readFileSync(join(ROOT, 'data/projections-2026.json'), 'utf8'));
@@ -173,7 +173,7 @@ console.log('\nthe index knows when it is stale, without walking every key');
   const added = { id: 'MOCK_zz_test', key: 'zz test', name: 'Zz Test',
                   position: 'RB', team: 'FA', projectedPoints: 4.5 };
   clone[added.id] = added;
-  noteInsert(clone);
+  noteChange(clone);
   check('a record added after indexing is found',
     Boolean(findPlayer(clone, 'Zz Test')),
     'the index served a stale answer for a player that is present');
@@ -184,7 +184,7 @@ console.log('\nthe index knows when it is stale, without walking every key');
   const second = { id: 'MOCK_yy_test', key: 'yy test', name: 'Yy Test',
                    position: 'WR', team: 'FA', projectedPoints: 4.5 };
   clone[second.id] = second;
-  noteInsert(clone);
+  noteChange(clone);
   check('and so is a second one', Boolean(findPlayer(clone, 'Yy Test')));
 }
 
