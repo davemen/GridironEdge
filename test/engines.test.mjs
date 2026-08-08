@@ -555,6 +555,24 @@ console.log('\npartial coverage is not treated as a complete board');
   check('coverage reaches the league state',
     pState.coverageKind === 'own-roster-only', pState.coverageKind);
 
+  // A sweep that GAVE UP partway is not a swept board either. The scraper
+  // reports that and nothing read it, so a sweep that saw 2 of 12 teams was
+  // priced exactly like a complete league -- every rival budget computed over
+  // ten rosters that are empty because they are UNKNOWN.
+  const truncated = leagueWith(0);
+  truncated.teams.forEach((t, i) => { if (i > 0) t.roster = []; });
+  truncated.coverage = { kind: 'swept-rosters', sweptAt: Date.now(), partial: true };
+  const complete = leagueWith(0);
+  complete.teams.forEach((t, i) => { if (i > 0) t.roster = []; });
+  complete.coverage = { kind: 'swept-rosters', sweptAt: Date.now(), partial: false };
+  const tState = buildLeagueState(truncated);
+  check('a truncated sweep reaches the league state', tState.coveragePartial === true);
+  check('and it declines to price the market, like an own-roster scrape',
+    marketInflation(tState, 400) === 1.0, String(marketInflation(tState, 400)));
+  check('while a complete sweep still computes one',
+    marketInflation(buildLeagueState(complete), 400) !== 1.0,
+    String(marketInflation(buildLeagueState(complete), 400)));
+
   const pInfl = marketInflation(pState, 400);
   const fInfl = marketInflation(fState, 400);
   check('an own-roster-only scrape reports neutral inflation rather than a guess',

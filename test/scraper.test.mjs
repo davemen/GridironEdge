@@ -585,6 +585,127 @@ console.log('\nand the moved sweep still actually sweeps');
     check('while the team that WAS on screen is still reported',
       (stuck.byTeam || []).some((t) => t.teamName === 'A'),
       'the initially selected panel is trustworthy without a repaint');
+
+    // ...but ONLY while nothing has moved yet. `i === originalIndex` alone was
+    // trusted at ANY position, and a room opened on any team but the first has
+    // already been stepped away by the time that index comes round -- so the
+    // panel is showing the PREVIOUS team, and the sweep credited this one with
+    // somebody else's roster while reporting a clean board.
+    const THREE = { P: [['QB', 'Josh Allen', '$19']], Q: [['WR', 'Chase', '$44']],
+                    R: [['TE', 'McBride', '$21']] };
+    const names3 = Object.keys(THREE);
+    let live = 2;                  // the room is open on the THIRD team...
+    let onScreen = 2;              // ...and its roster is what is on screen
+    const table3 = { get rows() {
+      const body = THREE[names3[onScreen]] || [];
+      return [{ cells: [cell('POS'), cell('PLAYER'), cell('$')] }]
+        .concat(body.map((r) => ({ cells: r.map(cell) })))
+        .concat([{ cells: [cell('BE'), cell('Empty'), cell('')] }]);
+    } };
+    const sel3 = {
+      options: names3.map((n, i) => ({ text: n, value: String(i) })),
+      selectedIndex: 2, dispatchEvent() { return true; },
+    };
+    Object.defineProperty(globalThis.HTMLSelectElement.prototype, 'value', {
+      configurable: true,
+      // The panel follows the dropdown for the first two teams and then stops,
+      // which is what a slow render looks like: it stays on Q.
+      set(v) { live = Number(v); if (live < 2) onScreen = live; this.selectedIndex = live; },
+      get() { return String(live); },
+    });
+    globalThis.document.querySelectorAll = (q) =>
+      (q === 'select' ? [sel3] : q === 'table' ? [table3] : []);
+    const late = await isoFns.sweepAllRosters(names3.map((teamName) => ({ teamName })));
+    check('a room opened on a later team does not credit it with Q\'s roster',
+      !(late.byTeam || []).some((t) => t.teamName === 'R'),
+      JSON.stringify(late.byTeam));
+    check('and it still read the two teams whose panels did repaint',
+      (late.byTeam || []).length === 2, JSON.stringify(late.byTeam));
+    check('and that sweep reports itself truncated', late.truncated === true);
+
+    // Both caps returned ok:true with no signal, so a sweep bounded by the
+    // 32-team cap reported 32 of 40 rosters as a swept league, and one bounded
+    // by the 2,000-row cap reported the teams it reached as the whole board.
+    const many = Array.from({ length: 40 }, (_, i) => `Club ${i}`);
+    let manyShown = 0;
+    const manyTable = { get rows() {
+      return [{ cells: [cell('POS'), cell('PLAYER'), cell('$')] },
+              { cells: [cell('QB'), cell(`Passer ${manyShown}`), cell('$5')] },
+              { cells: [cell('BE'), cell('Empty'), cell('')] }];
+    } };
+    const manySel = {
+      options: many.map((n, i) => ({ text: n, value: String(i) })),
+      selectedIndex: 0, dispatchEvent() { return true; },
+    };
+    Object.defineProperty(globalThis.HTMLSelectElement.prototype, 'value', {
+      configurable: true,
+      set(v) { manyShown = Number(v); this.selectedIndex = manyShown; },
+      get() { return String(manyShown); },
+    });
+    globalThis.document.querySelectorAll = (q) =>
+      (q === 'select' ? [manySel] : q === 'table' ? [manyTable] : []);
+    const capped = await isoFns.sweepAllRosters(many.map((teamName) => ({ teamName })));
+    check('a league larger than the team cap is swept up to the cap',
+      capped.byTeam.length === 32, String(capped.byTeam.length));
+    check('and does not claim to have seen the rest', capped.truncated === true,
+      '32 of 40 rosters reported as a complete sweep');
+
+    // The row cap: one team holding 2,000 rows exhausts it, and the second
+    // team is never read.
+    const wide = ['Hoarders', 'Ordinary', 'Also'];
+    let wideShown = 0;
+    const wideTable = { get rows() {
+      const n = wideShown === 0 ? 2000 : 1;
+      return [{ cells: [cell('POS'), cell('PLAYER'), cell('$')] }]
+        .concat(Array.from({ length: n }, (_, i) =>
+          ({ cells: [cell('BE'), cell(`Filler ${wideShown}-${i}`), cell('$1')] })))
+        .concat([{ cells: [cell('BE'), cell('Empty'), cell('')] }]);
+    } };
+    const wideSel = {
+      options: wide.map((n, i) => ({ text: n, value: String(i) })),
+      selectedIndex: 0, dispatchEvent() { return true; },
+    };
+    Object.defineProperty(globalThis.HTMLSelectElement.prototype, 'value', {
+      configurable: true,
+      set(v) { wideShown = Number(v); this.selectedIndex = wideShown; },
+      get() { return String(wideShown); },
+    });
+    globalThis.document.querySelectorAll = (q) =>
+      (q === 'select' ? [wideSel] : q === 'table' ? [wideTable] : []);
+    const bounded = await isoFns.sweepAllRosters(wide.map((teamName) => ({ teamName })));
+    check('the row cap stops the sweep', bounded.byTeam.length === 1,
+      String(bounded.byTeam.length));
+    check('and it says so rather than reporting a swept league',
+      bounded.truncated === true);
+
+    // A blank option -- ESPN renders a "-- select --" placeholder in some room
+    // layouts -- is skipped, and skipping a team is a team unread. It counted
+    // as nothing at all, so a five-option dropdown that yielded four rosters
+    // reported a complete sweep of a five-team league.
+    const withBlank = ['Anchors', 'Bruisers', '', 'Cyclones', 'Dynamos'];
+    let blankShown = 0;
+    const blankTable = { get rows() {
+      return [{ cells: [cell('POS'), cell('PLAYER'), cell('$')] },
+              { cells: [cell('QB'), cell(`Passer ${blankShown}`), cell('$5')] },
+              { cells: [cell('BE'), cell('Empty'), cell('')] }];
+    } };
+    const blankSel = {
+      options: withBlank.map((n, i) => ({ text: n, value: String(i) })),
+      selectedIndex: 0, dispatchEvent() { return true; },
+    };
+    Object.defineProperty(globalThis.HTMLSelectElement.prototype, 'value', {
+      configurable: true,
+      set(v) { blankShown = Number(v); this.selectedIndex = blankShown; },
+      get() { return String(blankShown); },
+    });
+    globalThis.document.querySelectorAll = (q) =>
+      (q === 'select' ? [blankSel] : q === 'table' ? [blankTable] : []);
+    const skipped = await isoFns.sweepAllRosters(
+      withBlank.filter(Boolean).map((teamName) => ({ teamName })));
+    check('a blank dropdown option is skipped', skipped.byTeam.length === 4,
+      JSON.stringify(skipped.byTeam.map((t) => t.teamName)));
+    check('and the sweep counts the skip as unread',
+      skipped.truncated === true, 'four of five rosters reported as five');
   }
 
   console.log('\nthe sweep guards itself: one at a time, once a minute, one origin');

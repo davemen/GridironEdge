@@ -307,13 +307,19 @@
       // 900ms an option: a hostile page planting a <select> with 20,000
       // options would have held the draft room for hours. A league has at most
       // MAX_SWEEP_TEAMS teams, and anything past that is not a league.
+      // Every early exit sets `truncated`, not just the unchanged-twice one.
+      // Three of the four did not, so a sweep bounded by the row cap returned
+      // 7 of 12 teams reporting a clean board, and one bounded by the team cap
+      // returned 32 of 40 the same way -- a coverage claim about a board the
+      // scraper only partly saw.
       const stop = Math.min(sel.options.length, MAX_SWEEP_TEAMS);
+      if (sel.options.length > MAX_SWEEP_TEAMS) truncated = true;
       for (let i = 0; i < stop; i++) {
         const name = String(sel.options[i].text || '').trim();
-        if (!name) continue;
+        if (!name) { truncated = true; continue; }
         // And bounded in what it accumulates, for the same reason the worker
         // bounds the payload: this ends up in chrome.storage, which holds 10MB.
-        if (rows >= MAX_SWEEP_ROWS) break;
+        if (rows >= MAX_SWEEP_ROWS) { truncated = true; break; }
         const before = signature();
 
         if (nativeSet) nativeSet.call(sel, sel.options[i].value);
@@ -349,7 +355,13 @@
         // reporting them. Two cases are trustworthy without a repaint: an empty
         // panel (nothing to confuse it with) and the team that was ALREADY
         // selected when the sweep started, whose roster is what is on screen.
-        if (moved || roster.length === 0 || i === originalIndex) {
+        // `i === originalIndex` is only trustworthy while NOTHING has moved
+        // yet. Once the sweep has stepped the dropdown away, a panel that did
+        // not repaint is showing the PREVIOUS team -- and with the room opened
+        // on any team but the first, that credited a team with somebody else's
+        // roster while reporting a clean sweep.
+        const stillOnTheOriginalPanel = i === originalIndex && byTeam.length === 0;
+        if (moved || roster.length === 0 || stillOnTheOriginalPanel) {
           rows += roster.length;
           byTeam.push({ teamName: name, roster });
         } else {

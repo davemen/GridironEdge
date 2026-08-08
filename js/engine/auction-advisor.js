@@ -120,6 +120,11 @@ export function buildLeagueState(league, parById = null) {
     moneyLeft: teams.reduce((a, t) => a + t.budget, 0),
     // Carried so the market model can decline to answer. See marketInflation.
     coverageKind: (league.coverage && league.coverage.kind) || 'full-board',
+    // A sweep that gave up partway is not a swept board. The scraper reports
+    // this and nothing read it, so a sweep that saw 2 of 12 teams was priced
+    // exactly like a complete one -- every rival budget computed over ten
+    // rosters that are empty because they are UNKNOWN.
+    coveragePartial: Boolean(league.coverage && league.coverage.partial),
     slotsLeft: teams.reduce((a, t) => a + t.spotsLeft, 0),
   };
 }
@@ -219,7 +224,7 @@ export function marketInflation(state, remainingPar) {
   // pushed toward the floor. An auction room renders one roster at a time, so
   // this is that room's normal state, not an edge case. Neutral is the honest
   // answer: it says "no view on the market" rather than asserting a cheap one.
-  if (state.coverageKind === 'own-roster-only') return 1.0;
+  if (state.coverageKind === 'own-roster-only' || state.coveragePartial) return 1.0;
   if (state.slotsLeft <= 0) return 1.0;
   const spendable = state.moneyLeft - state.slotsLeft;
   const par = Math.max(1, remainingPar - state.slotsLeft);
@@ -808,6 +813,7 @@ function watchlistKey(league, limit, options) {
     league.rosterSettings?.startersCount ?? null,
     league.rosterSettings?.benchCount ?? null,
     (league.coverage && league.coverage.kind) || 'full-board',
+    Boolean(league.coverage && league.coverage.partial),
     // The pool the board is drawn from. A COUNT is not enough: at boot the app
     // rewrites every stored projection with the real one, which leaves the key
     // count identical -- so the cached board survived and named a different
