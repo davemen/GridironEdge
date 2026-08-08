@@ -5,7 +5,7 @@
 
 import store from './store.js';
 import { mockPlayers, mockLeague } from './mock-data.js';
-import { loadProjections, toPlayerDatabase, findPlayer, playerKey, noteChange }
+import { loadProjections, toPlayerDatabase, findPlayer, playerKey, noteChange, cloneDatabase }
   from './player-database.js';
 import { proTeamAbbrev } from './nfl-teams.js';
 import { isSafeKey } from './store.js';
@@ -347,7 +347,10 @@ class ESPNClient {
     // An empty database is the honest state. projectionsMissing already exists
     // on the API path and the pages that need projections read it.
     const haveReal = Boolean(realDb && Object.keys(realDb).length);
-    const db = haveReal ? Object.assign({}, realDb) : {};
+    // cloneDatabase, not Object.assign: the copy must carry the revision the
+    // auction cache keys on, or every tick looks like a brand-new database
+    // that nobody has written to.
+    const db = haveReal ? cloneDatabase(realDb) : {};
     if (!haveReal) {
       console.error('[Gridiron Edge] No player projections loaded; this league will '
         + 'report missing projections rather than borrowing the sandbox.');

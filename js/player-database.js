@@ -102,6 +102,11 @@ export async function loadProjections(url = 'data/projections-2026.json') {
 export function toPlayerDatabase(projections) {
   const db = {};
   if (!projections) return db;
+  // Stamped at birth, so revision 0 means exactly one thing: "not a database
+  // this module built". Without it, a freshly built pool and a pool that had
+  // been copied badly both read as 0, and the auction cache could not tell
+  // them apart.
+  noteChange(db);
   projections.players.forEach((p) => {
     const id = `FP_${p.key.replace(/\s+/g, '_')}`;
     db[id] = {
@@ -215,17 +220,49 @@ const INSERTS = Symbol.for('gridironEdge.inserts');
  * count served the previous board -- a different player at the top, with a
  * different ceiling -- and that happens at boot, every boot.
  */
+let revisionCounter = 0;
+
 export function noteChange(db) {
   if (!db || typeof db !== 'object') return;
   try {
+    // A GLOBAL counter, not a per-object one. Two databases that have each
+    // been written to once are not the same database, and a per-object count
+    // gave them the same revision -- which is a cache key collision between
+    // two different sets of projections.
     Object.defineProperty(db, INSERTS, {
-      value: (db[INSERTS] || 0) + 1,
+      value: ++revisionCounter,
       enumerable: false, configurable: true, writable: true,
     });
   } catch (e) {
     // A frozen database cannot have been written to either, so there is
     // nothing for the index to miss.
   }
+}
+
+/**
+ * Copy a database, carrying its revision with it.
+ *
+ * `Object.assign({}, db)` and `{ ...db }` copy enumerable properties only, so
+ * they drop both the index AND the revision symbol -- and the mapper builds a
+ * fresh pool exactly that way on EVERY sync tick. The revision fell back to 0
+ * each time, so 0 meant "a database nobody has written to" and also "the
+ * database from the last thirty ticks", and the auction cache served a board
+ * computed before the boot-time heal: a different player at the top, with a
+ * different ceiling.
+ *
+ * The copy has the same CONTENT as its source, so it keeps the same revision.
+ * That is what lets successive ticks share a cached board while a genuine
+ * change still moves the key.
+ */
+export function cloneDatabase(db) {
+  const copy = Object.assign({}, db);
+  const rev = db && db[INSERTS];
+  if (rev) {
+    Object.defineProperty(copy, INSERTS, {
+      value: rev, enumerable: false, configurable: true, writable: true,
+    });
+  }
+  return copy;
 }
 
 /**

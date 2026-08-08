@@ -292,6 +292,27 @@ console.log('\nthe API mapper, which nothing exercised at all');
     empty.projectionsMissing === true && Object.keys(empty.playerDatabase).length === 0);
 }
 
+console.log('\nthe pool a sync builds is not a database nobody has written to');
+{
+  // mapDOMScrapedLeague builds a fresh player pool on EVERY tick. Built with
+  // Object.assign or a spread, that copy drops the non-enumerable revision the
+  // auction cache keys on -- so it fell back to 0 each time, and 0 meant both
+  // "nobody has written to this" and "the pool from the last thirty ticks".
+  // The cache then served a board computed before the boot-time heal.
+  const { dbRevision } = await import(join(ROOT, 'js/player-database.js'));
+  const a = await espnClient.importScrapedPayload(
+    payload([pick(1, 'Josh Allen', 'QB', 'BUF', 1, 19)], { leagueId: 'REV1' }));
+  const b = await espnClient.importScrapedPayload(
+    payload([pick(1, 'Josh Allen', 'QB', 'BUF', 1, 19)], { leagueId: 'REV2' }));
+  check('an imported league carries a real revision, not zero',
+    dbRevision(a.playerDatabase) > 0, String(dbRevision(a.playerDatabase)));
+  check('and two imports of the same projections agree on it',
+    dbRevision(a.playerDatabase) === dbRevision(b.playerDatabase),
+    `${dbRevision(a.playerDatabase)} against ${dbRevision(b.playerDatabase)}`);
+  check('while the pools really are separate objects',
+    a.playerDatabase !== b.playerDatabase);
+}
+
 console.log('\na failed projection load is reported, not papered over with the sandbox');
 {
   // The scraped mapper fell back to mockPlayers and called it "a visible

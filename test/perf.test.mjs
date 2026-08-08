@@ -29,7 +29,8 @@
 import { readFileSync } from 'fs';
 import { fileURLToPath } from 'url';
 import { join } from 'path';
-import { toPlayerDatabase, findPlayer, noteChange } from '../js/player-database.js';
+import { toPlayerDatabase, findPlayer, noteChange, dbRevision, cloneDatabase }
+  from '../js/player-database.js';
 import { recommendBid, targetBoard, planValue, lineupPoints, targetBoardRecomputes as recomputes }
   from '../js/engine/auction-advisor.js';
 
@@ -314,6 +315,37 @@ console.log('\nevery input the board reads is in the cache key');
       'the cached board survived a database it no longer describes');
     check('and the pool size really was unchanged',
       Object.keys(L.playerDatabase).length === Object.keys(db).length);
+  }
+
+  // A fresh database object per tick must NOT look like a fresh database.
+  //
+  // The mapper builds its pool with a copy on every sync. Object.assign and
+  // spread drop non-enumerable properties, so the revision fell back to 0 each
+  // time -- and 0 then meant both "nobody has written to this" and "the pool
+  // from the last thirty ticks". The cache served a board computed before the
+  // boot-time heal: a different player at the top, with a different ceiling.
+  {
+    const base = league(12, 12, 84);
+    base.playerDatabase = cloneDatabase(db);
+    noteChange(base.playerDatabase);          // as the boot heal does
+    const healed = JSON.stringify(targetBoard(base, 6));
+    const healedRev = dbRevision(base.playerDatabase);
+
+    // The next sync tick: same content, a brand-new object.
+    const tick = { ...base, playerDatabase: cloneDatabase(base.playerDatabase) };
+    check('a copy carries the revision of what it copied',
+      dbRevision(tick.playerDatabase) === healedRev,
+      `${dbRevision(tick.playerDatabase)} against ${healedRev}`);
+    check('so the same content still hits the cache',
+      JSON.stringify(targetBoard(tick, 6)) === healed);
+
+    // And two databases each written to once are not the same database.
+    const a = {}, b = {};
+    noteChange(a); noteChange(b);
+    check('two independently-written databases get different revisions',
+      dbRevision(a) !== dbRevision(b), `${dbRevision(a)} and ${dbRevision(b)}`);
+    check('and an unwritten database is not revision-equal to a written one',
+      dbRevision({}) !== dbRevision(a));
   }
 
   // The board is handed to renderers that sort it. Returning the cached array
