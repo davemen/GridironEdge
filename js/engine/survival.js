@@ -38,7 +38,11 @@ const MIN_SD = 3;
  * missing draft position is a percentage about nothing.
  */
 export function survivalProbability(player, pickNumber) {
-  const adp = player && typeof player.adp === 'number' ? player.adp : null;
+  // Number.isFinite on BOTH sides. `typeof adp === 'number'` admits Infinity
+  // and NaN, and either one runs the whole curve to NaN -- which survivalPct
+  // then rounded to NaN and put on screen as "NaN%". A draft position that is
+  // not a finite number is an unknown one, and unknown has an answer here.
+  const adp = player && Number.isFinite(player.adp) ? player.adp : null;
   if (adp === null || !Number.isFinite(pickNumber)) return null;
 
   const sd = Math.max(MIN_SD, adp * ADP_SPREAD);
@@ -90,8 +94,23 @@ export function nextPickFor(league, currentPick) {
   return currentPick + size;
 }
 
-/** The same answer as a whole percentage for display, or null if unknown. */
+/**
+ * The same answer as a whole percentage for display, or null if unknown.
+ *
+ * No clamp. There was a `Math.min(100, Math.max(0, ...))` here and a mutation
+ * run showed it could be deleted with every test still green -- so it was
+ * checked rather than kept on faith: the Abramowitz & Stegun 7.1.26
+ * approximation is accurate to 1.5e-7, which `Math.round(p * 100)` cannot turn
+ * into 101 or -1. The clamp was unreachable, and unreachable code that looks
+ * like a safety net is worse than none, because it answers the question "what
+ * stops this printing 101%" with something that never runs. What actually
+ * stops it is the bound on the approximation, and the sweep in
+ * test/engines.test.mjs covering 1,800 (ADP, pick) pairs.
+ *
+ * The NaN case the clamp could not have caught either -- Math.min(100, NaN) is
+ * NaN -- is handled where it belongs, in survivalProbability above.
+ */
 export function survivalPct(player, pickNumber) {
   const p = survivalProbability(player, pickNumber);
-  return p === null ? null : Math.min(100, Math.max(0, Math.round(p * 100)));
+  return p === null ? null : Math.round(p * 100);
 }

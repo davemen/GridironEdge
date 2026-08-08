@@ -470,6 +470,55 @@ console.log('\none answer to "will he last until my next pick"');
   const auction = { leagueSize: 12, myTeamId: 1, teams: [], draftState: { draftType: 'auction' } };
   check('an auction falls back to one turn of the wheel',
     nextPickFor(auction, 40) === 52, String(nextPickFor(auction, 40)));
+  // ...and it must be the draft TYPE that decides, not merely a missing seat.
+  // A room that carries a draft order and calls itself an auction still has no
+  // snake to walk, and reading one off the order invents a pick number.
+  const auctionWithOrder = {
+    leagueSize: 12, myTeamId: 3,
+    teams: Array.from({ length: 12 }, (_, i) => ({ teamId: i + 1 })),
+    draftState: { draftType: 'auction',
+      draftOrder: Array.from({ length: 12 }, (_, i) => i + 1) },
+  };
+  check('an auction that does carry an order is still not a snake',
+    nextPickFor(auctionWithOrder, 40) === 52,
+    String(nextPickFor(auctionWithOrder, 40)));
+
+  // The pick you are ON is not the pick you are next on. `>=` here answered
+  // "you pick at 25" to a manager standing at pick 25 with the clock running,
+  // so the survival curve compared every player against the present.
+  check('a seat on the clock is told its NEXT pick, not this one',
+    nextPickFor(snake(4, 10, 25), 25) === 36,
+    String(nextPickFor(snake(4, 10, 25), 25)));
+
+  // MIN_SD is the floor under the spread, and it only ever binds for a player
+  // drafted in the first twenty picks: 0.15 x ADP is under 3 up to ADP 20.
+  // Without it a player with ADP 2 has a spread of 0.3 picks and the curve
+  // becomes a step function -- 100% at pick 2, 0% at pick 3.
+  check('the earliest picks keep a floor under their spread',
+    survivalPct({ adp: 2 }, 4) >= 20 && survivalPct({ adp: 2 }, 4) <= 80,
+    `${survivalPct({ adp: 2 }, 4)}% at pick 4 for an ADP-2 player`);
+
+  // The percentage is clamped because the erf approximation overshoots at the
+  // tails: without it survivalPct reports 101 and -0, and a panel printing
+  // "101%" is a bug the reader can see.
+  const extremes = [];
+  for (let adp = 1; adp <= 300; adp += 1) {
+    for (const pick of [1, 2, 5, 50, 200, 400]) {
+      const v = survivalPct({ adp }, pick);
+      if (v !== null && (v < 0 || v > 100)) extremes.push(`adp ${adp} @ ${pick} = ${v}`);
+    }
+  }
+  check('no percentage is outside 0..100 anywhere on the board',
+    extremes.length === 0, extremes.slice(0, 3).join('; '));
+  check('and none of them is NaN', extremes.length === 0
+    && [1, 60, 300].every((a) => Number.isFinite(survivalPct({ adp: a }, 60))));
+  // `typeof adp === 'number'` admitted Infinity and NaN, and either ran the
+  // whole curve to NaN -- printed as "NaN%".
+  check('an infinite or NaN ADP has no answer, like a missing one',
+    survivalPct({ adp: Infinity }, 60) === null
+      && survivalPct({ adp: -Infinity }, 60) === null
+      && survivalPct({ adp: NaN }, 60) === null,
+    `${survivalPct({ adp: Infinity }, 60)} / ${survivalPct({ adp: NaN }, 60)}`);
 }
 
 console.log('\none coercion from "whatever the payload held" to a number');
@@ -724,6 +773,126 @@ console.log('\nthe trade generator reads the league\'s own starting slots');
   check('and it finds the same trade with no rosterSettings at all',
     JSON.stringify(same) === JSON.stringify(swaps),
     JSON.stringify(same));
+}
+
+console.log('\nthe lineup optimizer\'s thirteen adjustments, none of which ran');
+{
+  // A mutation run left every one of these alive: the injury deductions, the
+  // six usage thresholds, the red-zone bonuses, the two matchup multipliers
+  // and the volatility half-step. All thirteen could be deleted and the suite
+  // stayed green, because no test drove a player carrying `metrics`, an
+  // `opponent` or an injury status other than Healthy. And `replacementPlans`
+  // -- a whole output branch that app.js renders -- was never produced at all.
+  const SETTINGS = { QB: 1, RB: 1, WR: 1, TE: 0, FLEX: 0, 'D/ST': 0, K: 0, BE: 5 };
+  const mk = (over) => ({ id: over.id, name: over.id, position: over.position,
+    team: 'FA', projectedPoints: 20, injuryStatus: 'Healthy', volatility: 4, ...over });
+  const lineupOf = (players, strategy = 'floor') => {
+    const d = {}; players.forEach((p) => { d[p.id] = p; });
+    return optimizeLineup(players.map((p) => p.id), d, SETTINGS, strategy);
+  };
+
+  // Injury deductions: 2.0 Questionable, 6.0 Doubtful, and Out is unplayable.
+  // Both sides carry the same volatility, so the floor half-step is a constant
+  // offset and the boundary is exactly the deduction.
+  const beats = (a, bPoints) => lineupOf([mk({ ...a, id: 'A', position: a.position || 'RB' }),
+    mk({ id: 'B', position: a.position || 'RB', projectedPoints: bPoints })])
+    .starters[0].id === 'A';
+  check('a questionable starter projecting 20 still beats 17.5',
+    beats({ injuryStatus: 'Questionable' }, 17.5));
+  check('and loses to 18.5, because the deduction is 2 and not 1',
+    !beats({ injuryStatus: 'Questionable' }, 18.5));
+  check('a doubtful one beats 13.5 but not 14.5',
+    beats({ injuryStatus: 'Doubtful' }, 13.5) && !beats({ injuryStatus: 'Doubtful' }, 14.5));
+  const out = [mk({ id: 'RB_out', position: 'RB', injuryStatus: 'Out', projectedPoints: 40 }),
+               mk({ id: 'RB_ok', position: 'RB', projectedPoints: 3 })];
+  check('and one who is Out never starts, whatever he projects',
+    lineupOf(out).starters[0].id === 'RB_ok', lineupOf(out).starters[0].id);
+
+  // The six usage thresholds, each side of its own boundary. `bPoints` is set
+  // so that only the adjustment under test can decide the slot -- equal scores
+  // would leave A first by sort order and every one of these would pass
+  // whether the threshold fired or not.
+  const usage = (metrics, bPoints, position = 'RB') =>
+    lineupOf([mk({ id: 'A', position, metrics }),
+      mk({ id: 'B', position, projectedPoints: bPoints })]).starters[0].id === 'A';
+  check('an 85% snap share is worth +5%, taking 20 past 20.5',
+    usage({ snapShare: 0.85 }, 20.5));
+  check('and 84% is not', !usage({ snapShare: 0.84 }, 20.5));
+  check('under 50% costs 10%, so 20 falls behind 18.5',
+    !usage({ snapShare: 0.49 }, 18.5) && usage({ snapShare: 0.50 }, 18.5));
+  check('a 25% target share is worth +8%', usage({ targetShare: 0.25 }, 21));
+  check('and 24% is not', !usage({ targetShare: 0.24 }, 21));
+  check('under 12% costs 5%', !usage({ targetShare: 0.11 }, 19.5)
+    && usage({ targetShare: 0.12 }, 19.5));
+  check('16 carries is a workhorse, worth +5%', usage({ carries: 16 }, 20.5));
+  check('and 15 is not', !usage({ carries: 15 }, 20.5));
+  check('under 8 costs 8%', !usage({ carries: 7 }, 18.8)
+    && usage({ carries: 8 }, 18.8));
+  check('and for a QB the threshold is 6 carries, not 16',
+    usage({ carries: 6 }, 21, 'QB') && !usage({ carries: 5 }, 21, 'QB'));
+  check('a QB does not get the RB committee penalty either',
+    usage({ carries: 2 }, 19.9, 'QB'));
+  check('red-zone targets are worth half a point each',
+    usage({ redZoneTargets: 2 }, 20.9) && !usage({ redZoneTargets: 2 }, 21.1));
+  check('and red-zone carries 0.4',
+    usage({ redZoneCarries: 2 }, 20.7) && !usage({ redZoneCarries: 2 }, 20.9));
+
+  // The two matchup multipliers, which need a D/ST in the database to fire.
+  const withDefense = (dstPoints, oppTeam, bPoints) => {
+    const a = mk({ id: 'A', position: 'RB', opponent: 'XYZ' });
+    const b = mk({ id: 'B', position: 'RB', projectedPoints: bPoints });
+    const dst = mk({ id: 'D', position: 'D/ST', team: oppTeam, projectedPoints: dstPoints });
+    return optimizeLineup(['A', 'B'], { A: a, B: b, D: dst }, SETTINGS, 'floor')
+      .starters[0].id;
+  };
+  check('a tough defence costs 6%, dropping 20 below 19.5',
+    withDefense(8.2, 'XYZ', 19.5) === 'B', withDefense(8.2, 'XYZ', 19.5));
+  check('and 8.1 is not tough enough',
+    withDefense(8.1, 'XYZ', 19.5) === 'A', withDefense(8.1, 'XYZ', 19.5));
+  check('a weak one adds 6%, taking 20 past 20.5',
+    withDefense(6.8, 'XYZ', 20.5) === 'A', withDefense(6.8, 'XYZ', 20.5));
+  check('and 6.9 is not weak enough',
+    withDefense(6.9, 'XYZ', 20.5) === 'B', withDefense(6.9, 'XYZ', 20.5));
+  check('and a defence for some other team changes nothing',
+    withDefense(8.2, 'OTHER', 19.5) === 'A', withDefense(8.2, 'OTHER', 19.5));
+
+  // Floor and ceiling are the same board read two ways.
+  const vol = [mk({ id: 'steady', position: 'RB', volatility: 1 }),
+               mk({ id: 'swingy', position: 'RB', volatility: 7 })];
+  check('floor prefers the steady player', lineupOf(vol, 'floor').starters[0].id === 'steady');
+  check('ceiling prefers the volatile one', lineupOf(vol, 'ceiling').starters[0].id === 'swingy');
+  check('and the explanation says which was done',
+    /subtracted/.test(lineupOf(vol, 'floor').explanation[0])
+      && /added/.test(lineupOf(vol, 'ceiling').explanation[0]),
+    lineupOf(vol, 'floor').explanation[0]);
+
+  // replacementPlans: the branch app.js renders and nothing produced.
+  const plans = lineupOf([
+    mk({ id: 'RB_q', position: 'RB', injuryStatus: 'Questionable' }),
+    mk({ id: 'RB_bench', position: 'RB', projectedPoints: 8 }),
+    mk({ id: 'QB1', position: 'QB' }), mk({ id: 'WR1', position: 'WR' }),
+  ]).replacementPlans;
+  check('a questionable starter gets a named replacement plan',
+    plans.length === 1 && plans[0].starter.id === 'RB_q'
+      && plans[0].backup.id === 'RB_bench', JSON.stringify(plans));
+  check('and the condition names both players, not a template',
+    /RB_q/.test(plans[0].condition) && /RB_bench/.test(plans[0].condition),
+    plans[0].condition);
+  check('a healthy lineup produces no plans',
+    lineupOf([mk({ id: 'RB1', position: 'RB' }), mk({ id: 'RB2', position: 'RB' }),
+      mk({ id: 'QB1', position: 'QB' }), mk({ id: 'WR1', position: 'WR' })])
+      .replacementPlans.length === 0);
+  // The backup must be healthy: slotting in a player who is himself Out is
+  // advice that cannot be followed.
+  const hurtBench = lineupOf([
+    mk({ id: 'RB_q', position: 'RB', injuryStatus: 'Questionable' }),
+    mk({ id: 'RB_out', position: 'RB', projectedPoints: 8, injuryStatus: 'Out' }),
+    mk({ id: 'WR_ok', position: 'WR', projectedPoints: 5 }),
+    mk({ id: 'QB1', position: 'QB' }), mk({ id: 'WR1', position: 'WR' }),
+  ]).replacementPlans;
+  check('and an injured bench player is not offered as the fix',
+    hurtBench.length === 0 || hurtBench[0].backup.injuryStatus !== 'Out',
+    JSON.stringify(hurtBench));
 }
 
 console.log('\nthe trade generator survives a roster it cannot trade from');

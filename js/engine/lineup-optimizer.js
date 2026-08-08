@@ -133,8 +133,15 @@ export function optimizeLineup(roster, db, settings, strategy = 'floor') {
   const replacementPlans = [];
   starters.forEach(s => {
     if (s.injuryStatus === 'Questionable' || s.injuryStatus === 'Doubtful') {
-      const positionBackups = bench.filter(b => b.position === s.position && b.injuryStatus === 'Healthy');
-      const backup = positionBackups[0] || bench.filter(b => ['RB', 'WR', 'TE'].includes(b.position))[0];
+      // Healthy on BOTH branches. The same-position filter required it and the
+      // flex fallback did not, so a roster whose only spare back was himself
+      // Out produced "If X is ruled OUT, slot in Y" naming a player who could
+      // not be slotted in -- advice that cannot be followed, printed with the
+      // same confidence as advice that can.
+      const healthy = (b) => b.injuryStatus === 'Healthy';
+      const positionBackups = bench.filter(b => b.position === s.position && healthy(b));
+      const backup = positionBackups[0]
+        || bench.filter(b => ['RB', 'WR', 'TE'].includes(b.position) && healthy(b))[0];
       if (backup) {
         replacementPlans.push({
           starter: s,
