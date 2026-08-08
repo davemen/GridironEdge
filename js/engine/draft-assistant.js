@@ -2,7 +2,8 @@
  * Gridiron Edge Live Draft Recommendation Engine
  */
 import { survivalProbability, survivalPct, nextPickFor } from './survival.js';
-import { openStarterSlots, starterSlots, flexCount, FLEX_POS } from './lineup-rules.js';
+import { openStarterSlots, starterSlots, flexCount, FLEX_POS, rosterSize }
+  from './lineup-rules.js';
 
 export function getDraftRecommendations(league) {
   const db = league.playerDatabase;
@@ -26,7 +27,7 @@ export function getDraftRecommendations(league) {
   });
 
   // Calculate user's current draft roster layout
-  const rounds = league.rosterSettings.startersCount + league.rosterSettings.benchCount;
+  const rounds = rosterSize(league);
   const currentPick = draftState.currentPick;
   
   // Find which slots have been filled by user (teamId: myTeamId)

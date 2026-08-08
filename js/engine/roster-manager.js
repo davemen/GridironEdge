@@ -36,12 +36,15 @@ const PLAYOFF_WEEKS = [15, 16, 17];
 export const MISSING_INPUTS = [
   'depth-chart rank', 'route participation', 'rest-of-season strength of schedule',
   'playoff-week opponents', 'injury recovery timelines', 'coaching and scheme changes',
-  'in-season trades', 'league bidding history',
+  'league bidding history',
 ];
 
 /**
  * Inputs that WERE missing and are now supplied by the news monitor. Kept
- * explicit so the two lists cannot drift apart silently.
+ * explicit so the two lists cannot drift apart silently -- which they did:
+ * 'in-season trades' sat in BOTH, and news-monitor classifies a trade event, so
+ * the waivers panel told the user trade news was unavailable while the engine
+ * was consuming it. The overlap assertion below is what stops that recurring.
  */
 export const NEWS_DERIVED_INPUTS = [
   'injury and inactive reports', 'suspensions', 'in-season trades',

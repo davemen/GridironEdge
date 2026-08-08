@@ -41,10 +41,15 @@ const views = {
  * How deep the auction board is priced, and how much of it the panel shows.
  *
  * One number, because the limit is part of the watchlist cache key: asking for
- * 60 in the table and 6 in the panel is two keys, and so two full
+ * one depth in the table and another in the panel is two keys, and so two full
  * recomputations of the most expensive call on the page per render.
+ *
+ * 20, not 60. targetBoard shortlists to the top 20 by par BEFORE pricing, so
+ * asking for 60 returned 20 and the table's Target Value column was an em dash
+ * on 479 of its 499 rows -- while the constant said otherwise. If a deeper
+ * board is wanted, the shortlist is what has to widen.
  */
-const AUCTION_BOARD_LIMIT = 60;
+const AUCTION_BOARD_LIMIT = 20;
 const AUCTION_WATCHLIST_SHOWN = 6;
 
 const navBar = document.getElementById('app-nav');
@@ -1323,7 +1328,7 @@ export function renderDraftPage(league = store.getActiveLeague()) {
   const picksList = document.getElementById('draft-recent-picks');
   picksList.innerHTML = '';
   
-  const totalPicks = league.leagueSize * (league.rosterSettings.startersCount + league.rosterSettings.benchCount);
+  const totalPicks = league.leagueSize * rosterSize(league);
   document.getElementById('draft-info-pick').innerHTML = `${currentPick} / ${totalPicks}`;
   document.getElementById('draft-info-round').innerHTML = Math.floor((currentPick - 1) / league.leagueSize) + 1;
 
@@ -1483,7 +1488,7 @@ export function renderDraftPage(league = store.getActiveLeague()) {
 
   const myTeam = store.getMyTeam();
   const budget = myTeam ? myTeam.faabRemaining : 200;
-  const remainingSpots = (league.rosterSettings.startersCount + league.rosterSettings.benchCount) - (myTeam ? myTeam.roster.length : 0);
+  const remainingSpots = rosterSize(league) - (myTeam ? myTeam.roster.length : 0);
   const opponentsFaab = league.teams.filter(t => t.teamId !== league.myTeamId).map(t => t.faabRemaining);
   const maxOpponentBid = Math.max(...opponentsFaab, 0);
 
@@ -1813,6 +1818,13 @@ function renderAuctionBoard(league, db, rec) {
   const liveBid = document.getElementById('auction-current-bid');
   const typing = liveBid && document.activeElement === liveBid;
   const typedBid = typing ? liveBid.value : null;
+  // type="text" with inputmode="numeric", not type="number".
+  //
+  // A number input has no selection API at all: selectionStart is null, so the
+  // guard below was always false and setSelectionRange threw into the catch.
+  // The comment promised to preserve the caret through a re-render and the code
+  // guarding that promise could not run -- so an edit in the middle of a figure
+  // still jumped to the end, eight times a second.
   const caret = typing && typeof liveBid.selectionStart === 'number'
     ? [liveBid.selectionStart, liveBid.selectionEnd] : null;
 
@@ -1833,7 +1845,7 @@ function renderAuctionBoard(league, db, rec) {
       <div style="display:flex; align-items:center; gap:0.6rem; margin-bottom:1rem;">
         <label style="font-size:0.75rem; color:var(--text-secondary); text-transform:uppercase;
                       font-weight:600;">Current bid $</label>
-        <input type="number" id="auction-current-bid" value="${scrapedBid ?? 0}"
+        <input type="text" inputmode="numeric" pattern="[0-9]*" id="auction-current-bid" value="${scrapedBid ?? 0}"
                min="0" step="1" class="input-control"
                style="width:110px; padding:0.35rem 0.5rem; font-size:0.95rem; font-weight:700;">
         <span style="font-size:0.75rem; color:${scrapedBid !== null ? 'var(--accent-green)' : 'var(--text-secondary)'};">
@@ -2221,7 +2233,9 @@ function renderBracketAdvice(advice, applied) {
         ${badge}
         ${advice.opponent ? `<span style="font-size:0.78rem; color:var(--text-secondary);">
           vs ${esc(advice.opponent.teamName)} — win probability
-          <strong>${Math.round(advice.winProbability * 100)}%</strong></span>` : ''}
+          <strong>${typeof advice.winProbability === 'number'
+            ? `${int(advice.winProbability * 100)}%`
+            : 'not yet — no games scored'}</strong></span>` : ''}
         <span style="font-size:0.72rem; color:var(--text-secondary);">
           confidence ${advice.confidence}</span>
         ${applied !== advice.strategy ? `<span style="font-size:0.72rem; color:#ffb020;">

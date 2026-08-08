@@ -246,6 +246,29 @@ console.log('\nthe league\'s own slot counts drive the lineup');
     slotList(thin).every((sl) => sl.pos !== 'K'));
 }
 
+console.log('\nroster size is asked, not re-derived');
+{
+  // `startersCount + benchCount` was inlined at four sites, and 7 of 9 league
+  // shapes disagreed with lineup-rules.rosterSize: a scraped league with slot
+  // counts and no totals gave 16 against NaN, one with no rosterSettings at all
+  // gave 16 against a throw, and a startersCount stored as a string gave 16
+  // against 97 -- "9" + "7". At store.js the consequence was a silently no-op
+  // guard, because pickNumber > NaN is false.
+  const SHAPES = [
+    ['the standard shape', { startersCount: 9, benchCount: 7 }, 16],
+    ['slots only, no totals', { QB: 1, RB: 2, WR: 2, TE: 1, FLEX: 1, 'D/ST': 1, K: 1, BE: 7 }, 16],
+    ['a 3-WR league', { QB: 1, RB: 2, WR: 3, TE: 1, FLEX: 2, 'D/ST': 1, K: 1, BE: 5 }, 16],
+    ['totals stored as strings', { startersCount: '9', benchCount: '7' }, 16],
+    ['no rosterSettings at all', undefined, 16],
+  ];
+  SHAPES.forEach(([name, settings, want]) => {
+    const l = settings === undefined ? {} : { rosterSettings: settings };
+    check(`${name}: rosterSize is ${want}`, rosterSize(l) === want, String(rosterSize(l)));
+  });
+  check('and it never returns NaN', SHAPES.every(([, settings]) =>
+    Number.isFinite(rosterSize(settings === undefined ? {} : { rosterSettings: settings }))));
+}
+
 console.log('\nevery engine describes the same lineup for the same league');
 {
   // lineup-rules exported settings-aware functions AND frozen constants, and

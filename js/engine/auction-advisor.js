@@ -47,6 +47,7 @@ import { dbRevision } from '../player-database.js';
 const BENCH_WEIGHT = 0.12;       // depth is worth something, but far less than a starter
 const MUST_BUY_POINTS = 10.0;    // lineup points lost by missing him
 const PLAN_CANDIDATES = 110;    // the priced part of the board
+const SHORTLIST = 20;           // how many of those the watchlist prices
 const STARTER_MARGIN = 1.25;     // hold 25% over forecast for slots you must fill
 const GAMES = 17;
 
@@ -860,7 +861,10 @@ export function targetBoard(league, limit = 8, options = {}) {
   const shortlist = available
     .map((p, i) => ({ p, v: par[i] }))
     .sort((a, b) => b.v - a.v)
-    .slice(0, 20)
+    // The shortlist priced by recommendBid. AUCTION_BOARD_LIMIT in app.js is
+    // this number: asking for more returns this many, which is what left the
+    // draft table's Target Value column empty on most of its rows.
+    .slice(0, SHORTLIST)
     .map(({ p }) => p);
 
   const board = shortlist

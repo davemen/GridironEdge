@@ -11,7 +11,7 @@ import {
   seasonPhase, restOfSeasonPoints, playoffPoints, breakoutProbability,
   bustProbability, lineupBreakdown, lineupGain, startProbability, blockingValue,
   evaluateBench, evaluateWaivers, faabLadder, getWaiverRecommendations,
-  opportunityTrend, freeAgentPool, CATEGORY, ACTION, MISSING_INPUTS,
+  opportunityTrend, freeAgentPool, CATEGORY, ACTION, MISSING_INPUTS, NEWS_DERIVED_INPUTS,
 } from '../js/engine/roster-manager.js';
 
 let passed = 0, failed = 0;
@@ -269,6 +269,18 @@ console.log('\na drafted player is off the board, however he was recorded');
     freeAgentPool(untouched, untouched.playerDatabase).length
       === Object.keys(untouched.playerDatabase).length,
     'the pool is emptier than the draft explains');
+}
+
+console.log('\nthe two input lists cannot claim the same thing');
+{
+  // "Kept explicit so the two lists cannot drift apart silently" -- and they
+  // had: 'in-season trades' was in both, so evaluateWaivers told the user trade
+  // news was unavailable while news-monitor was classifying trade events.
+  const overlap = MISSING_INPUTS.filter((x) => NEWS_DERIVED_INPUTS.includes(x));
+  check('nothing is both missing and supplied', overlap.length === 0,
+    overlap.join(', '));
+  check('and both lists are non-empty',
+    MISSING_INPUTS.length > 0 && NEWS_DERIVED_INPUTS.length > 0);
 }
 
 console.log(`\n${passed} passed, ${failed} failed\n`);

@@ -37,12 +37,15 @@ const num = (v, d = 0) => (typeof v === 'number' && isFinite(v) ? v : d);
 export function winProbability(myTeam, opponentTeam) {
   const mine = num(myTeam?.pointsScored);
   const theirs = num(opponentTeam?.pointsScored);
-  if (!mine || !theirs) return 0.5;
+  // Null, not 0.5. "No games have been played" is not "a coin flip": rendered
+  // as a percentage it reads "you are the favourite (50%)", which is a claim
+  // about two teams the function has no scoring for at all.
+  if (!mine || !theirs) return null;
   const games = Math.max(1, num(myTeam?.record?.wins) + num(myTeam?.record?.losses)
     + num(myTeam?.record?.ties));
   const perWeek = (mine - theirs) / games;
   // Weekly scores in a PPR league scatter with a standard deviation near 25,
-  // so a margin of one standard deviation is roughly a 76% favourite.
+  // so a margin of one weekly standard deviation is an 84% favourite.
   const z = perWeek / (25 * Math.SQRT2);
   return Math.max(0.05, Math.min(0.95, 0.5 * (1 + erf(z))));
 }
@@ -72,7 +75,7 @@ export function recommendLineupStrategy(league, options = {}) {
   const base = { week, isPlayoffs, opponent: opponent || null };
 
   if (!myTeam) {
-    return { ...base, strategy: 'floor', favoured: null, winProbability: 0.5,
+    return { ...base, strategy: 'floor', favoured: null, winProbability: null,
       confidence: 'low', reason: 'No team loaded.' };
   }
 

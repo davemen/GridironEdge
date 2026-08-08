@@ -101,5 +101,22 @@ console.log('\nplayoff value');
     Math.abs(playoffValue(n).titleWeightedValue - playoffValue(n).seasonPoints) < 1e-9);
 }
 
+console.log('\nno scoring means no probability, not a coin flip');
+{
+  // 0.5 was rendered as "win probability 50%", which reads as a real forecast
+  // about two teams the function has no points for at all.
+  check('two teams with no points scored have no win probability',
+    winProbability({ pointsScored: 0 }, { pointsScored: 0 }) === null);
+  check('and one team with none is the same',
+    winProbability({ pointsScored: 300, record: { wins: 2, losses: 0, ties: 0 } },
+      { pointsScored: 0 }) === null);
+  // With scoring it answers, and one weekly standard deviation of margin is the
+  // 84% the comment claims -- it used to say 76%, which is a different formula.
+  const p = winProbability({ pointsScored: 125, record: { wins: 1, losses: 0, ties: 0 } },
+    { pointsScored: 100 });
+  check('one standard deviation of margin is ~84%', Math.abs(p - 0.8413) < 0.002,
+    String(p));
+}
+
 console.log(`\n${passed} passed, ${failed} failed\n`);
 process.exit(failed ? 1 : 0);

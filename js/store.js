@@ -3,6 +3,8 @@
  * Handles localStorage persistence and provides reactive actions.
  */
 
+import { rosterSize } from './engine/lineup-rules.js';
+
 const STORAGE_KEY = 'gridiron_edge_state';
 
 /**
@@ -386,8 +388,7 @@ class Store {
       existingPick.bidAmount = bidAmount;
     } else {
       const draftOrder = league.draftState.draftOrder;
-      const totalRounds = league.rosterSettings.startersCount + league.rosterSettings.benchCount;
-      const totalPicks = league.leagueSize * totalRounds;
+      const totalPicks = league.leagueSize * rosterSize(league);
       if (pickNumber > totalPicks) return;
 
       // Determine team that owns the pick
