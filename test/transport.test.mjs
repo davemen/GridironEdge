@@ -375,5 +375,102 @@ console.log('\nno unreachable code ships');
   check('storage is used', /chrome\.storage\./.test(src));
 }
 
+console.log('\nthe page-to-extension door, driven rather than read');
+{
+  /* ---------------------------------------------------------------------------
+   * The only thing between a hostile page and chrome.storage, and no test had
+   * ever executed it.
+   *
+   * A mutation run deleted each of its four guards in turn -- event.source,
+   * event.origin, looksLikeAScrape, and the runtime-context check -- and the
+   * whole suite stayed green on all four. Block-probe instrumentation then
+   * proved why: the handler body never runs in any test. The two things that
+   * looked like coverage are neither. `test/transport.test.mjs` above tests the
+   * WORKER's onMessage gate, which is a different gate on the other side of the
+   * door; and looksLikeAScrape is tested by extracting the function text into a
+   * new Function and calling it directly, never through the handler that is
+   * supposed to call it.
+   *
+   * So this slices the real isolated-world IIFE the way scraper.test.mjs does,
+   * captures the listener the file installs, and posts messages at it.
+   * ------------------------------------------------------------------------- */
+  const isoSrc = readFileSync(join(ROOT, 'chrome-extension/content-isolated.js'), 'utf8');
+  const i = isoSrc.indexOf('(function');
+  const j = isoSrc.lastIndexOf('})();');
+  const body = isoSrc.slice(isoSrc.indexOf('\n', i) + 1, j);
+
+  const mkNode = () => ({
+    style: {}, classList: { add() {}, remove() {}, contains: () => false },
+    dataset: {}, children: [], textContent: '', innerHTML: '', id: '',
+    appendChild(c) { this.children.push(c); return c; }, remove() {},
+    setAttribute() {}, getAttribute: () => null, addEventListener() {},
+    querySelector: () => null, querySelectorAll: () => [],
+  });
+  const sent = [];
+  let listener = null;
+  const fakeWindow = {
+    addEventListener(type, fn) { if (type === 'message') listener = fn; },
+    postMessage() {},
+  };
+  const ctx = {
+    window: fakeWindow,
+    // Rich enough for showRefreshBanner, which the invalidated-context path
+    // builds -- and which the security audit found had never executed either.
+    document: {
+      documentElement: {}, body: { appendChild() {}, insertBefore() {}, style: {} },
+      createElement: () => mkNode(), querySelector: () => null,
+      querySelectorAll: () => [], getElementById: () => null,
+      addEventListener() {},
+    },
+    chrome: { runtime: { id: 'abc', sendMessage: (m) => { sent.push(m); },
+                         onMessage: { addListener() {} } } },
+    setTimeout: () => 0, setInterval: () => 0, clearTimeout() {}, clearInterval() {},
+    console: { log() {}, warn() {}, debug() {}, error() {} },
+    MutationObserver: class { observe() {} disconnect() {} },
+    Event: function (t) { this.type = t; },
+    location: { href: 'https://fantasy.espn.com/football/draft' },
+  };
+  const keys = Object.keys(ctx);
+  // eslint-disable-next-line no-new-func
+  new Function(...keys, body)(...keys.map((k) => ctx[k]));
+
+  check('the isolated world installs a message listener', typeof listener === 'function');
+
+  const league = { leagueId: '1001', teams: [{ teamName: 'A' }, { teamName: 'B' }] };
+  const post = (over) => {
+    sent.length = 0;
+    listener(Object.assign({
+      source: fakeWindow, origin: 'https://fantasy.espn.com',
+      data: { type: 'GRIDIRON_EDGE_SYNC', data: league },
+    }, over));
+    return sent.filter((m) => m && m.action === 'sync').length;
+  };
+
+  check('a well-formed sync from this frame is forwarded', post({}) === 1);
+  // Every script in this frame shares this window, so event.source alone proves
+  // almost nothing -- but a message from ANOTHER frame is not even that.
+  check('a message from another window is refused', post({ source: {} }) === 0);
+  check('a message from another origin is refused',
+    post({ origin: 'https://evil.example' }) === 0);
+  // The origin is right and the payload is not a league. Forwarding it would
+  // put whatever the page sent into chrome.storage under the draft key.
+  check('a well-originated payload that is not a league is refused',
+    post({ data: { type: 'GRIDIRON_EDGE_SYNC', data: { nope: true } } }) === 0);
+  check('and one over the team cap is refused',
+    post({ data: { type: 'GRIDIRON_EDGE_SYNC',
+      data: { leagueId: '1', teams: Array.from({ length: 33 }, () => ({})) } } }) === 0);
+  check('a message of some other type is ignored',
+    post({ data: { type: 'SOMETHING_ELSE', data: league } }) === 0);
+
+  // An invalidated extension context must not throw into the page: the tab is
+  // mid-draft and an uncaught error in a listener is the user's problem.
+  ctx.chrome.runtime.id = null;
+  let threw = null;
+  try { post({}); } catch (e) { threw = e; }
+  check('an invalidated context does not throw into the page', threw === null,
+    threw && threw.message);
+  check('and forwards nothing', sent.filter((m) => m && m.action === 'sync').length === 0);
+}
+
 console.log(`\n${passed} passed, ${failed} failed`);
 if (failed) process.exit(1);
