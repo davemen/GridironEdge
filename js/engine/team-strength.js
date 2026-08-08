@@ -163,6 +163,42 @@ export function preseasonOutlook(league, runs = 2000, rng = Math.random) {
   if (n < 2) return null;
   const midDraft = draftIncomplete(league);
 
+  // Decline when a team cannot be read, exactly as runSeasonSimulation does.
+  //
+  // The simulator learned to refuse; this engine did not, and this is the one
+  // the app routes to whenever there is no schedule -- which is every
+  // draft-room import, the primary case. It scored an unreadable roster at the
+  // replacement value of every empty slot, so nine unread teams came out at
+  // 102.8 points each and the dashboard read "titlePct 84.1, playoffPct 100".
+  // 102.8 is the old 105.0 constant under a different name.
+  //
+  // The test is a MIXED league, not an incomplete one.
+  //
+  // Mid-draft with everybody part-drafted is fine and is what
+  // `projectsUnfilledSlots` exists to label: the comparison is still between
+  // rosters. Before anyone has picked, all teams are equally empty and "nobody
+  // has an edge yet" is a true answer. What cannot be answered is a league
+  // where SOME teams are readable and others are not a single player -- which
+  // is exactly what an auction scrape produces, because the room renders one
+  // roster at a time (coverage: own-roster-only). There the unread teams are
+  // scored at the replacement value of every empty slot, so the one team the
+  // app can see looks like a juggernaut against nine teams that do not exist.
+  const unreadable = teams.filter((t) => t.rostered === 0);
+  const partialBoard = (league.coverage && league.coverage.kind
+    && league.coverage.kind !== 'full-board');
+  if ((unreadable.length > 0 && unreadable.length < n) || (partialBoard && unreadable.length)) {
+    return {
+      unknown: true,
+      reason: unreadable.length === n
+        ? 'No roster in this league resolved to projected players.'
+        : `${unreadable.length} of ${n} teams have no roster the app can read, `
+          + 'so there is nothing to rank them against.',
+      playoffPct: null, byePct: null, titlePct: null,
+      averageSeed: null, rank: teams[idxOfMeIn(teams)] ? teams[idxOfMeIn(teams)].rank : null,
+      leagueSize: n, teams,
+    };
+  }
+
   const playoffTeams = Math.min(PLAYOFF_TEAMS, Math.max(2, n >= 8 ? PLAYOFF_TEAMS : Math.floor(n / 2)));
   const byeTeams = Math.min(BYE_TEAMS, Math.max(0, playoffTeams - 2));
   const idxOfMe = teams.findIndex((t) => t.isMe);
@@ -252,6 +288,11 @@ export function preseasonOutlook(league, runs = 2000, rng = Math.random) {
     // these odds compare rosters rather than draft progress.
     projectsUnfilledSlots: midDraft,
   };
+}
+
+/** Index of the user's team in a ranked list, or -1. */
+function idxOfMeIn(teams) {
+  return teams.findIndex((t) => t.isMe);
 }
 
 /**

@@ -136,9 +136,31 @@ console.log('\nmid-draft, unfilled slots are worth what is still signable');
   check('three elite picks still lead the league',
     ranked[0].rostered === 3 && ranked[0].points > empties[0]);
 
+  // This fixture is one team with three picks and seven teams with nothing --
+  // the mixed board an auction scrape produces, where the seven cannot be
+  // ranked at all. The engine declines, which is a stronger answer than the
+  // "not a certainty" bound this used to assert: the old code returned a
+  // confident percentage computed from teams it had never seen.
   const o = preseasonOutlook(l, 1200);
+  check('a board where only one roster is readable is declined, not scored',
+    o.unknown === true && o.titlePct === null, `${o.titlePct}%`);
+
+  // Give the other seven a roster and it answers again, and the answer is an
+  // edge rather than a certainty.
+  const even = buildLeague(8, 14);
+  even.rosterSettings = { startersCount: 9, benchCount: 7 };
+  even.leagueSize = 8;
+  // Team 0 drafts from the top, the rest from further down, so its edge is a
+  // real one rather than an artefact of who was left unread.
+  even.teams.forEach((t, i) => {
+    const from = i === 0 ? 0 : 40 + i * 12;
+    t.roster = board.slice(from, from + 9).map((p) => p.id);
+  });
+  even.draftState.selections = even.teams.flatMap((t) =>
+    t.roster.map((id) => ({ playerId: id, teamId: t.teamId })));
+  const oe = preseasonOutlook(even, 1200);
   check('the title chance is a roster edge, not a certainty',
-    o.titlePct > 100 / 8 && o.titlePct < 90, `${o.titlePct}%`);
+    oe.titlePct > 100 / 8 && oe.titlePct < 90, `${oe.titlePct}%`);
 
   // Once the draft is done there is nothing left to project.
   const full = buildLeague(8, 14);
@@ -179,6 +201,50 @@ console.log('\nhighest impact moves');
   const after = preseasonOutlook(l, 1500);
   check('losing a starter lowers the forecast', after.titlePct <= before.titlePct,
     `${before.titlePct}% -> ${after.titlePct}%`);
+}
+
+console.log('\nthe preseason engine declines on a league it can only half see');
+{
+  // The in-season simulator learned to refuse when a roster cannot be read.
+  // This engine did not, and it is the one the app routes to whenever there is
+  // no schedule -- which is every draft-room import. It valued every empty slot
+  // at replacement, so nine unread teams came out at 102.8 points each and the
+  // dashboard read "titlePct 84.1, playoffPct 100". That is the old 105.0
+  // constant under a different name.
+  const mixed = buildLeague(10, 14);
+  const board = Object.values(mixed.playerDatabase)
+    .sort((a, b) => b.projectedPoints - a.projectedPoints);
+  mixed.teams.forEach((t, i) => { t.roster = i === 0 ? board.slice(0, 12).map((p) => p.id) : []; });
+  mixed.draftState.selections = mixed.teams[0].roster.map((id) => ({ playerId: id, teamId: mixed.teams[0].teamId }));
+  const out = preseasonOutlook(mixed, 300);
+  check('a league where only one roster is readable returns unknown',
+    out && out.unknown === true, JSON.stringify(out && out.titlePct));
+  check('and no odds at all',
+    out.titlePct === null && out.playoffPct === null && out.byePct === null);
+  check('and says how many it could not read',
+    /9 of 10 teams/.test(out.reason || ''), out.reason);
+
+  // An auction scrape says so itself, and must be believed even if the counts
+  // happen to look complete.
+  const scraped = buildLeague(10, 14);
+  scraped.teams.forEach((t) => { t.roster = []; });
+  scraped.coverage = { kind: 'own-roster-only', knownTeamId: 1 };
+  scraped.teams[0].roster = board.slice(0, 3).map((p) => p.id);
+  check('a partial-coverage scrape declines too',
+    preseasonOutlook(scraped, 300).unknown === true);
+
+  // But the cases that ARE answerable must still answer, or the fix is a
+  // different kind of wrong.
+  const whole = buildLeague(10, 14);
+  check('a fully readable league still returns odds',
+    typeof preseasonOutlook(whole, 300).titlePct === 'number');
+  const predraft = buildLeague(10, 14);
+  predraft.teams.forEach((t) => { t.roster = []; });
+  predraft.draftState.selections = [];
+  const pd = preseasonOutlook(predraft, 300);
+  check('and so does a league where nobody has drafted yet',
+    typeof pd.titlePct === 'number',
+    'everyone equally empty is "no edge yet", which is a true answer');
 }
 
 console.log(`\n${passed} passed, ${failed} failed`);

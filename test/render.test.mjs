@@ -181,6 +181,24 @@ function buildLeague({ picks = 3, unattributed = 0, noDraftOrder = false,
     teams[0].roster.push(board[i].id);
     selections.push({ pick: i + 1, playerId: board[i].id, teamId: 5, bidAmount: 40 });
   }
+  // Everybody drafts, because in a real draft everybody drafts.
+  //
+  // This gave picks only to team 5 and left the other seven with nothing, which
+  // is not a mid-draft league -- it is the one-readable-roster board an auction
+  // scrape produces, and the odds engines now decline on it rather than scoring
+  // seven teams they cannot see. So every assertion below that expects a figure
+  // was expecting one computed from teams that did not exist.
+  if (picks > 0) {
+    teams.slice(1).forEach((t, ti) => {
+      for (let i = 0; i < picks; i++) {
+        const p = board[60 + ti * 12 + i];
+        if (!p) continue;
+        t.roster.push(p.id);
+        selections.push({ pick: selections.length + 1, playerId: p.id,
+                          teamId: t.teamId, bidAmount: 12 });
+      }
+    });
+  }
   for (let i = 0; i < unattributed; i++) {
     selections.push({ pick: picks + i + 1, playerId: board[picks + i].id, teamId: null, bidAmount: 10 });
   }
@@ -244,6 +262,36 @@ for (const scenario of [
     `got ${moves.length} chars`);
   const champ = written.get('dashboard-champ-prob') || '';
   check('Championship Outlook has a figure', /\d/.test(champ), `got "${champ}"`);
+}
+
+console.log('\na board the app can only half see shows no odds');
+{
+  // The engines decline rather than scoring teams they cannot read. Both
+  // dashboards must show that, because a percentage cannot carry "we could not
+  // see the other nine rosters" -- and this is the ordinary state of an auction
+  // scrape, where the room renders one roster at a time.
+  const half = buildLeague({ picks: 6 });
+  half.teams.forEach((t) => { if (t.teamId !== 5) t.roster = []; });
+  half.draftState.selections = half.draftState.selections.filter((sel) => sel.teamId === 5);
+  load(half);
+  app.renderHomePage(half);
+  const champ = written.get('dashboard-champ-prob') || '';
+  check('the dashboard shows a dash, not a figure', champ.trim() === '—', `got "${champ}"`);
+  const caveat = written.get('dashboard-caveat') || '';
+  check('and says why', /no roster the app can read/i.test(caveat), caveat.slice(0, 90));
+
+  app.renderChampionshipPage(half);
+  const plan = written.get('sim-action-plan') || '';
+  check('the championship page says so too',
+    /nothing to compare|no roster the app can read/i.test(plan), plan.slice(0, 90));
+
+  // And the ordinary case is unaffected.
+  const whole = buildLeague({ picks: 6 });
+  load(whole);
+  app.renderHomePage(whole);
+  check('a readable board still shows a figure',
+    /\d/.test(written.get('dashboard-champ-prob') || ''),
+    written.get('dashboard-champ-prob'));
 }
 
 console.log('\nevery page survives an element that is not there');

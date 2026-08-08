@@ -913,7 +913,11 @@ export function renderHomePage(league = store.getActiveLeague()) {
   // be simulating against -- it used to substitute 105.0 points a team and
   // produce a percentage anyway, which reads on screen exactly like a forecast
   // built from real projections. A dash and a reason are the honest output.
-  const simUnknown = Boolean(sim && sim.unknown);
+  // Either engine may decline. `sim` is null when there is no schedule, and the
+  // preseason engine is what answers then -- so checking only `sim.unknown`
+  // left the default path, a draft-room import, showing a confident figure
+  // computed from teams the app could not read.
+  const simUnknown = Boolean((sim && sim.unknown) || (outlook && outlook.unknown));
   const champPct = simUnknown ? null : (sim ? sim.champPct : (outlook ? outlook.titlePct : 0));
   const playoffPct = simUnknown ? null : (sim ? sim.playoffPct : (outlook ? outlook.playoffPct : 0));
   document.getElementById('dashboard-champ-prob').innerHTML =
@@ -953,7 +957,8 @@ export function renderHomePage(league = store.getActiveLeague()) {
     if (simUnknown) {
       // "Could not read the rosters" and "the odds are low" are different
       // facts, and a percentage cannot carry the first one.
-      caveat.innerHTML = `No odds to show. ${esc(sim.reason)} `
+      const why = (sim && sim.reason) || (outlook && outlook.reason) || '';
+      caveat.innerHTML = `No odds to show. ${esc(why)} `
         + `Nothing here is a forecast until those rosters can be read.`;
     } else {
       caveat.innerHTML = hasSchedule ? ''
@@ -1524,7 +1529,14 @@ export function renderDraftPage(league = store.getActiveLeague()) {
   };
 
   if (list.length === 0) {
-    tableBody.innerHTML = `<tr><td colspan="8" class="empty-state">No matching available players.</td></tr>`;
+    // "Nothing matches your filter" and "the projection set never loaded" are
+    // different facts and must never share a message. The second used to be
+    // hidden entirely, because the mapper borrowed the sandbox database rather
+    // than reporting the failure.
+    tableBody.innerHTML = `<tr><td colspan="8" class="empty-state">${league.projectionsMissing
+      ? 'No player projections loaded, so there is no board to show. Reload the app; '
+        + 'if it persists, data/projections-2026.json could not be read.'
+      : 'No matching available players.'}</td></tr>`;
   }
 }
 
@@ -2769,11 +2781,19 @@ function drawOpponentProfile(teamId, league) {
 function renderPreseasonOutlook(league, runs = 3000) {
   const o = preseasonOutlook(league, runs);
   const set = (id, v) => { const el = document.getElementById(id); if (el) el.innerHTML = v; };
-  if (!o) {
+  if (!o || o.unknown) {
     ['sim-playoff-pct', 'sim-champ-pct', 'sim-bye-pct'].forEach((id) => set(id, '—'));
     ['sim-playoff-note', 'sim-champ-note', 'sim-bye-note'].forEach((id) => set(id, ''));
     const note = document.getElementById('sim-action-plan');
-    if (note) note.innerHTML = '<div class="empty-state">No rosters yet — connect a league.</div>';
+    // Two different facts, two different messages. The preseason engine now
+    // declines when a roster cannot be read, exactly as the in-season one
+    // does; before, it valued every empty slot at replacement and produced a
+    // confident 84% off teams it had never seen.
+    if (note) {
+      note.innerHTML = `<div class="empty-state">${o && o.reason
+        ? `${esc(o.reason)} Odds compare rosters, so there is nothing to compare yet.`
+        : 'No rosters yet — connect a league.'}</div>`;
+    }
     return;
   }
 

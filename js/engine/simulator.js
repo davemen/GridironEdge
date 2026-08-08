@@ -17,8 +17,17 @@ export function runSeasonSimulation(league, runs = 1000) {
   const teams = league.teams;
   const schedule = league.schedule || [];
 
+  // The SAME decline shape as the one below, not zeros. This returned
+  // playoffPct: 0 with no `unknown` and no `reason`, 180 lines above the
+  // decline it should have matched, and "0%" on screen is a forecast saying
+  // you cannot make the playoffs -- not "there is no league here to simulate".
   if (!teams || teams.length === 0) {
-    return { playoffPct: 0, champPct: 0, byePct: 0, actionPlan: [] };
+    return {
+      unknown: true, unprojectableTeamIds: [],
+      reason: 'This league has no teams to simulate.',
+      playoffPct: null, champPct: null, byePct: null,
+      actionPlan: [], competitors: [],
+    };
   }
 
   // Helper to calculate a team's dynamic weekly projected score
@@ -428,7 +437,12 @@ export function runSeasonSimulation(league, runs = 1000) {
       actionPlan.push({
         type: 'longterm',
         title: `Target ${topTrade.getPlayer.name} via trade swap`,
-        desc: `Utilizes excess roster depth. Offer ${topTrade.givePlayer.name} to ${topTrade.opponentName} (${topTrade.probability}% acceptance rate).`
+        // No acceptance rate. trade-generator deleted the invented `probability`
+        // it used to carry -- 75 minus twelve times the points gap, measured by
+        // nothing -- and this consumer was left reading the field, so the page
+        // rendered the literal string "undefined% acceptance rate".
+        desc: `Utilizes excess roster depth. Offer ${topTrade.givePlayer.name} `
+          + `to ${topTrade.opponentName}: ${topTrade.myImpact}.`
       });
     }
   } catch (e) {

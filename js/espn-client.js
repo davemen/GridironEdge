@@ -324,10 +324,25 @@ class ESPNClient {
       };
     });
 
-    // Real projections when available; mock data only as a visible fallback.
-    const db = (realDb && Object.keys(realDb).length)
-      ? Object.assign({}, realDb)
-      : Object.assign({}, mockPlayers);
+    // Real projections, or NOTHING. Never the sandbox.
+    //
+    // This fell back to mockPlayers and called it "a visible fallback", but
+    // nothing made it visible: mapDOMScrapedLeague sets no isSandbox, and the
+    // sandbox banner only fires on that flag. So one failed projections fetch
+    // put Christian McCaffrey at $27 on the Live Draft board of a real league,
+    // a 55.4% figure on the home page, and no banner anywhere. Worse, mock
+    // records carry no match key, so findPlayer resolved nothing: every real
+    // pick became a MOCK_ stub while the sandbox copy stayed on the board
+    // looking available.
+    //
+    // An empty database is the honest state. projectionsMissing already exists
+    // on the API path and the pages that need projections read it.
+    const haveReal = Boolean(realDb && Object.keys(realDb).length);
+    const db = haveReal ? Object.assign({}, realDb) : {};
+    if (!haveReal) {
+      console.error('[Gridiron Edge] No player projections loaded; this league will '
+        + 'report missing projections rather than borrowing the sandbox.');
+    }
 
     // Match draft picks to players in mockPlayers database
     const selections = [];
@@ -472,6 +487,9 @@ class ESPNClient {
       rosterSettings: positionLimits,
       // Assumed, not read. See positionLimits above.
       rosterSettingsSource: 'assumed',
+      // Set when the projection set never loaded, so the pages that need it can
+      // decline instead of pricing a board out of the sandbox.
+      projectionsMissing: !haveReal,
       // When the room was actually read. The payload has carried this since the
       // scraper was written and the mapper dropped it, so the readiness strip
       // pulled the whole payload back out of chrome.storage on every render to

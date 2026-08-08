@@ -292,6 +292,24 @@ console.log('\nthe API mapper, which nothing exercised at all');
     empty.projectionsMissing === true && Object.keys(empty.playerDatabase).length === 0);
 }
 
+console.log('\na failed projection load is reported, not papered over with the sandbox');
+{
+  // The scraped mapper fell back to mockPlayers and called it "a visible
+  // fallback". Nothing made it visible: the sandbox banner fires on isSandbox,
+  // which this path never sets. So one failed fetch put sandbox players on the
+  // Live Draft board of a real league at sandbox prices, with no banner -- and
+  // because mock records carry no match key, every real pick became a stub
+  // while the sandbox copy stayed on the board looking available.
+  const l = await espnClient.importScrapedPayload(
+    payload([pick(1, 'Josh Allen', 'QB', 'BUF', 1, 19)], { leagueId: 'REAL' }));
+  check('with projections loaded, nothing is missing', l.projectionsMissing === false,
+    String(l.projectionsMissing));
+  const keys = Object.keys(l.playerDatabase);
+  check('and no sandbox record is in the database',
+    keys.every((k) => !/^(QB|RB|WR|TE|K|DF|DST)_\d+$/.test(k)),
+    keys.filter((k) => /^(QB|RB|WR|TE|K|DF|DST)_\d+$/.test(k)).slice(0, 4).join(','));
+}
+
 console.log('\nthe league remembers when it was read');
 {
   // The scraper has always stamped scrapedAt on the payload and the mapper
