@@ -419,11 +419,19 @@ class Store {
     league.draftState.currentPick = pickNumber + 1;
 
     // Update player availability
-    if (this.state.playerDatabase[playerId]) {
-      this.state.playerDatabase[playerId].drafted = true;
-      this.state.playerDatabase[playerId].draftedAtPick = pickNumber;
-      this.state.playerDatabase[playerId].draftedCost = bidAmount;
-    }
+    // Draft state does NOT live on the player record.
+    //
+    // These wrote `drafted`, `draftedAtPick`, `draftedCost` and `ownerId` onto
+    // the SHARED player database -- and since that database went live on the
+    // real path, every league holds the same record objects. So drafting a
+    // player in one league marked him drafted in all of them, and it persisted:
+    // a false availability reading is indistinguishable on screen from a true
+    // one, which is the failure mode this repo exists to avoid.
+    //
+    // Nothing read any of the four -- a repo-wide grep outside this file
+    // returns zero -- so they were pure cost. Who owns whom is answered by
+    // draftState.selections and the rosters rebuilt from it, which is one
+    // definition rather than two that can disagree.
 
     // Reflect draft changes in roster
     this.rebuildRostersFromDraft(league);
@@ -453,11 +461,7 @@ class Store {
       team.faabRemaining = Math.max(0, team.faabRemaining - bidAmount);
     }
 
-    if (this.state.playerDatabase[playerId]) {
-      this.state.playerDatabase[playerId].drafted = true;
-      this.state.playerDatabase[playerId].draftedAtPick = pickNumber;
-      this.state.playerDatabase[playerId].draftedCost = bidAmount;
-    }
+    // Draft state does not live on the player record -- see recordDraftPick.
 
     this.rebuildRostersFromDraft(league);
     this.save();
@@ -474,8 +478,6 @@ class Store {
     // Mark player as available again
     const playerId = lastPick.playerId;
     if (playerId && this.state.playerDatabase[playerId]) {
-      this.state.playerDatabase[playerId].drafted = false;
-      delete this.state.playerDatabase[playerId].draftedAtPick;
     }
 
     this.rebuildRostersFromDraft(league);
@@ -491,8 +493,6 @@ class Store {
     for (const selection of league.draftState.selections) {
       const pid = selection.playerId;
       if (pid && this.state.playerDatabase[pid]) {
-        this.state.playerDatabase[pid].drafted = false;
-        delete this.state.playerDatabase[pid].draftedAtPick;
       }
     }
 
@@ -533,7 +533,6 @@ class Store {
     if (dropPlayerId) {
       team.roster = team.roster.filter(pid => pid !== dropPlayerId);
       if (this.state.playerDatabase[dropPlayerId]) {
-        this.state.playerDatabase[dropPlayerId].ownerId = null;
       }
     }
 
@@ -543,7 +542,6 @@ class Store {
         team.roster.push(addPlayerId);
       }
       if (this.state.playerDatabase[addPlayerId]) {
-        this.state.playerDatabase[addPlayerId].ownerId = teamId;
       }
     }
 

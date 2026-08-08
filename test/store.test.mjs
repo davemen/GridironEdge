@@ -105,6 +105,70 @@ console.log('\nrepeated saves collapse into one render');
   check('three saves in a turn notify once', notified === 1, `${notified} notifications`);
 }
 
+console.log('\ndrafting in one league does not touch another');
+{
+  // The shared player database means every league holds the SAME record
+  // objects. store.js used to write `drafted`, `draftedAtPick`, `draftedCost`
+  // and `ownerId` onto them, so a pick in one league marked the player drafted
+  // in all of them -- and it persisted, because the shared copy is what carries
+  // it. A false availability reading is indistinguishable on screen from a true
+  // one. Nothing read any of the four, so they were pure cost.
+  const shared = {
+    P1: { id: 'P1', key: 'a one', name: 'A One', position: 'RB', team: 'FA', projectedPoints: 20 },
+    P2: { id: 'P2', key: 'b two', name: 'B Two', position: 'WR', team: 'FA', projectedPoints: 18 },
+  };
+  const mk = (id) => ({
+    leagueId: id, leagueSize: 2, myTeamId: 1,
+    rosterSettings: { startersCount: 2, benchCount: 1 },
+    teams: [1, 2].map((t) => ({ teamId: t, teamName: `T${t}`, roster: [],
+      faabRemaining: 200, record: { wins: 0, losses: 0, ties: 0 } })),
+    schedule: [],
+    draftState: { draftType: 'auction', selections: [], currentPick: 1, draftOrder: [1, 2] },
+    playerDatabase: shared,
+  });
+  store.state.leagues = {};
+  store.state.currentLeagueId = null;
+  store.state.playerDatabase = { ...shared };
+  store.saveLeague('LG_A', mk('LG_A'));
+  store.saveLeague('LG_B', mk('LG_B'));
+
+  store.state.currentLeagueId = 'LG_A';
+  store.recordDraftPickAuction('P1', 1, 55);
+
+  const a = store.state.leagues.LG_A, b = store.state.leagues.LG_B;
+  check('the pick is recorded in the league it was made in',
+    a.draftState.selections.length === 1 && a.teams[0].roster.includes('P1'));
+  check('and the other league has no pick', b.draftState.selections.length === 0,
+    JSON.stringify(b.draftState.selections));
+  check('and nobody in the other league rostered him',
+    b.teams.every((t) => !t.roster.includes('P1')),
+    JSON.stringify(b.teams.map((t) => t.roster)));
+  // The record itself must carry no draft state at all -- that is what made it
+  // leak, and what the roster and the selections already answer.
+  const clean = (id) => {
+    const r = store.state.playerDatabase[id] || shared[id];
+    return r.drafted === undefined && r.draftedCost === undefined
+      && r.draftedAtPick === undefined && r.ownerId === undefined;
+  };
+  check('and the player record itself was not written to', clean('P1'),
+    JSON.stringify(store.state.playerDatabase.P1));
+
+  // BOTH record paths, because they are separate functions with separate
+  // writes -- reverting only the snake one went unnoticed the first time this
+  // was checked, which is the whole reason the pair is asserted.
+  store.recordDraftPick(1, 'P2');
+  check('and the snake path leaves it alone too', clean('P2'),
+    JSON.stringify(store.state.playerDatabase.P2));
+  check('while still recording the pick',
+    store.state.leagues.LG_A.draftState.selections.some((sel) => sel.playerId === 'P2'));
+
+  // Undo and reset touch the same records; they must not write either.
+  store.undoLastDraftPick();
+  check('undo leaves the record alone', clean('P2'));
+  store.resetDraft();
+  check('and so does reset', clean('P1') && clean('P2'));
+}
+
 console.log('\nthe player database is stored once, not once per league');
 {
   // Each league carried its own copy of the same 523 records: about 128KB
