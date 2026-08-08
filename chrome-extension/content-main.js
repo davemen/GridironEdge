@@ -2,14 +2,29 @@
 // Accesses the page's React/Redux store directly and posts updates to the isolated content script
 
 (function() {
-  // One instance per world. This file is declared as a content script AND
-  // injected by background.js as a fallback when a tab completes without
-  // reporting a sync -- which a pre-draft lobby always does, because the
-  // scraper deliberately sends nothing when the room is quiet. So the second
-  // injection is the normal case. Each copy installed its own MutationObserver
-  // and its own interval, doubling the scrape cost of every tick.
-  if (window.__GRIDIRON_EDGE_MAIN_INSTALLED__) return;
-  try { window.__GRIDIRON_EDGE_MAIN_INSTALLED__ = true; } catch (e) {
+  // One instance per TAB, not per world.
+  //
+  // This file is declared as a content script AND injected by background.js as
+  // a fallback when a tab completes without reporting a sync -- which a
+  // pre-draft lobby always does, because the scraper deliberately sends nothing
+  // when the room is quiet. So the second injection is the normal case, and the
+  // declared copy runs in world MAIN while the injected one runs in the
+  // isolated world.
+  //
+  // The sentinel was on `window`, and the two worlds have separate globals, so
+  // it never saw the other copy. Measured with Page.createIsolatedWorld: both
+  // installed, two full scrapers, two document.body subtree observers, two
+  // three-second intervals, 291ms over 27 bid ticks against 123ms for one --
+  // which more than erased the readText saving in the case this comment calls
+  // normal.
+  //
+  // The DOM is the one thing both worlds share, so the marker lives there.
+  const INSTALL_MARK = 'gridironEdgeMain';
+  try {
+    const root = document.documentElement;
+    if (root.dataset[INSTALL_MARK]) return;
+    root.dataset[INSTALL_MARK] = '1';
+  } catch (e) {
     // A page can refuse the write, and a page that wants to break its own
     // draft room does not need our help to do it.
     console.debug('[Gridiron Edge] sentinel write failed:', e && e.message);
@@ -89,6 +104,7 @@
   // every pick after it, so the app is told the time rather than left to
   // assume the board is current.
   let sweptRosters = null;
+  let sweepTruncated = false;
   let sweptAt = 0;
 
   function findCurrentNomination() {
@@ -1095,7 +1111,7 @@
           coverage: finalPicks.length
             ? { kind: 'full-board' }
             : (sweptRosters && sweptRosters.length
-              ? { kind: 'swept-rosters', sweptAt: sweptAt }
+              ? { kind: 'swept-rosters', sweptAt: sweptAt, partial: sweepTruncated }
               : { kind: 'own-roster-only', knownTeamId: resolvedTeamId }),
           currentNomination: currentNom
         };
@@ -1259,6 +1275,10 @@
       // longer do is make the extension operate the draft room's dropdown.
       sweptRosters = msg.byTeam;
       sweptAt = Date.parse(msg.sweptAt) || Date.now();
+      // A sweep that gave up after two teams is not a swept board. Carrying the
+      // flag lets the payload say "swept-rosters, partial" instead of claiming
+      // it saw the league -- the same distinction `coverage` exists to make.
+      sweepTruncated = Boolean(msg.truncated);
       // Out through the ordinary path, so the payload is assembled the same
       // way as any other update rather than by a second assembler that could
       // disagree with it.

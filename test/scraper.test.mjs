@@ -430,9 +430,16 @@ console.log('\nthe sweep runs where the page cannot reach it');
     /MAX_SWEEP_TEAMS = 32;/.test(iso));
 
   // One instance per world, or the locks and observers are duplicated.
-  check('both halves refuse a second injection',
-    /__GRIDIRON_EDGE_ISOLATED_INSTALLED__/.test(iso)
-      && /__GRIDIRON_EDGE_MAIN_INSTALLED__/.test(src));
+  // The scraper's marker must live on the DOM, not on `window`: it runs in
+  // world MAIN as a declared content script and in the isolated world when
+  // background.js injects it, and the two worlds have separate globals -- so a
+  // window sentinel never saw the other copy and both installed. Measured at
+  // 291ms over 27 bid ticks against 123ms for one.
+  check('the scraper marks its install where both worlds can see it',
+    /documentElement[\s\S]{0,80}dataset/.test(src) && !/window\.__GRIDIRON_EDGE_MAIN_INSTALLED__/.test(src),
+    'a window-scoped sentinel cannot cross a world boundary');
+  check('and the isolated half still refuses a second registration',
+    /__GRIDIRON_EDGE_ISOLATED_INSTALLED__/.test(iso));
 }
 
 console.log('\nand the moved sweep still actually sweeps');
@@ -520,9 +527,52 @@ console.log('\nand the moved sweep still actually sweeps');
     (sel === 'select' ? [select] : sel === 'table' ? [emptyTable] : []);
   const flat = await isoFns.sweepAllRosters(emptyNames.map((teamName) => ({ teamName })));
   check('it gives up once two panels in a row have not moved',
-    flat.ok === true && flat.byTeam.length <= 2,
+    flat.ok === true && flat.byTeam.length <= 3,
     `stepped ${flat.byTeam && flat.byTeam.length} of ${emptyNames.length} teams`);
+  // It used to bail BEFORE recording, so the second unchanged team and
+  // everything after it vanished -- the all-empty case returned one team of
+  // twelve and then reported having swept the league.
+  check('and still reports the teams it did read', flat.byTeam.length >= 2,
+    `${flat.byTeam.length} teams recorded`);
+  check('and says it stopped early', flat.truncated === true,
+    'a sweep that gave up after two teams must not look like a full one');
+
+  console.log('\nthe sweep never credits a team with somebody else\'s roster');
+  {
+    // A non-empty panel that does not repaint in time is still showing the
+    // PREVIOUS team's players. Pushing it anyway reported Team 2 holding Josh
+    // Allen and Bijan Robinson while it actually held Ja'Marr Chase.
+    const STUCK = { A: [['QB', 'Josh Allen', '$19']], B: [['WR', "Ja'Marr Chase", '$44']] };
+    const stuckNames = Object.keys(STUCK);
+    let shown = 0;
+    const cell2 = (t) => ({ innerText: t });
+    const frozen = {
+      // The panel never follows the dropdown: every read returns team A's roster.
+      get rows() {
+        const body = STUCK[stuckNames[0]];
+        return [{ cells: [cell2('POS'), cell2('PLAYER'), cell2('$')] }]
+          .concat(body.map((r) => ({ cells: r.map(cell2) })))
+          .concat([{ cells: [cell2('BE'), cell2('Empty'), cell2('')] }]);
+      },
+    };
+    const sel2 = {
+      options: stuckNames.map((n, i) => ({ text: n, value: String(i) })),
+      selectedIndex: 0,
+      dispatchEvent() { return true; },
+    };
+    globalThis.document.querySelectorAll = (q) =>
+      (q === 'select' ? [sel2] : q === 'table' ? [frozen] : []);
+    const stuck = await isoFns.sweepAllRosters(stuckNames.map((teamName) => ({ teamName })));
+    const b = (stuck.byTeam || []).find((t) => t.teamName === 'B');
+    check('a team whose panel never repainted is not reported at all',
+      !b, b && JSON.stringify(b.roster));
+    check('and the sweep says it was truncated', stuck.truncated === true);
+    check('while the team that WAS on screen is still reported',
+      (stuck.byTeam || []).some((t) => t.teamName === 'A'),
+      'the initially selected panel is trustworthy without a repaint');
+  }
 }
+
 
 console.log(`\n${passed} passed, ${failed} failed`);
 if (failed) process.exit(1);

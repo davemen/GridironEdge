@@ -29,12 +29,14 @@
  */
 
 (function() {
-  // One instance per world. background.js re-injects this file whenever a tab
-  // completes and no sync has been reported yet, and a pre-draft lobby is
-  // quiet by design -- so the redundant injection is the normal case, not an
-  // edge one. Without this, each copy registered its own message listener, its
-  // own sweep locks and its own observers, and two sweeps raced to restore the
-  // dropdown while each believed it held the only lock.
+  // One instance, guarding a double registration of this file.
+  //
+  // This one CAN live on window: only the manifest loads this file, and only
+  // into the isolated world, so there is no second world for a copy to hide in.
+  // Its sibling content-main.js is the one background.js re-injects -- into the
+  // OTHER world -- which is why that file's marker has to live on the DOM. This
+  // comment used to claim background.js re-injects this file; it injects the
+  // other one, and the only executeScript in the repo says so.
   if (window.__GRIDIRON_EDGE_ISOLATED_INSTALLED__) return;
   window.__GRIDIRON_EDGE_ISOLATED_INSTALLED__ = true;
 
@@ -278,6 +280,11 @@
     const byTeam = [];
     let rows = 0;
     let unchanged = 0;
+    // Whether this sweep stopped early. The app has to be able to tell a sweep
+    // that saw the league from one that gave up after two teams -- all three
+    // break paths used to return ok:true with no signal at all, and the payload
+    // then reported swept-rosters coverage having seen one roster.
+    let truncated = false;
 
     try {
       // Bounded. `sel.options.length` came straight off the page, at up to
@@ -311,18 +318,36 @@
         // the deadline is only ever paid by a team whose roster genuinely has
         // not changed -- and it is a quarter of what it was.
         const after = await waitForPanelChange(signature, before, PANEL_SETTLE_MS);
-        if (after === before) {
+        const moved = after !== before;
+        const roster = JSON.parse(after);
+
+        // Record the team BEFORE deciding whether to stop. Bailing first meant
+        // the second unchanged team and everything after it was dropped: the
+        // all-rosters-empty case -- the state the automatic sweep fires in --
+        // returned one team of twelve and then reported swept-rosters coverage
+        // having seen one.
+        //
+        // But only when the panel is trustworthy. A non-empty panel that did not
+        // repaint is still showing the PREVIOUS team's roster, and pushing it
+        // credits this team with somebody else's players -- worse than not
+        // reporting them. Two cases are trustworthy without a repaint: an empty
+        // panel (nothing to confuse it with) and the team that was ALREADY
+        // selected when the sweep started, whose roster is what is on screen.
+        if (moved || roster.length === 0 || i === originalIndex) {
+          rows += roster.length;
+          byTeam.push({ teamName: name, roster });
+        } else {
+          truncated = true;
+        }
+
+        if (!moved) {
           // Two in a row that did not move means the panel is not repainting
-          // for us at all -- more likely than every remaining team being
+          // for us at all -- likelier than every remaining team being
           // identical. Stop rather than burning the deadline once per team.
-          if (++unchanged >= 2) break;
+          if (++unchanged >= 2) { truncated = true; break; }
         } else {
           unchanged = 0;
         }
-
-        const roster = JSON.parse(after);
-        rows += roster.length;
-        byTeam.push({ teamName: name, roster });
       }
     } finally {
       if (nativeSet && sel.options[originalIndex]) {
@@ -334,7 +359,7 @@
       sel.dispatchEvent(new Event('change', { bubbles: true }));
     }
 
-    return { ok: true, byTeam };
+    return { ok: true, byTeam, truncated };
   }
 
   // The sweep writes into the page you are drafting in, so it is bounded: one
@@ -350,10 +375,14 @@
     if (sweepInFlight) return;
     if (Date.now() - sweepLastAt < SWEEP_MIN_GAP_MS) return;
     sweepInFlight = true;
+    // Stamped BEFORE the await, not after. Setting it on the way out meant a
+    // throw skipped it entirely, so the once-a-minute floor did not apply to a
+    // sweep that failed: 25 sweeps in 0ms against a 60s minimum, into a live
+    // draft room.
+    sweepLastAt = Date.now();
     try {
       const teams = findLeagueTeamNames().map((teamName) => ({ teamName }));
       const res = await sweepAllRosters(teams);
-      sweepLastAt = Date.now();
       if (!res || !res.ok) {
         console.warn('[Gridiron Edge Sync] Sweep did not run:', res && res.reason);
         return;
@@ -366,6 +395,7 @@
       window.postMessage({
         type: 'GRIDIRON_EDGE_SWEEP_RESULT',
         byTeam: res.byTeam,
+        truncated: Boolean(res.truncated),
         sweptAt: new Date().toISOString(),
       }, TRUSTED_ORIGIN);
     } catch (e) {
